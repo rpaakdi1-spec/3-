@@ -89,7 +89,7 @@ function VehicleUpload() {
     setResult(null)
 
     try {
-      const response = await vehiclesAPI.create(formData)
+      await vehiclesAPI.create(formData)
       setResult({ created: 1, failed: 0, total: 1 })
       setShowForm(false)
       // Reset form

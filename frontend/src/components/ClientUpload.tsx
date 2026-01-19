@@ -96,7 +96,7 @@ function ClientUpload() {
     setResult(null)
 
     try {
-      const response = await clientsAPI.create(formData)
+      await clientsAPI.create(formData)
       setResult({ created: 1, failed: 0, total: 1 })
       setShowForm(false)
       // Reset form

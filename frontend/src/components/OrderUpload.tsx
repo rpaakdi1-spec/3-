@@ -111,7 +111,7 @@ function OrderUpload() {
     setResult(null)
 
     try {
-      const response = await ordersAPI.create(formData)
+      await ordersAPI.create(formData)
       setResult({ created: 1, failed: 0, total: 1 })
       setShowForm(false)
       // Reset form
