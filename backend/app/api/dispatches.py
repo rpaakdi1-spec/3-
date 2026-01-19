@@ -13,6 +13,7 @@ from app.schemas.dispatch import (
     DispatchConfirmRequest, DispatchStatsResponse
 )
 from app.services.dispatch_optimization_service import DispatchOptimizationService
+from app.services.cvrptw_service import AdvancedDispatchOptimizationService
 from loguru import logger
 
 router = APIRouter()
@@ -24,7 +25,7 @@ async def optimize_dispatch(
     db: Session = Depends(get_db)
 ):
     """
-    AI 기반 배차 최적화
+    AI 기반 배차 최적화 (기본 Greedy 알고리즘)
     
     주어진 주문들에 대해 최적의 배차 계획을 생성합니다.
     - 온도대별 차량 매칭
@@ -37,6 +38,43 @@ async def optimize_dispatch(
         order_ids=request.order_ids,
         vehicle_ids=request.vehicle_ids,
         dispatch_date=request.dispatch_date
+    )
+    
+    return OptimizationResponse(**result)
+
+
+@router.post("/optimize-cvrptw", response_model=OptimizationResponse)
+async def optimize_dispatch_cvrptw(
+    request: OptimizationRequest,
+    db: Session = Depends(get_db),
+    time_limit: int = Query(30, ge=5, le=300, description="최대 실행 시간 (초)"),
+    use_time_windows: bool = Query(True, description="시간 제약 사용 여부")
+):
+    """
+    고급 AI 배차 최적화 (OR-Tools CVRPTW)
+    
+    Google OR-Tools를 사용한 고급 배차 최적화:
+    - CVRPTW (Capacitated VRP with Time Windows)
+    - 온도대별 차량 매칭
+    - 팔레트/중량 용량 제약
+    - 시간 제약 (Time Windows)
+    - 거리 최소화
+    - 균등 배분
+    
+    Parameters:
+    - time_limit: 최대 실행 시간 (5-300초, 기본 30초)
+    - use_time_windows: 시간 제약 사용 여부 (기본 True)
+    """
+    logger.info(f"CVRPTW 최적화 요청: {len(request.order_ids)}건, 시간 제한 {time_limit}초")
+    
+    optimizer = AdvancedDispatchOptimizationService(db)
+    
+    result = await optimizer.optimize_dispatch_cvrptw(
+        order_ids=request.order_ids,
+        vehicle_ids=request.vehicle_ids,
+        dispatch_date=request.dispatch_date,
+        time_limit_seconds=time_limit,
+        use_time_windows=use_time_windows
     )
     
     return OptimizationResponse(**result)
