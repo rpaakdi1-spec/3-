@@ -13,7 +13,7 @@ from loguru import logger
 
 from app.models.order import Order, OrderStatus
 from app.models.dispatch import Dispatch, DispatchStatus
-from app.models.dispatch_route import DispatchRoute
+from app.models import DispatchRoute
 from app.models.vehicle import Vehicle, VehicleStatus
 from app.services.cvrptw_service import AdvancedDispatchOptimizationService
 

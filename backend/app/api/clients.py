@@ -201,7 +201,7 @@ async def geocode_clients(
 @router.get("/template/download")
 def download_client_template():
     """거래처 Excel 템플릿 다운로드"""
-    template_path = ExcelTemplateService.create_client_template()
+    template_path = ExcelTemplateService.create_clients_template()
     
     if not Path(template_path).exists():
         raise HTTPException(status_code=404, detail="템플릿 파일을 찾을 수 없습니다")

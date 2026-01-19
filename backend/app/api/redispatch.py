@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from typing import Optional
 from loguru import logger
 
-from app.db.session import get_db
+from app.core.database import get_db
 from app.services.redispatch_service import get_redispatch_service, DynamicRedispatchService
 
 

@@ -170,7 +170,7 @@ def get_pending_orders_count(db: Session = Depends(get_db)):
 @router.get("/template/download")
 def download_order_template():
     """주문 Excel 템플릿 다운로드"""
-    template_path = ExcelTemplateService.create_order_template()
+    template_path = ExcelTemplateService.create_orders_template()
     
     if not Path(template_path).exists():
         raise HTTPException(status_code=404, detail="템플릿 파일을 찾을 수 없습니다")

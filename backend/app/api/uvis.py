@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from loguru import logger
 
-from app.db.session import get_db
+from app.core.database import get_db
 from app.models.vehicle import Vehicle
 from app.services.uvis_service import get_uvis_service, UVISService
 

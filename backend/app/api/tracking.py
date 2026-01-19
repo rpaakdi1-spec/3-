@@ -9,8 +9,9 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, and_
 from loguru import logger
 
-from ..database import get_db
-from ..models import Vehicle, VehicleLocation, TemperatureAlert, Dispatch, DispatchStatus
+from ..core.database import get_db
+from ..models import Vehicle, VehicleLocation, TemperatureAlert, Dispatch
+from ..models.dispatch import DispatchStatus
 from ..schemas.vehicle_location import (
     VehicleLocationResponse,
     VehicleLocationCreate,

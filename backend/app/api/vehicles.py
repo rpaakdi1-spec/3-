@@ -137,7 +137,7 @@ async def upload_vehicles_excel(
 @router.get("/template/download")
 def download_vehicle_template():
     """차량 Excel 템플릿 다운로드"""
-    template_path = ExcelTemplateService.create_vehicle_template()
+    template_path = ExcelTemplateService.create_vehicles_template()
     
     if not Path(template_path).exists():
         raise HTTPException(status_code=404, detail="템플릿 파일을 찾을 수 없습니다")
