@@ -1,0 +1,163 @@
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
+from sqlalchemy.orm import Session
+from typing import Optional
+from datetime import date
+
+from app.core.database import get_db
+from app.models.order import Order, OrderStatus
+from app.schemas.order import (
+    OrderCreate, OrderUpdate, OrderResponse, OrderListResponse, OrderWithClientsResponse
+)
+from app.services.excel_upload_service import ExcelUploadService
+from loguru import logger
+
+router = APIRouter()
+
+
+@router.get("/", response_model=OrderListResponse)
+def get_orders(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=1000),
+    status: Optional[OrderStatus] = None,
+    temperature_zone: Optional[str] = None,
+    order_date: Optional[date] = None,
+    db: Session = Depends(get_db)
+):
+    """주문 목록 조회"""
+    query = db.query(Order)
+    
+    if status:
+        query = query.filter(Order.status == status)
+    
+    if temperature_zone:
+        query = query.filter(Order.temperature_zone == temperature_zone)
+    
+    if order_date:
+        query = query.filter(Order.order_date == order_date)
+    
+    total = query.count()
+    items = query.offset(skip).limit(limit).all()
+    
+    # Add client names
+    for item in items:
+        if item.pickup_client:
+            item.pickup_client_name = item.pickup_client.name
+        if item.delivery_client:
+            item.delivery_client_name = item.delivery_client.name
+    
+    return OrderListResponse(total=total, items=items)
+
+
+@router.get("/{order_id}", response_model=OrderWithClientsResponse)
+def get_order(order_id: int, db: Session = Depends(get_db)):
+    """주문 상세 조회"""
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="주문을 찾을 수 없습니다")
+    
+    # Add client info
+    order.pickup_client_name = order.pickup_client.name if order.pickup_client else None
+    order.delivery_client_name = order.delivery_client.name if order.delivery_client else None
+    
+    return order
+
+
+@router.post("/", response_model=OrderResponse, status_code=201)
+def create_order(order_data: OrderCreate, db: Session = Depends(get_db)):
+    """주문 생성"""
+    # Check if order number already exists
+    existing = db.query(Order).filter(Order.order_number == order_data.order_number).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="이미 존재하는 주문번호입니다")
+    
+    # Validate clients exist
+    from app.models.client import Client
+    pickup_client = db.query(Client).filter(Client.id == order_data.pickup_client_id).first()
+    if not pickup_client:
+        raise HTTPException(status_code=404, detail="상차 거래처를 찾을 수 없습니다")
+    
+    delivery_client = db.query(Client).filter(Client.id == order_data.delivery_client_id).first()
+    if not delivery_client:
+        raise HTTPException(status_code=404, detail="하차 거래처를 찾을 수 없습니다")
+    
+    order = Order(**order_data.model_dump(), status=OrderStatus.PENDING)
+    db.add(order)
+    db.commit()
+    db.refresh(order)
+    
+    logger.info(f"Created order: {order.order_number}")
+    return order
+
+
+@router.put("/{order_id}", response_model=OrderResponse)
+def update_order(
+    order_id: int,
+    order_data: OrderUpdate,
+    db: Session = Depends(get_db)
+):
+    """주문 수정"""
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="주문을 찾을 수 없습니다")
+    
+    # Update fields
+    update_data = order_data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(order, field, value)
+    
+    db.commit()
+    db.refresh(order)
+    
+    logger.info(f"Updated order: {order.order_number}")
+    return order
+
+
+@router.delete("/{order_id}")
+def delete_order(order_id: int, db: Session = Depends(get_db)):
+    """주문 삭제"""
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="주문을 찾을 수 없습니다")
+    
+    # Check if order is part of a dispatch
+    if order.status != OrderStatus.PENDING:
+        raise HTTPException(
+            status_code=400,
+            detail="배차대기 상태의 주문만 삭제할 수 있습니다"
+        )
+    
+    db.delete(order)
+    db.commit()
+    
+    logger.info(f"Deleted order: {order.order_number}")
+    return {"message": "주문이 삭제되었습니다"}
+
+
+@router.post("/upload")
+async def upload_orders_excel(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
+    """엑셀 파일로 주문 일괄 업로드"""
+    if not file.filename.endswith(('.xlsx', '.xls')):
+        raise HTTPException(status_code=400, detail="엑셀 파일만 업로드 가능합니다")
+    
+    try:
+        content = await file.read()
+        result = ExcelUploadService.upload_orders(db, content)
+        
+        logger.info(f"Uploaded orders: {result['created']} created, {result['failed']} failed")
+        return result
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error uploading orders: {e}")
+        raise HTTPException(status_code=500, detail="업로드 중 오류가 발생했습니다")
+
+
+@router.get("/pending/count")
+def get_pending_orders_count(db: Session = Depends(get_db)):
+    """배차 대기 중인 주문 수 조회"""
+    count = db.query(Order).filter(Order.status == OrderStatus.PENDING).count()
+    return {"pending_count": count}
