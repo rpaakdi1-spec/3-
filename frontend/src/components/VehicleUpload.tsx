@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { vehiclesAPI } from '../services/api'
 
 interface VehicleForm {
@@ -13,12 +13,28 @@ interface VehicleForm {
   notes?: string
 }
 
+interface Vehicle {
+  id: number
+  code: string
+  plate_number: string
+  vehicle_type: string
+  max_weight_kg: number
+  max_volume_cbm: number
+  max_pallets: number
+  temperature_zones: string
+  driver_name?: string
+  driver_phone?: string
+  status: string
+}
+
 function VehicleUpload() {
   const [file, setFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
   const [result, setResult] = useState<any>(null)
   const [error, setError] = useState<string>('')
   const [showForm, setShowForm] = useState(false)
+  const [vehicles, setVehicles] = useState<Vehicle[]>([])
+  const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState<VehicleForm>({
     plate_number: '',
     vehicle_type: 'FREEZER',
@@ -30,6 +46,30 @@ function VehicleUpload() {
     fuel_efficiency_kmperliter: 8,
     notes: ''
   })
+
+  // 컴포넌트 마운트 시 차량 목록 로드
+  useEffect(() => {
+    loadVehicles()
+  }, [])
+
+  // 업로드/등록 성공 시 차량 목록 새로고침
+  useEffect(() => {
+    if (result && (result.created > 0)) {
+      loadVehicles()
+    }
+  }, [result])
+
+  const loadVehicles = async () => {
+    setLoading(true)
+    try {
+      const response = await vehiclesAPI.list()
+      setVehicles(response.data.items || [])
+    } catch (err) {
+      console.error('Failed to load vehicles:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -113,6 +153,35 @@ function VehicleUpload() {
     }
   }
 
+  const getVehicleTypeLabel = (type: string) => {
+    const labels: { [key: string]: string } = {
+      'FREEZER': '냉동차',
+      'REFRIGERATED': '냉장차',
+      'BOTH': '냉동/냉장'
+    }
+    return labels[type] || type
+  }
+
+  const getStatusBadge = (status: string) => {
+    const badges: { [key: string]: string } = {
+      'AVAILABLE': 'success',
+      'IN_USE': 'info',
+      'MAINTENANCE': 'warning',
+      'UNAVAILABLE': 'error'
+    }
+    const labels: { [key: string]: string } = {
+      'AVAILABLE': '사용가능',
+      'IN_USE': '운행중',
+      'MAINTENANCE': '정비중',
+      'UNAVAILABLE': '사용불가'
+    }
+    return (
+      <span className={`badge ${badges[status] || 'info'}`}>
+        {labels[status] || status}
+      </span>
+    )
+  }
+
   return (
     <div>
       <div className="card">
@@ -131,6 +200,13 @@ function VehicleUpload() {
             style={{ backgroundColor: showForm ? '#6c757d' : '#28a745' }}
           >
             {showForm ? '❌ 폼 닫기' : '➕ 직접 등록'}
+          </button>
+          <button 
+            className="button secondary" 
+            onClick={loadVehicles}
+            disabled={loading}
+          >
+            🔄 새로고침
           </button>
         </div>
 
@@ -321,12 +397,60 @@ function VehicleUpload() {
       </div>
 
       <div className="card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <h2 style={{ margin: 0 }}>등록된 차량 목록 ({vehicles.length}대)</h2>
+        </div>
+
+        {loading ? (
+          <div className="loading">차량 목록을 불러오는 중...</div>
+        ) : vehicles.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
+            등록된 차량이 없습니다. 차량을 등록해주세요.
+          </div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>차량번호</th>
+                  <th>차량 유형</th>
+                  <th>온도존</th>
+                  <th>최대 적재량</th>
+                  <th>최대 용적</th>
+                  <th>최대 팔레트</th>
+                  <th>운전자</th>
+                  <th>연락처</th>
+                  <th>상태</th>
+                </tr>
+              </thead>
+              <tbody>
+                {vehicles.map((vehicle) => (
+                  <tr key={vehicle.id}>
+                    <td><strong>{vehicle.plate_number}</strong></td>
+                    <td>{getVehicleTypeLabel(vehicle.vehicle_type)}</td>
+                    <td>{vehicle.temperature_zones}</td>
+                    <td>{vehicle.max_weight_kg.toLocaleString()} kg</td>
+                    <td>{vehicle.max_volume_cbm} CBM</td>
+                    <td>{vehicle.max_pallets} 개</td>
+                    <td>{vehicle.driver_name || '-'}</td>
+                    <td>{vehicle.driver_phone || '-'}</td>
+                    <td>{getStatusBadge(vehicle.status)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <div className="card">
         <h2>업로드 가이드</h2>
         <ol style={{ marginLeft: '20px', color: '#666' }}>
           <li style={{ marginBottom: '8px' }}>위의 "템플릿 다운로드" 버튼을 클릭하여 엑셀 템플릿을 다운로드합니다.</li>
           <li style={{ marginBottom: '8px' }}>템플릿에 차량 정보를 입력합니다.</li>
           <li style={{ marginBottom: '8px' }}>작성한 파일을 업로드합니다.</li>
           <li style={{ marginBottom: '8px' }}><strong>또는</strong> "직접 등록" 버튼으로 한 건씩 등록할 수 있습니다.</li>
+          <li style={{ marginBottom: '8px' }}>등록된 차량은 하단의 차량 목록에서 확인할 수 있습니다.</li>
         </ol>
       </div>
     </div>
