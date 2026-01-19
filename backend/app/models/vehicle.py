@@ -74,6 +74,8 @@ class Vehicle(Base, IDMixin, TimestampMixin):
     
     # Relationships
     dispatches = relationship("Dispatch", back_populates="vehicle")
+    locations = relationship("VehicleLocation", back_populates="vehicle", cascade="all, delete-orphan")
+    temperature_alerts = relationship("TemperatureAlert", back_populates="vehicle", cascade="all, delete-orphan")
     
     def __repr__(self):
         return f"<Vehicle(code={self.code}, plate={self.plate_number}, type={self.vehicle_type})>"

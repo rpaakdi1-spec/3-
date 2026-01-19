@@ -4,6 +4,7 @@ from .vehicle import Vehicle
 from .driver import Driver
 from .order import Order
 from .dispatch import Dispatch, DispatchRoute
+from .vehicle_location import VehicleLocation, TemperatureAlert
 
 __all__ = [
     "Base",
@@ -13,4 +14,6 @@ __all__ = [
     "Order",
     "Dispatch",
     "DispatchRoute",
+    "VehicleLocation",
+    "TemperatureAlert",
 ]

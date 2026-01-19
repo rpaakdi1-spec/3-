@@ -18,8 +18,9 @@ class Settings(BaseSettings):
     NAVER_MAP_CLIENT_SECRET: str
     
     # Samsung UVIS API
-    UVIS_API_URL: str = "https://api.s1.co.kr/uvis/v1"
+    UVIS_API_BASE_URL: str = "https://api.s1.co.kr/uvis"
     UVIS_API_KEY: str = ""
+    UVIS_API_SECRET: str = ""
     
     # Redis
     REDIS_HOST: str = "localhost"
@@ -43,3 +44,8 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+def get_settings() -> Settings:
+    """Get application settings"""
+    return settings
