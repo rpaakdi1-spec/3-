@@ -20,6 +20,7 @@ from app.models.client import Client
 from app.models.vehicle import Vehicle, VehicleType
 from app.models.order import Order, TemperatureZone
 from app.models.dispatch import Dispatch, DispatchRoute, RouteType, DispatchStatus
+from app.services.naver_map_service import NaverMapService
 
 
 @dataclass
@@ -302,6 +303,7 @@ class AdvancedDispatchOptimizationService:
     
     def __init__(self, db: Session):
         self.db = db
+        self.naver_service = NaverMapService()
         
     def _calculate_haversine_distance(self, lat1: float, lon1: float, lat2: float, lon2: float) -> float:
         """Haversine 거리 계산 (km)"""
@@ -318,7 +320,7 @@ class AdvancedDispatchOptimizationService:
         return R * c
     
     def _create_distance_matrix(self, locations: List[Location]) -> List[List[int]]:
-        """거리 행렬 생성 (미터)"""
+        """거리 행렬 생성 (미터) - Haversine"""
         n = len(locations)
         matrix = [[0] * n for _ in range(n)]
         
@@ -332,6 +334,24 @@ class AdvancedDispatchOptimizationService:
                     matrix[i][j] = int(dist_km * 1000)  # Convert to meters
         
         return matrix
+    
+    async def _create_distance_matrix_naver(self, locations: List[Location]) -> Tuple[List[List[int]], List[List[int]]]:
+        """거리/시간 행렬 생성 - Naver Directions API"""
+        logger.info(f"Naver Directions API로 거리 행렬 생성 중...")
+        
+        # 좌표 리스트 추출
+        coords = [(loc.latitude, loc.longitude) for loc in locations]
+        
+        # Naver API 호출
+        distance_matrix, time_matrix = await self.naver_service.create_distance_matrix(
+            locations=coords,
+            use_cache=True,
+            batch_size=50,
+            delay_ms=100
+        )
+        
+        logger.success(f"✓ Naver API 거리 행렬 생성 완료")
+        return distance_matrix, time_matrix
     
     def _create_time_matrix(self, distance_matrix: List[List[int]]) -> List[List[int]]:
         """시간 행렬 생성 (분)"""
@@ -371,7 +391,8 @@ class AdvancedDispatchOptimizationService:
         vehicle_ids: Optional[List[int]] = None,
         dispatch_date: Optional[str] = None,
         time_limit_seconds: int = 30,
-        use_time_windows: bool = True
+        use_time_windows: bool = True,
+        use_real_routing: bool = False
     ) -> Dict[str, Any]:
         """
         CVRPTW 알고리즘을 사용한 배차 최적화
@@ -382,6 +403,7 @@ class AdvancedDispatchOptimizationService:
             dispatch_date: 배차 날짜 (YYYY-MM-DD)
             time_limit_seconds: 최대 실행 시간 (초)
             use_time_windows: 시간 제약 사용 여부
+            use_real_routing: Naver Directions API 사용 여부 (False = Haversine)
             
         Returns:
             최적화 결과
@@ -389,6 +411,7 @@ class AdvancedDispatchOptimizationService:
         try:
             logger.info(f"=== CVRPTW 배차 최적화 시작 ===")
             logger.info(f"주문: {len(order_ids)}건, 시간 제한: {time_limit_seconds}초")
+            logger.info(f"실제 경로: {'ON (Naver API)' if use_real_routing else 'OFF (Haversine)'}")
             
             # 1. 주문 로드
             orders = self.db.query(Order).filter(Order.id.in_(order_ids)).all()
@@ -431,7 +454,8 @@ class AdvancedDispatchOptimizationService:
                     compatible_vehicles,
                     dispatch_date,
                     time_limit_seconds,
-                    use_time_windows
+                    use_time_windows,
+                    use_real_routing
                 )
                 
                 if result:
@@ -474,7 +498,8 @@ class AdvancedDispatchOptimizationService:
         vehicles: List[Vehicle],
         dispatch_date: Optional[str],
         time_limit_seconds: int,
-        use_time_windows: bool
+        use_time_windows: bool,
+        use_real_routing: bool
     ) -> Optional[Dict[str, Any]]:
         """특정 온도대의 주문을 최적화"""
         
@@ -563,8 +588,13 @@ class AdvancedDispatchOptimizationService:
         logger.info(f"차량: {len(vehicle_infos)}대")
         
         # 거리/시간 행렬 생성
-        distance_matrix = self._create_distance_matrix(locations)
-        time_matrix = self._create_time_matrix(distance_matrix)
+        if use_real_routing:
+            logger.info("🗺️  Naver Directions API 사용")
+            distance_matrix, time_matrix = await self._create_distance_matrix_naver(locations)
+        else:
+            logger.info("📐 Haversine 거리 사용")
+            distance_matrix = self._create_distance_matrix(locations)
+            time_matrix = self._create_time_matrix(distance_matrix)
         
         # CVRPTW 솔버 실행
         solver = CVRPTWSolver(

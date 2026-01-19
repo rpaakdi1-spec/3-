@@ -48,7 +48,8 @@ async def optimize_dispatch_cvrptw(
     request: OptimizationRequest,
     db: Session = Depends(get_db),
     time_limit: int = Query(30, ge=5, le=300, description="최대 실행 시간 (초)"),
-    use_time_windows: bool = Query(True, description="시간 제약 사용 여부")
+    use_time_windows: bool = Query(True, description="시간 제약 사용 여부"),
+    use_real_routing: bool = Query(False, description="Naver Directions API 사용 (실제 경로)")
 ):
     """
     고급 AI 배차 최적화 (OR-Tools CVRPTW)
@@ -64,8 +65,14 @@ async def optimize_dispatch_cvrptw(
     Parameters:
     - time_limit: 최대 실행 시간 (5-300초, 기본 30초)
     - use_time_windows: 시간 제약 사용 여부 (기본 True)
+    - use_real_routing: Naver API 실제 경로 사용 (기본 False, Haversine)
+    
+    Note:
+    - use_real_routing=True 시 Naver Directions API 호출 (느림, 정확)
+    - use_real_routing=False 시 Haversine 직선거리 사용 (빠름, 근사)
     """
-    logger.info(f"CVRPTW 최적화 요청: {len(request.order_ids)}건, 시간 제한 {time_limit}초")
+    logger.info(f"CVRPTW 최적화 요청: {len(request.order_ids)}건")
+    logger.info(f"설정: time_limit={time_limit}s, time_windows={use_time_windows}, real_routing={use_real_routing}")
     
     optimizer = AdvancedDispatchOptimizationService(db)
     
@@ -74,7 +81,8 @@ async def optimize_dispatch_cvrptw(
         vehicle_ids=request.vehicle_ids,
         dispatch_date=request.dispatch_date,
         time_limit_seconds=time_limit,
-        use_time_windows=use_time_windows
+        use_time_windows=use_time_windows,
+        use_real_routing=use_real_routing
     )
     
     return OptimizationResponse(**result)
