@@ -40,6 +40,10 @@ class ExcelUploadService:
             
             df = df.rename(columns=column_mapping)
             
+            # Filter out example rows and empty rows
+            df = df[df['code'].notna()]  # Remove rows with empty code
+            df = df[~df['code'].astype(str).str.startswith('예시-')]  # Remove example rows
+            
             # Convert client_type
             df['client_type'] = df['client_type'].replace({
                 '상차': ClientType.PICKUP,
@@ -153,6 +157,10 @@ class ExcelUploadService:
             
             df = df.rename(columns=column_mapping)
             
+            # Filter out example rows and empty rows
+            df = df[df['code'].notna()]  # Remove rows with empty code
+            df = df[~df['code'].astype(str).str.contains('예시-|TRUCK-001', regex=True)]  # Remove example rows
+            
             # Convert vehicle_type
             df['vehicle_type'] = df['vehicle_type'].replace({
                 '냉동': VehicleType.FROZEN,
@@ -253,6 +261,10 @@ class ExcelUploadService:
             }
             
             df = df.rename(columns=column_mapping)
+            
+            # Filter out example rows and empty rows
+            df = df[df['order_number'].notna()]  # Remove rows with empty order_number
+            df = df[~df['order_number'].astype(str).str.contains('예시-|ORD-', regex=True)]  # Remove example rows
             
             # Convert dates
             df['order_date'] = pd.to_datetime(df['order_date']).dt.date
