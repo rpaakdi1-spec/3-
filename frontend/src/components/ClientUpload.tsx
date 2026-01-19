@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { clientsAPI } from '../services/api'
 
 interface ClientForm {
@@ -18,12 +18,24 @@ interface ClientForm {
   notes?: string
 }
 
+interface Client {
+  id: number
+  code: string
+  name: string
+  client_type: string
+  address: string
+  contact_person?: string
+  phone?: string
+}
+
 function ClientUpload() {
   const [file, setFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
   const [result, setResult] = useState<any>(null)
   const [error, setError] = useState<string>('')
   const [showForm, setShowForm] = useState(false)
+  const [clients, setClients] = useState<Client[]>([])
+  const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState<ClientForm>({
     code: '',
     name: '',
@@ -40,6 +52,28 @@ function ClientUpload() {
     delivery_end_time: '18:00',
     notes: ''
   })
+
+  useEffect(() => {
+    loadClients()
+  }, [])
+
+  useEffect(() => {
+    if (result && (result.created > 0)) {
+      loadClients()
+    }
+  }, [result])
+
+  const loadClients = async () => {
+    setLoading(true)
+    try {
+      const response = await clientsAPI.list()
+      setClients(response.data.items || [])
+    } catch (err) {
+      console.error('Failed to load clients:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -141,6 +175,13 @@ function ClientUpload() {
             style={{ backgroundColor: showForm ? '#6c757d' : '#28a745' }}
           >
             {showForm ? '❌ 폼 닫기' : '➕ 직접 등록'}
+          </button>
+          <button 
+            className="button secondary" 
+            onClick={loadClients}
+            disabled={loading}
+          >
+            🔄 새로고침
           </button>
         </div>
 
@@ -335,6 +376,57 @@ function ClientUpload() {
       </div>
 
       <div className="card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <h2 style={{ margin: 0 }}>등록된 거래처 목록 ({clients.length}개)</h2>
+        </div>
+
+        {loading ? (
+          <div className="loading">거래처 목록을 불러오는 중...</div>
+        ) : clients.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
+            등록된 거래처가 없습니다. 거래처를 등록해주세요.
+          </div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>거래처 코드</th>
+                  <th>거래처명</th>
+                  <th>구분</th>
+                  <th>주소</th>
+                  <th>담당자</th>
+                  <th>연락처</th>
+                </tr>
+              </thead>
+              <tbody>
+                {clients.map((client) => (
+                  <tr key={client.id}>
+                    <td><strong>{client.code}</strong></td>
+                    <td>{client.name}</td>
+                    <td>
+                      <span className={`badge ${
+                        client.client_type === 'PICKUP' ? 'info' : 
+                        client.client_type === 'DELIVERY' ? 'success' : 'warning'
+                      }`}>
+                        {client.client_type === 'PICKUP' ? '상차' : 
+                         client.client_type === 'DELIVERY' ? '하차' : '양쪽'}
+                      </span>
+                    </td>
+                    <td style={{ maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {client.address}
+                    </td>
+                    <td>{client.contact_person || '-'}</td>
+                    <td>{client.phone || '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <div className="card">
         <h2>업로드 가이드</h2>
         <ol style={{ marginLeft: '20px', color: '#666' }}>
           <li style={{ marginBottom: '8px' }}>위의 "템플릿 다운로드" 버튼을 클릭하여 엑셀 템플릿을 다운로드합니다.</li>
@@ -342,6 +434,7 @@ function ClientUpload() {
           <li style={{ marginBottom: '8px' }}>작성한 파일을 업로드합니다.</li>
           <li style={{ marginBottom: '8px' }}>시스템이 자동으로 주소를 지오코딩합니다.</li>
           <li style={{ marginBottom: '8px' }}><strong>또는</strong> "직접 등록" 버튼으로 한 건씩 등록할 수 있습니다.</li>
+          <li style={{ marginBottom: '8px' }}>등록된 거래처는 하단의 거래처 목록에서 확인할 수 있습니다.</li>
         </ol>
       </div>
     </div>

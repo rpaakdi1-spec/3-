@@ -18,6 +18,19 @@ interface OrderForm {
   notes?: string
 }
 
+interface Order {
+  id: number
+  order_number: string
+  order_date: string
+  product_name: string
+  quantity_pallets: number
+  weight_kg: number
+  temperature_zone: string
+  status: string
+  pickup_client_name?: string
+  delivery_client_name?: string
+}
+
 function OrderUpload() {
   const [file, setFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
@@ -25,6 +38,8 @@ function OrderUpload() {
   const [error, setError] = useState<string>('')
   const [showForm, setShowForm] = useState(false)
   const [clients, setClients] = useState<any[]>([])
+  const [orders, setOrders] = useState<Order[]>([])
+  const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState<OrderForm>({
     order_number: '',
     order_date: new Date().toISOString().split('T')[0],
@@ -42,11 +57,35 @@ function OrderUpload() {
     notes: ''
   })
 
+  // 컴포넌트 마운트 시 주문 목록 로드
+  useEffect(() => {
+    loadOrders()
+  }, [])
+
   useEffect(() => {
     if (showForm) {
       loadClients()
     }
   }, [showForm])
+
+  // 업로드/등록 성공 시 주문 목록 새로고침
+  useEffect(() => {
+    if (result && (result.created > 0)) {
+      loadOrders()
+    }
+  }, [result])
+
+  const loadOrders = async () => {
+    setLoading(true)
+    try {
+      const response = await ordersAPI.list()
+      setOrders(response.data.items || [])
+    } catch (err) {
+      console.error('Failed to load orders:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const loadClients = async () => {
     try {
@@ -156,6 +195,13 @@ function OrderUpload() {
             style={{ backgroundColor: showForm ? '#6c757d' : '#28a745' }}
           >
             {showForm ? '❌ 폼 닫기' : '➕ 직접 등록'}
+          </button>
+          <button 
+            className="button secondary" 
+            onClick={loadOrders}
+            disabled={loading}
+          >
+            🔄 새로고침
           </button>
         </div>
 
@@ -415,12 +461,82 @@ function OrderUpload() {
       </div>
 
       <div className="card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <h2 style={{ margin: 0 }}>등록된 주문 목록 ({orders.length}건)</h2>
+        </div>
+
+        {loading ? (
+          <div className="loading">주문 목록을 불러오는 중...</div>
+        ) : orders.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
+            등록된 주문이 없습니다. 주문을 등록해주세요.
+          </div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>주문번호</th>
+                  <th>주문일자</th>
+                  <th>제품명</th>
+                  <th>팔레트</th>
+                  <th>중량(kg)</th>
+                  <th>온도존</th>
+                  <th>상차지</th>
+                  <th>하차지</th>
+                  <th>상태</th>
+                </tr>
+              </thead>
+              <tbody>
+                {orders.map((order) => (
+                  <tr key={order.id}>
+                    <td><strong>{order.order_number}</strong></td>
+                    <td>{order.order_date}</td>
+                    <td>{order.product_name}</td>
+                    <td>{order.quantity_pallets}</td>
+                    <td>{order.weight_kg.toLocaleString()}</td>
+                    <td>
+                      <span className={`badge ${
+                        order.temperature_zone === 'frozen' ? 'info' : 
+                        order.temperature_zone === 'chilled' ? 'success' : 'warning'
+                      }`}>
+                        {order.temperature_zone === 'frozen' ? '냉동' : 
+                         order.temperature_zone === 'chilled' ? '냉장' : '상온'}
+                      </span>
+                    </td>
+                    <td style={{ maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {order.pickup_client_name || '-'}
+                    </td>
+                    <td style={{ maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {order.delivery_client_name || '-'}
+                    </td>
+                    <td>
+                      <span className={`badge ${
+                        order.status === 'PENDING' ? 'warning' : 
+                        order.status === 'ASSIGNED' ? 'info' : 
+                        order.status === 'COMPLETED' ? 'success' : 'error'
+                      }`}>
+                        {order.status === 'PENDING' ? '대기' : 
+                         order.status === 'ASSIGNED' ? '배차완료' : 
+                         order.status === 'COMPLETED' ? '완료' : order.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <div className="card">
         <h2>업로드 가이드</h2>
         <ol style={{ marginLeft: '20px', color: '#666' }}>
           <li style={{ marginBottom: '8px' }}>위의 "템플릿 다운로드" 버튼을 클릭하여 엑셀 템플릿을 다운로드합니다.</li>
           <li style={{ marginBottom: '8px' }}>템플릿에 주문 정보를 입력합니다.</li>
           <li style={{ marginBottom: '8px' }}>작성한 파일을 업로드합니다.</li>
           <li style={{ marginBottom: '8px' }}><strong>또는</strong> "직접 등록" 버튼으로 한 건씩 등록할 수 있습니다.</li>
+          <li style={{ marginBottom: '8px' }}>등록된 주문은 하단의 주문 목록에서 확인할 수 있습니다.</li>
         </ol>
       </div>
     </div>
