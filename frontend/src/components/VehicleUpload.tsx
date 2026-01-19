@@ -2,11 +2,9 @@ import { useState } from 'react'
 import { vehiclesAPI } from '../services/api'
 
 interface VehicleForm {
-  code: string
   plate_number: string
   vehicle_type: string
   max_weight_kg: number
-  max_volume_cbm: number
   max_pallets: number
   temperature_zones: string
   driver_name?: string
@@ -22,11 +20,9 @@ function VehicleUpload() {
   const [error, setError] = useState<string>('')
   const [showForm, setShowForm] = useState(false)
   const [formData, setFormData] = useState<VehicleForm>({
-    code: '',
     plate_number: '',
     vehicle_type: 'FREEZER',
     max_weight_kg: 5000,
-    max_volume_cbm: 15,
     max_pallets: 20,
     temperature_zones: 'frozen',
     driver_name: '',
@@ -89,16 +85,20 @@ function VehicleUpload() {
     setResult(null)
 
     try {
-      await vehiclesAPI.create(formData)
+      // 차량 코드는 차량번호로 자동 생성
+      const dataToSubmit = {
+        ...formData,
+        code: formData.plate_number.replace(/[^a-zA-Z0-9]/g, ''), // 특수문자 제거
+        max_volume_cbm: formData.max_pallets * 1.5 // 팔레트당 평균 1.5 CBM으로 자동 계산
+      }
+      await vehiclesAPI.create(dataToSubmit)
       setResult({ created: 1, failed: 0, total: 1 })
       setShowForm(false)
       // Reset form
       setFormData({
-        code: '',
         plate_number: '',
         vehicle_type: 'FREEZER',
         max_weight_kg: 5000,
-        max_volume_cbm: 15,
         max_pallets: 20,
         temperature_zones: 'frozen',
         driver_name: '',
@@ -159,19 +159,6 @@ function VehicleUpload() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
                 <div>
                   <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-                    차량 코드 *
-                  </label>
-                  <input
-                    type="text"
-                    name="code"
-                    value={formData.code}
-                    onChange={handleFormChange}
-                    required
-                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
                     차량번호 *
                   </label>
                   <input
@@ -180,6 +167,7 @@ function VehicleUpload() {
                     value={formData.plate_number}
                     onChange={handleFormChange}
                     required
+                    placeholder="예: 서울12가3456"
                     style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
                   />
                 </div>
@@ -226,21 +214,7 @@ function VehicleUpload() {
                     onChange={handleFormChange}
                     required
                     min="0"
-                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-                    최대 용적 (CBM) *
-                  </label>
-                  <input
-                    type="number"
-                    name="max_volume_cbm"
-                    value={formData.max_volume_cbm}
-                    onChange={handleFormChange}
-                    required
-                    min="0"
-                    step="0.1"
+                    placeholder="예: 5000"
                     style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
                   />
                 </div>
@@ -255,8 +229,10 @@ function VehicleUpload() {
                     onChange={handleFormChange}
                     required
                     min="0"
+                    placeholder="예: 20"
                     style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
                   />
+                  <small style={{ color: '#666', fontSize: '12px' }}>※ 용적은 자동 계산됩니다 (팔레트당 1.5 CBM)</small>
                 </div>
                 <div>
                   <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
