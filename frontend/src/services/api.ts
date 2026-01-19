@@ -63,3 +63,22 @@ export const dispatchesAPI = {
   confirm: (dispatchIds: number[]) => api.post('/dispatches/confirm', { dispatch_ids: dispatchIds }),
   stats: () => api.get('/dispatches/stats/summary'),
 }
+
+export const uvisAPI = {
+  getVehicleLocation: (vehicleId: number) => api.get(`/uvis/vehicles/${vehicleId}/location`),
+  getVehicleTemperature: (vehicleId: number) => api.get(`/uvis/vehicles/${vehicleId}/temperature`),
+  getVehicleStatus: (vehicleId: number) => api.get(`/uvis/vehicles/${vehicleId}/status`),
+  monitorVehicle: (vehicleId: number) => api.get(`/uvis/vehicles/${vehicleId}/monitor`),
+  getBulkLocations: (vehicleIds?: number[]) => {
+    const params = vehicleIds ? { vehicle_ids: vehicleIds } : {};
+    return api.get('/uvis/vehicles/bulk/locations', { params });
+  },
+  getBulkTemperatures: (vehicleIds?: number[]) => {
+    const params = vehicleIds ? { vehicle_ids: vehicleIds } : {};
+    return api.get('/uvis/vehicles/bulk/temperatures', { params });
+  },
+  getDashboard: async () => {
+    const response = await api.get('/uvis/dashboard');
+    return response.data;
+  },
+}

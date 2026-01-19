@@ -4,8 +4,9 @@ import ClientUpload from './components/ClientUpload'
 import VehicleUpload from './components/VehicleUpload'
 import OrderUpload from './components/OrderUpload'
 import DispatchOptimization from './components/DispatchOptimization'
+import RealtimeDashboard from './components/RealtimeDashboard'
 
-type Page = 'dashboard' | 'clients' | 'vehicles' | 'orders' | 'dispatch'
+type Page = 'dashboard' | 'clients' | 'vehicles' | 'orders' | 'dispatch' | 'realtime'
 
 function App() {
   const [currentPage, setCurrentPage] = useState<Page>('dashboard')
@@ -22,6 +23,8 @@ function App() {
         return <OrderUpload />
       case 'dispatch':
         return <DispatchOptimization />
+      case 'realtime':
+        return <RealtimeDashboard />
       default:
         return <Dashboard />
     }
@@ -39,6 +42,12 @@ function App() {
               onClick={() => setCurrentPage('dashboard')}
             >
               대시보드
+            </a>
+            <a
+              className={`nav-link ${currentPage === 'realtime' ? 'active' : ''}`}
+              onClick={() => setCurrentPage('realtime')}
+            >
+              실시간 모니터링
             </a>
             <a
               className={`nav-link ${currentPage === 'clients' ? 'active' : ''}`}
