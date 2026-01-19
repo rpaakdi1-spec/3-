@@ -113,12 +113,11 @@ async def internal_error_handler(request, exc):
 
 
 # Import and include routers
-from app.api import clients, vehicles, orders
+from app.api import clients, vehicles, orders, dispatches
 app.include_router(clients.router, prefix=f"{settings.API_PREFIX}/clients", tags=["Clients"])
 app.include_router(vehicles.router, prefix=f"{settings.API_PREFIX}/vehicles", tags=["Vehicles"])
 app.include_router(orders.router, prefix=f"{settings.API_PREFIX}/orders", tags=["Orders"])
-# app.include_router(drivers.router, prefix=f"{settings.API_PREFIX}/drivers", tags=["Drivers"])
-# app.include_router(dispatches.router, prefix=f"{settings.API_PREFIX}/dispatches", tags=["Dispatches"])
+app.include_router(dispatches.router, prefix=f"{settings.API_PREFIX}/dispatches", tags=["Dispatches"])
 
 
 if __name__ == "__main__":
