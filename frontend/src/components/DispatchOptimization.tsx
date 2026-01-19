@@ -11,12 +11,27 @@ interface Order {
   delivery_client_name: string
 }
 
+interface OptimizationSettings {
+  algorithm: 'greedy' | 'cvrptw'
+  timeLimit: number
+  useTimeWindows: boolean
+  useRealRouting: boolean
+}
+
 function DispatchOptimization() {
   const [orders, setOrders] = useState<Order[]>([])
   const [selectedOrders, setSelectedOrders] = useState<number[]>([])
   const [optimizing, setOptimizing] = useState(false)
   const [result, setResult] = useState<any>(null)
   const [error, setError] = useState<string>('')
+  
+  // New: Optimization settings
+  const [settings, setSettings] = useState<OptimizationSettings>({
+    algorithm: 'cvrptw',
+    timeLimit: 30,
+    useTimeWindows: true,
+    useRealRouting: false
+  })
 
   useEffect(() => {
     loadPendingOrders()
@@ -59,7 +74,23 @@ function DispatchOptimization() {
 
     try {
       const today = new Date().toISOString().split('T')[0]
-      const response = await dispatchesAPI.optimize(selectedOrders, undefined, today)
+      
+      let response
+      if (settings.algorithm === 'cvrptw') {
+        // CVRPTW 알고리즘
+        response = await dispatchesAPI.optimizeCVRPTW(
+          selectedOrders,
+          undefined,
+          today,
+          settings.timeLimit,
+          settings.useTimeWindows,
+          settings.useRealRouting
+        )
+      } else {
+        // Greedy 알고리즘 (기본)
+        response = await dispatchesAPI.optimize(selectedOrders, undefined, today)
+      }
+      
       setResult(response.data)
       
       if (response.data.success) {
@@ -82,13 +113,104 @@ function DispatchOptimization() {
           배차 대기 중인 주문을 선택하고 AI 최적화를 실행하세요.
         </p>
 
+        {/* Optimization Settings */}
+        <div className="settings-panel" style={{ 
+          background: '#f8f9fa', 
+          padding: '16px', 
+          borderRadius: '8px', 
+          marginBottom: '20px' 
+        }}>
+          <h3 style={{ marginTop: 0, marginBottom: '12px' }}>⚙️ 최적화 설정</h3>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            {/* Algorithm Selection */}
+            <div>
+              <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>
+                알고리즘
+              </label>
+              <select
+                value={settings.algorithm}
+                onChange={(e) => setSettings({...settings, algorithm: e.target.value as 'greedy' | 'cvrptw'})}
+                style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+              >
+                <option value="greedy">Greedy (빠름, 품질 낮음)</option>
+                <option value="cvrptw">CVRPTW (느림, 품질 높음) ⭐</option>
+              </select>
+            </div>
+
+            {/* Time Limit */}
+            {settings.algorithm === 'cvrptw' && (
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>
+                  시간 제한 (초): {settings.timeLimit}
+                </label>
+                <input
+                  type="range"
+                  min="5"
+                  max="120"
+                  step="5"
+                  value={settings.timeLimit}
+                  onChange={(e) => setSettings({...settings, timeLimit: parseInt(e.target.value)})}
+                  style={{ width: '100%' }}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* CVRPTW Options */}
+          {settings.algorithm === 'cvrptw' && (
+            <div style={{ marginTop: '16px', display: 'flex', gap: '24px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <input
+                  type="checkbox"
+                  checked={settings.useTimeWindows}
+                  onChange={(e) => setSettings({...settings, useTimeWindows: e.target.checked})}
+                />
+                <span>시간 제약 사용 (Time Windows)</span>
+              </label>
+              
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <input
+                  type="checkbox"
+                  checked={settings.useRealRouting}
+                  onChange={(e) => setSettings({...settings, useRealRouting: e.target.checked})}
+                />
+                <span>실제 경로 (Naver API) 🗺️</span>
+              </label>
+            </div>
+          )}
+
+          {settings.algorithm === 'cvrptw' && settings.useRealRouting && (
+            <div style={{ 
+              marginTop: '12px', 
+              padding: '8px 12px', 
+              background: '#fff3cd', 
+              border: '1px solid #ffc107',
+              borderRadius: '4px',
+              fontSize: '14px'
+            }}>
+              ⚠️ Naver API 사용 시 초기 실행이 느릴 수 있습니다 (캐시 미적용 시)
+            </div>
+          )}
+        </div>
+
         {error && <div className="error-message">{error}</div>}
         {result && result.success && (
           <div className="success-message">
-            <strong>최적화 완료!</strong>
+            <strong>✅ 최적화 완료!</strong>
             <ul style={{ marginTop: '8px', marginLeft: '20px' }}>
               <li>처리한 주문: {result.total_orders}건</li>
               <li>생성된 배차: {result.total_dispatches}개</li>
+              {result.total_distance_km && (
+                <li>총 거리: {result.total_distance_km.toFixed(2)} km</li>
+              )}
+              {result.temperature_zones && (
+                <li>
+                  온도대별: {result.temperature_zones.map((z: any) => 
+                    `${z.zone}(${z.orders}건/${z.dispatches}개)`
+                  ).join(', ')}
+                </li>
+              )}
             </ul>
           </div>
         )}
@@ -98,27 +220,37 @@ function DispatchOptimization() {
             className="button"
             onClick={handleOptimize}
             disabled={selectedOrders.length === 0 || optimizing}
+            style={{
+              backgroundColor: settings.algorithm === 'cvrptw' ? '#28a745' : '#007bff',
+              cursor: selectedOrders.length === 0 || optimizing ? 'not-allowed' : 'pointer',
+              opacity: selectedOrders.length === 0 || optimizing ? 0.6 : 1
+            }}
           >
-            {optimizing ? '최적화 중...' : `🤖 AI 배차 실행 (${selectedOrders.length}건 선택)`}
+            {optimizing ? '최적화 중...' : `${settings.algorithm === 'cvrptw' ? '🚀 CVRPTW' : '⚡ Greedy'} 배차 최적화 실행 (${selectedOrders.length}건)`}
+          </button>
+        </div>
+
+        <div style={{ marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h3 style={{ margin: 0 }}>배차 대기 주문 ({orders.length}건)</h3>
+          <button
+            className="button button-secondary"
+            onClick={handleSelectAll}
+            style={{ fontSize: '14px', padding: '6px 12px' }}
+          >
+            {selectedOrders.length === orders.length ? '전체 해제' : '전체 선택'}
           </button>
         </div>
 
         {orders.length === 0 ? (
-          <p style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
-            배차 대기 중인 주문이 없습니다.
+          <p style={{ textAlign: 'center', color: '#999', padding: '40px 0' }}>
+            배차 대기 중인 주문이 없습니다
           </p>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table className="table">
+          <div style={{ maxHeight: '500px', overflowY: 'auto' }}>
+            <table className="data-table">
               <thead>
                 <tr>
-                  <th style={{ width: '40px' }}>
-                    <input
-                      type="checkbox"
-                      checked={selectedOrders.length === orders.length}
-                      onChange={handleSelectAll}
-                    />
-                  </th>
+                  <th style={{ width: '40px' }}>선택</th>
                   <th>주문번호</th>
                   <th>온도대</th>
                   <th>팔레트</th>
@@ -128,7 +260,7 @@ function DispatchOptimization() {
                 </tr>
               </thead>
               <tbody>
-                {orders.map(order => (
+                {orders.map((order) => (
                   <tr key={order.id}>
                     <td>
                       <input
@@ -139,17 +271,24 @@ function DispatchOptimization() {
                     </td>
                     <td>{order.order_number}</td>
                     <td>
-                      <span className={`badge ${
-                        order.temperature_zone === '냉동' ? 'info' :
-                        order.temperature_zone === '냉장' ? 'success' : 'warning'
-                      }`}>
+                      <span style={{
+                        padding: '4px 8px',
+                        borderRadius: '4px',
+                        fontSize: '12px',
+                        backgroundColor: 
+                          order.temperature_zone === '냉동' ? '#e3f2fd' :
+                          order.temperature_zone === '냉장' ? '#e8f5e9' : '#fff3e0',
+                        color:
+                          order.temperature_zone === '냉동' ? '#1976d2' :
+                          order.temperature_zone === '냉장' ? '#388e3c' : '#f57c00'
+                      }}>
                         {order.temperature_zone}
                       </span>
                     </td>
                     <td>{order.pallet_count}</td>
-                    <td>{order.weight_kg.toLocaleString()}</td>
-                    <td>{order.pickup_client_name}</td>
-                    <td>{order.delivery_client_name}</td>
+                    <td>{order.weight_kg.toFixed(1)}</td>
+                    <td style={{ fontSize: '14px' }}>{order.pickup_client_name}</td>
+                    <td style={{ fontSize: '14px' }}>{order.delivery_client_name}</td>
                   </tr>
                 ))}
               </tbody>
@@ -159,41 +298,29 @@ function DispatchOptimization() {
       </div>
 
       {result && result.dispatches && result.dispatches.length > 0 && (
-        <div className="card">
-          <h2>생성된 배차 계획</h2>
-          {result.dispatches.map((dispatch: any, idx: number) => (
-            <div key={idx} style={{ marginBottom: '20px', padding: '16px', backgroundColor: '#f5f5f5', borderRadius: '4px' }}>
-              <h3 style={{ fontSize: '16px', marginBottom: '12px' }}>
-                {dispatch.dispatch_number} - {dispatch.vehicle_code}
-              </h3>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '12px' }}>
-                <div>
-                  <strong>주문 수:</strong> {dispatch.total_orders}건
+        <div className="card" style={{ marginTop: '20px' }}>
+          <h3>생성된 배차 목록</h3>
+          <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+            {result.dispatches.map((dispatch: any, idx: number) => (
+              <div key={idx} style={{ 
+                padding: '12px', 
+                border: '1px solid #e0e0e0', 
+                borderRadius: '6px', 
+                marginBottom: '12px' 
+              }}>
+                <div style={{ fontWeight: 500, marginBottom: '8px' }}>
+                  배차 #{idx + 1}: {dispatch.vehicle_code || `Vehicle ${dispatch.vehicle_id}`}
                 </div>
-                <div>
-                  <strong>총 팔레트:</strong> {dispatch.total_pallets}개
-                </div>
-                <div>
-                  <strong>총 중량:</strong> {dispatch.total_weight_kg.toLocaleString()}kg
+                <div style={{ fontSize: '14px', color: '#666' }}>
+                  주문: {dispatch.total_orders}건 | 
+                  팔레트: {dispatch.total_pallets}개 | 
+                  중량: {dispatch.total_weight_kg?.toFixed(1) || 0}kg
+                  {dispatch.distance_km && ` | 거리: ${dispatch.distance_km.toFixed(2)}km`}
+                  {dispatch.duration_min && ` | 시간: ${dispatch.duration_min}분`}
                 </div>
               </div>
-              <details>
-                <summary style={{ cursor: 'pointer', color: '#1976d2' }}>경로 상세보기</summary>
-                <ol style={{ marginTop: '12px', marginLeft: '20px' }}>
-                  {dispatch.routes.map((route: any, rIdx: number) => (
-                    <li key={rIdx} style={{ marginBottom: '8px' }}>
-                      <strong>{route.route_type}:</strong> {route.location_name}
-                      {route.current_pallets > 0 && (
-                        <span style={{ marginLeft: '10px', color: '#666' }}>
-                          (적재: {route.current_pallets}팔레트)
-                        </span>
-                      )}
-                    </li>
-                  ))}
-                </ol>
-              </details>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       )}
     </div>

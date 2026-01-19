@@ -48,6 +48,18 @@ export const dispatchesAPI = {
   list: () => api.get('/dispatches'),
   optimize: (orderIds: number[], vehicleIds?: number[], dispatchDate?: string) =>
     api.post('/dispatches/optimize', { order_ids: orderIds, vehicle_ids: vehicleIds, dispatch_date: dispatchDate }),
+  optimizeCVRPTW: (
+    orderIds: number[], 
+    vehicleIds?: number[], 
+    dispatchDate?: string,
+    timeLimit: number = 30,
+    useTimeWindows: boolean = true,
+    useRealRouting: boolean = false
+  ) =>
+    api.post(
+      `/dispatches/optimize-cvrptw?time_limit=${timeLimit}&use_time_windows=${useTimeWindows}&use_real_routing=${useRealRouting}`,
+      { order_ids: orderIds, vehicle_ids: vehicleIds, dispatch_date: dispatchDate }
+    ),
   confirm: (dispatchIds: number[]) => api.post('/dispatches/confirm', { dispatch_ids: dispatchIds }),
   stats: () => api.get('/dispatches/stats/summary'),
 }
