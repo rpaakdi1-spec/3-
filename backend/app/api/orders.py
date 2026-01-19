@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from typing import Optional
 from datetime import date
+from pathlib import Path
 
 from app.core.database import get_db
 from app.models.order import Order, OrderStatus
@@ -9,6 +11,7 @@ from app.schemas.order import (
     OrderCreate, OrderUpdate, OrderResponse, OrderListResponse, OrderWithClientsResponse
 )
 from app.services.excel_upload_service import ExcelUploadService
+from app.services.excel_template_service import ExcelTemplateService
 from loguru import logger
 
 router = APIRouter()
@@ -161,3 +164,19 @@ def get_pending_orders_count(db: Session = Depends(get_db)):
     """배차 대기 중인 주문 수 조회"""
     count = db.query(Order).filter(Order.status == OrderStatus.PENDING).count()
     return {"pending_count": count}
+
+
+
+@router.get("/template/download")
+def download_order_template():
+    """주문 Excel 템플릿 다운로드"""
+    template_path = ExcelTemplateService.create_order_template()
+    
+    if not Path(template_path).exists():
+        raise HTTPException(status_code=404, detail="템플릿 파일을 찾을 수 없습니다")
+    
+    return FileResponse(
+        path=template_path,
+        filename="orders_template.xlsx",
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )

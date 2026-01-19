@@ -1,11 +1,39 @@
 import { useState } from 'react'
 import { vehiclesAPI } from '../services/api'
 
+interface VehicleForm {
+  code: string
+  plate_number: string
+  vehicle_type: string
+  max_weight_kg: number
+  max_volume_cbm: number
+  max_pallets: number
+  temperature_zones: string
+  driver_name?: string
+  driver_phone?: string
+  fuel_efficiency_kmperliter?: number
+  notes?: string
+}
+
 function VehicleUpload() {
   const [file, setFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
   const [result, setResult] = useState<any>(null)
   const [error, setError] = useState<string>('')
+  const [showForm, setShowForm] = useState(false)
+  const [formData, setFormData] = useState<VehicleForm>({
+    code: '',
+    plate_number: '',
+    vehicle_type: 'FREEZER',
+    max_weight_kg: 5000,
+    max_volume_cbm: 15,
+    max_pallets: 20,
+    temperature_zones: 'frozen',
+    driver_name: '',
+    driver_phone: '',
+    fuel_efficiency_kmperliter: 8,
+    notes: ''
+  })
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -31,23 +59,273 @@ function VehicleUpload() {
     }
   }
 
+  const downloadTemplate = async () => {
+    try {
+      const response = await vehiclesAPI.downloadTemplate()
+      const url = window.URL.createObjectURL(new Blob([response.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', 'vehicles_template.xlsx')
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+    } catch (err) {
+      setError('템플릿 다운로드 중 오류가 발생했습니다')
+    }
+  }
+
+  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }))
+  }
+
+  const handleFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setUploading(true)
+    setError('')
+    setResult(null)
+
+    try {
+      const response = await vehiclesAPI.create(formData)
+      setResult({ created: 1, failed: 0, total: 1 })
+      setShowForm(false)
+      // Reset form
+      setFormData({
+        code: '',
+        plate_number: '',
+        vehicle_type: 'FREEZER',
+        max_weight_kg: 5000,
+        max_volume_cbm: 15,
+        max_pallets: 20,
+        temperature_zones: 'frozen',
+        driver_name: '',
+        driver_phone: '',
+        fuel_efficiency_kmperliter: 8,
+        notes: ''
+      })
+    } catch (err: any) {
+      setError(err.response?.data?.detail || '등록 중 오류가 발생했습니다')
+    } finally {
+      setUploading(false)
+    }
+  }
+
   return (
     <div>
       <div className="card">
         <h2>차량 마스터 업로드</h2>
         <p style={{ marginBottom: '20px', color: '#666' }}>
-          엑셀 파일로 차량 정보를 일괄 등록합니다.
+          엑셀 파일로 차량 정보를 일괄 등록하거나 직접 등록할 수 있습니다.
         </p>
+
+        <div style={{ marginBottom: '20px', display: 'flex', gap: '10px' }}>
+          <button className="button secondary" onClick={downloadTemplate}>
+            📥 템플릿 다운로드
+          </button>
+          <button 
+            className="button" 
+            onClick={() => setShowForm(!showForm)}
+            style={{ backgroundColor: showForm ? '#6c757d' : '#28a745' }}
+          >
+            {showForm ? '❌ 폼 닫기' : '➕ 직접 등록'}
+          </button>
+        </div>
 
         {error && <div className="error-message">{error}</div>}
         {result && (
           <div className="success-message">
-            <strong>업로드 완료!</strong>
+            <strong>등록 완료!</strong>
             <ul style={{ marginTop: '8px', marginLeft: '20px' }}>
               <li>총 {result.total}건</li>
               <li>성공: {result.created}건</li>
               <li>실패: {result.failed}건</li>
             </ul>
+          </div>
+        )}
+
+        {showForm && (
+          <div style={{ 
+            marginBottom: '30px', 
+            padding: '20px', 
+            border: '2px solid #28a745', 
+            borderRadius: '8px',
+            backgroundColor: '#f8f9fa'
+          }}>
+            <h3 style={{ marginBottom: '15px' }}>차량 직접 등록</h3>
+            <form onSubmit={handleFormSubmit}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                    차량 코드 *
+                  </label>
+                  <input
+                    type="text"
+                    name="code"
+                    value={formData.code}
+                    onChange={handleFormChange}
+                    required
+                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                    차량번호 *
+                  </label>
+                  <input
+                    type="text"
+                    name="plate_number"
+                    value={formData.plate_number}
+                    onChange={handleFormChange}
+                    required
+                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                    차량 유형 *
+                  </label>
+                  <select
+                    name="vehicle_type"
+                    value={formData.vehicle_type}
+                    onChange={handleFormChange}
+                    required
+                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                  >
+                    <option value="FREEZER">냉동차</option>
+                    <option value="REFRIGERATED">냉장차</option>
+                    <option value="BOTH">냉동/냉장</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                    온도존 *
+                  </label>
+                  <select
+                    name="temperature_zones"
+                    value={formData.temperature_zones}
+                    onChange={handleFormChange}
+                    required
+                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                  >
+                    <option value="frozen">냉동</option>
+                    <option value="chilled">냉장</option>
+                    <option value="frozen,chilled">냉동/냉장</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                    최대 적재량 (kg) *
+                  </label>
+                  <input
+                    type="number"
+                    name="max_weight_kg"
+                    value={formData.max_weight_kg}
+                    onChange={handleFormChange}
+                    required
+                    min="0"
+                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                    최대 용적 (CBM) *
+                  </label>
+                  <input
+                    type="number"
+                    name="max_volume_cbm"
+                    value={formData.max_volume_cbm}
+                    onChange={handleFormChange}
+                    required
+                    min="0"
+                    step="0.1"
+                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                    최대 팔레트 수 *
+                  </label>
+                  <input
+                    type="number"
+                    name="max_pallets"
+                    value={formData.max_pallets}
+                    onChange={handleFormChange}
+                    required
+                    min="0"
+                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                    연비 (km/L)
+                  </label>
+                  <input
+                    type="number"
+                    name="fuel_efficiency_kmperliter"
+                    value={formData.fuel_efficiency_kmperliter}
+                    onChange={handleFormChange}
+                    min="0"
+                    step="0.1"
+                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                    운전자명
+                  </label>
+                  <input
+                    type="text"
+                    name="driver_name"
+                    value={formData.driver_name}
+                    onChange={handleFormChange}
+                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                    운전자 전화번호
+                  </label>
+                  <input
+                    type="tel"
+                    name="driver_phone"
+                    value={formData.driver_phone}
+                    onChange={handleFormChange}
+                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                  />
+                </div>
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                    비고
+                  </label>
+                  <textarea
+                    name="notes"
+                    value={formData.notes}
+                    onChange={handleFormChange}
+                    rows={3}
+                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                  />
+                </div>
+              </div>
+              <div style={{ marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                <button 
+                  type="button" 
+                  className="button secondary"
+                  onClick={() => setShowForm(false)}
+                >
+                  취소
+                </button>
+                <button 
+                  type="submit" 
+                  className="button"
+                  disabled={uploading}
+                >
+                  {uploading ? '등록 중...' : '등록하기'}
+                </button>
+              </div>
+            </form>
           </div>
         )}
 
@@ -64,6 +342,16 @@ function VehicleUpload() {
             {uploading ? '업로드 중...' : '업로드 시작'}
           </button>
         </div>
+      </div>
+
+      <div className="card">
+        <h2>업로드 가이드</h2>
+        <ol style={{ marginLeft: '20px', color: '#666' }}>
+          <li style={{ marginBottom: '8px' }}>위의 "템플릿 다운로드" 버튼을 클릭하여 엑셀 템플릿을 다운로드합니다.</li>
+          <li style={{ marginBottom: '8px' }}>템플릿에 차량 정보를 입력합니다.</li>
+          <li style={{ marginBottom: '8px' }}>작성한 파일을 업로드합니다.</li>
+          <li style={{ marginBottom: '8px' }}><strong>또는</strong> "직접 등록" 버튼으로 한 건씩 등록할 수 있습니다.</li>
+        </ol>
       </div>
     </div>
   )

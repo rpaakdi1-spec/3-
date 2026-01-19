@@ -19,6 +19,8 @@ export const clientsAPI = {
     })
   },
   geocode: (clientIds: number[]) => api.post('/clients/geocode', { client_ids: clientIds }),
+  downloadTemplate: () => api.get('/clients/template/download', { responseType: 'blob' }),
+  create: (data: any) => api.post('/clients', data),
 }
 
 export const vehiclesAPI = {
@@ -30,6 +32,8 @@ export const vehiclesAPI = {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
   },
+  downloadTemplate: () => api.get('/vehicles/template/download', { responseType: 'blob' }),
+  create: (data: any) => api.post('/vehicles', data),
 }
 
 export const ordersAPI = {
@@ -42,6 +46,8 @@ export const ordersAPI = {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
   },
+  downloadTemplate: () => api.get('/orders/template/download', { responseType: 'blob' }),
+  create: (data: any) => api.post('/orders', data),
 }
 
 export const dispatchesAPI = {

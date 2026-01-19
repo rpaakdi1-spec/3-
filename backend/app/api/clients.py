@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional
+from pathlib import Path
 
 from app.core.database import get_db
 from app.models.client import Client
@@ -9,6 +11,7 @@ from app.schemas.client import (
     GeocodeRequest, GeocodeResponse
 )
 from app.services.excel_upload_service import ExcelUploadService
+from app.services.excel_template_service import ExcelTemplateService
 from app.services.naver_map_service import NaverMapService
 from loguru import logger
 
@@ -192,4 +195,19 @@ async def geocode_clients(
         success_count=success_count,
         failed_count=failed_count,
         results=results
+    )
+
+
+@router.get("/template/download")
+def download_client_template():
+    """거래처 Excel 템플릿 다운로드"""
+    template_path = ExcelTemplateService.create_client_template()
+    
+    if not Path(template_path).exists():
+        raise HTTPException(status_code=404, detail="템플릿 파일을 찾을 수 없습니다")
+    
+    return FileResponse(
+        path=template_path,
+        filename="clients_template.xlsx",
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )

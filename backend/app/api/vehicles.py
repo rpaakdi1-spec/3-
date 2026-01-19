@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from typing import Optional
+from pathlib import Path
 
 from app.core.database import get_db
 from app.models.vehicle import Vehicle, VehicleStatus
@@ -8,6 +10,7 @@ from app.schemas.vehicle import (
     VehicleCreate, VehicleUpdate, VehicleResponse, VehicleListResponse
 )
 from app.services.excel_upload_service import ExcelUploadService
+from app.services.excel_template_service import ExcelTemplateService
 from loguru import logger
 
 router = APIRouter()
@@ -128,3 +131,19 @@ async def upload_vehicles_excel(
     except Exception as e:
         logger.error(f"Error uploading vehicles: {e}")
         raise HTTPException(status_code=500, detail="업로드 중 오류가 발생했습니다")
+
+
+
+@router.get("/template/download")
+def download_vehicle_template():
+    """차량 Excel 템플릿 다운로드"""
+    template_path = ExcelTemplateService.create_vehicle_template()
+    
+    if not Path(template_path).exists():
+        raise HTTPException(status_code=404, detail="템플릿 파일을 찾을 수 없습니다")
+    
+    return FileResponse(
+        path=template_path,
+        filename="vehicles_template.xlsx",
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
