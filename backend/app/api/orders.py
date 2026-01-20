@@ -67,23 +67,60 @@ def get_order(order_id: int, db: Session = Depends(get_db)):
 
 @router.post("/", response_model=OrderResponse, status_code=201)
 def create_order(order_data: OrderCreate, db: Session = Depends(get_db)):
-    """주문 생성"""
+    """주문 생성 (거래처 ID 또는 주소로 입력 가능)"""
     # Check if order number already exists
     existing = db.query(Order).filter(Order.order_number == order_data.order_number).first()
     if existing:
         raise HTTPException(status_code=400, detail="이미 존재하는 주문번호입니다")
     
-    # Validate clients exist
     from app.models.client import Client
-    pickup_client = db.query(Client).filter(Client.id == order_data.pickup_client_id).first()
-    if not pickup_client:
-        raise HTTPException(status_code=404, detail="상차 거래처를 찾을 수 없습니다")
+    from app.services.naver_map_service import NaverMapService
     
-    delivery_client = db.query(Client).filter(Client.id == order_data.delivery_client_id).first()
-    if not delivery_client:
-        raise HTTPException(status_code=404, detail="하차 거래처를 찾을 수 없습니다")
+    order_dict = order_data.model_dump()
     
-    order = Order(**order_data.model_dump(), status=OrderStatus.PENDING)
+    # 거래처 ID로 입력한 경우 - 거래처 존재 확인
+    if order_data.pickup_client_id:
+        pickup_client = db.query(Client).filter(Client.id == order_data.pickup_client_id).first()
+        if not pickup_client:
+            raise HTTPException(status_code=404, detail="상차 거래처를 찾을 수 없습니다")
+    elif order_data.pickup_address:
+        # 주소로 입력한 경우 - Naver 지오코딩
+        naver_service = NaverMapService()
+        full_address = f"{order_data.pickup_address} {order_data.pickup_address_detail or ''}".strip()
+        location = naver_service.geocode(full_address)
+        
+        if location and location.get('latitude') and location.get('longitude'):
+            # 위경도 저장
+            order_dict['pickup_latitude'] = location['latitude']
+            order_dict['pickup_longitude'] = location['longitude']
+            logger.info(f"Geocoded pickup address: {full_address} -> ({location['latitude']}, {location['longitude']})")
+        else:
+            logger.warning(f"Failed to geocode pickup address: {full_address}")
+    else:
+        raise HTTPException(status_code=400, detail="상차 거래처 ID 또는 주소를 입력해주세요")
+    
+    if order_data.delivery_client_id:
+        delivery_client = db.query(Client).filter(Client.id == order_data.delivery_client_id).first()
+        if not delivery_client:
+            raise HTTPException(status_code=404, detail="하차 거래처를 찾을 수 없습니다")
+    elif order_data.delivery_address:
+        # 주소로 입력한 경우 - Naver 지오코딩
+        naver_service = NaverMapService()
+        full_address = f"{order_data.delivery_address} {order_data.delivery_address_detail or ''}".strip()
+        location = naver_service.geocode(full_address)
+        
+        if location and location.get('latitude') and location.get('longitude'):
+            # 위경도 저장
+            order_dict['delivery_latitude'] = location['latitude']
+            order_dict['delivery_longitude'] = location['longitude']
+            logger.info(f"Geocoded delivery address: {full_address} -> ({location['latitude']}, {location['longitude']})")
+        else:
+            logger.warning(f"Failed to geocode delivery address: {full_address}")
+    else:
+        raise HTTPException(status_code=400, detail="하차 거래처 ID 또는 주소를 입력해주세요")
+    
+    order_dict['status'] = OrderStatus.PENDING
+    order = Order(**order_dict)
     db.add(order)
     db.commit()
     db.refresh(order)

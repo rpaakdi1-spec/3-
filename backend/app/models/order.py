@@ -38,9 +38,20 @@ class Order(Base, IDMixin, TimestampMixin):
         comment="온도대 구분"
     )
     
-    # 거래처 정보
-    pickup_client_id: Mapped[int] = mapped_column(ForeignKey("clients.id"), nullable=False, comment="상차 거래처 ID")
-    delivery_client_id: Mapped[int] = mapped_column(ForeignKey("clients.id"), nullable=False, comment="하차 거래처 ID")
+    # 거래처 정보 (ID 또는 주소로 지정 가능)
+    pickup_client_id: Mapped[Optional[int]] = mapped_column(ForeignKey("clients.id"), nullable=True, comment="상차 거래처 ID")
+    delivery_client_id: Mapped[Optional[int]] = mapped_column(ForeignKey("clients.id"), nullable=True, comment="하차 거래처 ID")
+    
+    # 주소로 직접 입력한 경우
+    pickup_address: Mapped[Optional[str]] = mapped_column(String(500), comment="상차 주소")
+    pickup_address_detail: Mapped[Optional[str]] = mapped_column(String(200), comment="상차 상세주소")
+    pickup_latitude: Mapped[Optional[float]] = mapped_column(Float, comment="상차 위도")
+    pickup_longitude: Mapped[Optional[float]] = mapped_column(Float, comment="상차 경도")
+    
+    delivery_address: Mapped[Optional[str]] = mapped_column(String(500), comment="하차 주소")
+    delivery_address_detail: Mapped[Optional[str]] = mapped_column(String(200), comment="하차 상세주소")
+    delivery_latitude: Mapped[Optional[float]] = mapped_column(Float, comment="하차 위도")
+    delivery_longitude: Mapped[Optional[float]] = mapped_column(Float, comment="하차 경도")
     
     # 화물 정보
     pallet_count: Mapped[int] = mapped_column(Integer, nullable=False, comment="팔레트 수")

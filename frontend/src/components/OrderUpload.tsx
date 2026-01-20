@@ -6,6 +6,10 @@ interface OrderForm {
   order_date: string
   pickup_client_id: number | ''
   delivery_client_id: number | ''
+  pickup_address?: string
+  pickup_address_detail?: string
+  delivery_address?: string
+  delivery_address_detail?: string
   product_name: string
   quantity_pallets: number
   weight_kg: number
@@ -40,11 +44,15 @@ function OrderUpload() {
   const [clients, setClients] = useState<any[]>([])
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(false)
+  const [usePickupAddress, setUsePickupAddress] = useState(false)
+  const [useDeliveryAddress, setUseDeliveryAddress] = useState(false)
   const [formData, setFormData] = useState<OrderForm>({
     order_number: '',
     order_date: new Date().toISOString().split('T')[0],
     pickup_client_id: '',
     delivery_client_id: '',
+    pickup_address: '',
+    delivery_address: '',
     product_name: '',
     quantity_pallets: 1,
     weight_kg: 500,
@@ -157,9 +165,35 @@ function OrderUpload() {
         'ambient': '상온'
       }
       
-      const apiData = {
-        ...formData,
-        temperature_zone: tempZoneMap[formData.temperature_zone] || '냉동'
+      const apiData: any = {
+        order_number: formData.order_number,
+        order_date: formData.order_date,
+        product_name: formData.product_name,
+        pallet_count: formData.quantity_pallets,  // Map to backend field name
+        weight_kg: formData.weight_kg,
+        volume_cbm: formData.volume_cbm,
+        temperature_zone: tempZoneMap[formData.temperature_zone] || '냉동',
+        pickup_start_time: formData.pickup_time_start,
+        pickup_end_time: formData.pickup_time_end,
+        delivery_start_time: formData.delivery_time_start,
+        delivery_end_time: formData.delivery_time_end,
+        notes: formData.notes
+      }
+      
+      // 상차지: 거래처 ID 또는 주소
+      if (usePickupAddress && formData.pickup_address) {
+        apiData.pickup_address = formData.pickup_address
+        apiData.pickup_address_detail = formData.pickup_address_detail || ''
+      } else if (formData.pickup_client_id) {
+        apiData.pickup_client_id = formData.pickup_client_id
+      }
+      
+      // 하차지: 거래처 ID 또는 주소
+      if (useDeliveryAddress && formData.delivery_address) {
+        apiData.delivery_address = formData.delivery_address
+        apiData.delivery_address_detail = formData.delivery_address_detail || ''
+      } else if (formData.delivery_client_id) {
+        apiData.delivery_client_id = formData.delivery_client_id
       }
       
       await ordersAPI.create(apiData)
@@ -171,6 +205,8 @@ function OrderUpload() {
         order_date: new Date().toISOString().split('T')[0],
         pickup_client_id: '',
         delivery_client_id: '',
+        pickup_address: '',
+        delivery_address: '',
         product_name: '',
         quantity_pallets: 1,
         weight_kg: 500,
@@ -182,6 +218,8 @@ function OrderUpload() {
         delivery_time_end: '18:00',
         notes: ''
       })
+      setUsePickupAddress(false)
+      setUseDeliveryAddress(false)
     } catch (err: any) {
       setError(err.response?.data?.detail || '등록 중 오류가 발생했습니다')
     } finally {
@@ -270,39 +308,113 @@ function OrderUpload() {
                   <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
                     상차 거래처 *
                   </label>
-                  <select
-                    name="pickup_client_id"
-                    value={formData.pickup_client_id}
-                    onChange={handleFormChange}
-                    required
-                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
-                  >
-                    <option value="">선택하세요</option>
-                    {clients.filter(c => c.client_type === 'PICKUP' || c.client_type === 'BOTH').map(client => (
-                      <option key={client.id} value={client.id}>
-                        {client.name} ({client.code})
-                      </option>
-                    ))}
-                  </select>
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '8px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <input
+                        type="checkbox"
+                        checked={usePickupAddress}
+                        onChange={(e) => {
+                          setUsePickupAddress(e.target.checked)
+                          if (e.target.checked) {
+                            setFormData(prev => ({ ...prev, pickup_client_id: '' }))
+                          }
+                        }}
+                      />
+                      주소로 직접 입력
+                    </label>
+                  </div>
+                  {usePickupAddress ? (
+                    <>
+                      <input
+                        type="text"
+                        name="pickup_address"
+                        value={formData.pickup_address}
+                        onChange={handleFormChange}
+                        placeholder="상차 주소 (예: 서울특별시 강남구 테헤란로 123)"
+                        required
+                        style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                      />
+                      <input
+                        type="text"
+                        name="pickup_address_detail"
+                        value={formData.pickup_address_detail || ''}
+                        onChange={handleFormChange}
+                        placeholder="상세주소 (예: 3층)"
+                        style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd', marginTop: '5px' }}
+                      />
+                    </>
+                  ) : (
+                    <select
+                      name="pickup_client_id"
+                      value={formData.pickup_client_id}
+                      onChange={handleFormChange}
+                      required
+                      style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                    >
+                      <option value="">선택하세요</option>
+                      {clients.filter(c => c.client_type === 'PICKUP' || c.client_type === 'BOTH').map(client => (
+                        <option key={client.id} value={client.id}>
+                          {client.name} ({client.code})
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
                 <div>
                   <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
                     하차 거래처 *
                   </label>
-                  <select
-                    name="delivery_client_id"
-                    value={formData.delivery_client_id}
-                    onChange={handleFormChange}
-                    required
-                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
-                  >
-                    <option value="">선택하세요</option>
-                    {clients.filter(c => c.client_type === 'DELIVERY' || c.client_type === 'BOTH').map(client => (
-                      <option key={client.id} value={client.id}>
-                        {client.name} ({client.code})
-                      </option>
-                    ))}
-                  </select>
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '8px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <input
+                        type="checkbox"
+                        checked={useDeliveryAddress}
+                        onChange={(e) => {
+                          setUseDeliveryAddress(e.target.checked)
+                          if (e.target.checked) {
+                            setFormData(prev => ({ ...prev, delivery_client_id: '' }))
+                          }
+                        }}
+                      />
+                      주소로 직접 입력
+                    </label>
+                  </div>
+                  {useDeliveryAddress ? (
+                    <>
+                      <input
+                        type="text"
+                        name="delivery_address"
+                        value={formData.delivery_address}
+                        onChange={handleFormChange}
+                        placeholder="하차 주소 (예: 경기도 성남시 분당구 판교로 456)"
+                        required
+                        style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                      />
+                      <input
+                        type="text"
+                        name="delivery_address_detail"
+                        value={formData.delivery_address_detail || ''}
+                        onChange={handleFormChange}
+                        placeholder="상세주소 (예: B동 1층)"
+                        style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd', marginTop: '5px' }}
+                      />
+                    </>
+                  ) : (
+                    <select
+                      name="delivery_client_id"
+                      value={formData.delivery_client_id}
+                      onChange={handleFormChange}
+                      required
+                      style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                    >
+                      <option value="">선택하세요</option>
+                      {clients.filter(c => c.client_type === 'DELIVERY' || c.client_type === 'BOTH').map(client => (
+                        <option key={client.id} value={client.id}>
+                          {client.name} ({client.code})
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
                 <div>
                   <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>

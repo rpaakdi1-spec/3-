@@ -10,8 +10,15 @@ class OrderBase(BaseModel):
     order_date: date = Field(..., description="주문일자")
     temperature_zone: TemperatureZone = Field(..., description="온도대 구분")
     
-    pickup_client_id: int = Field(..., description="상차 거래처 ID")
-    delivery_client_id: int = Field(..., description="하차 거래처 ID")
+    # 거래처 선택 방식 1: 거래처 ID로 선택
+    pickup_client_id: Optional[int] = Field(None, description="상차 거래처 ID")
+    delivery_client_id: Optional[int] = Field(None, description="하차 거래처 ID")
+    
+    # 거래처 선택 방식 2: 주소로 직접 입력
+    pickup_address: Optional[str] = Field(None, max_length=500, description="상차 주소")
+    pickup_address_detail: Optional[str] = Field(None, max_length=200, description="상차 상세주소")
+    delivery_address: Optional[str] = Field(None, max_length=500, description="하차 주소")
+    delivery_address_detail: Optional[str] = Field(None, max_length=200, description="하차 상세주소")
     
     pallet_count: int = Field(..., gt=0, description="팔레트 수")
     weight_kg: float = Field(..., gt=0, description="중량(kg)")
@@ -65,6 +72,12 @@ class OrderResponse(OrderBase):
     # Include client info
     pickup_client_name: Optional[str] = None
     delivery_client_name: Optional[str] = None
+    
+    # Include address info (for orders created with address)
+    pickup_latitude: Optional[float] = None
+    pickup_longitude: Optional[float] = None
+    delivery_latitude: Optional[float] = None
+    delivery_longitude: Optional[float] = None
     
     model_config = ConfigDict(from_attributes=True)
 
