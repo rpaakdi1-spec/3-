@@ -10,7 +10,7 @@ export const api = axios.create({
 })
 
 export const clientsAPI = {
-  list: () => api.get('/clients'),
+  list: () => api.get('/clients/'),
   upload: (file: File, autoGeocode: boolean = true) => {
     const formData = new FormData()
     formData.append('file', file)
@@ -20,11 +20,11 @@ export const clientsAPI = {
   },
   geocode: (clientIds: number[]) => api.post('/clients/geocode', { client_ids: clientIds }),
   downloadTemplate: () => api.get('/clients/template/download', { responseType: 'blob' }),
-  create: (data: any) => api.post('/clients', data),
+  create: (data: any) => api.post('/clients/', data),
 }
 
 export const vehiclesAPI = {
-  list: () => api.get('/vehicles'),
+  list: () => api.get('/vehicles/'),
   upload: (file: File) => {
     const formData = new FormData()
     formData.append('file', file)
@@ -33,11 +33,11 @@ export const vehiclesAPI = {
     })
   },
   downloadTemplate: () => api.get('/vehicles/template/download', { responseType: 'blob' }),
-  create: (data: any) => api.post('/vehicles', data),
+  create: (data: any) => api.post('/vehicles/', data),
 }
 
 export const ordersAPI = {
-  list: (status?: string) => api.get('/orders', { params: { status } }),
+  list: (status?: string) => api.get('/orders/', { params: { status } }),
   pendingCount: () => api.get('/orders/pending/count'),
   upload: (file: File) => {
     const formData = new FormData()
@@ -47,7 +47,7 @@ export const ordersAPI = {
     })
   },
   downloadTemplate: () => api.get('/orders/template/download', { responseType: 'blob' }),
-  create: (data: any) => api.post('/orders', data),
+  create: (data: any) => api.post('/orders/', data),
 }
 
 export const dispatchesAPI = {
