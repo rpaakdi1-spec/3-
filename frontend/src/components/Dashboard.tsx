@@ -19,6 +19,13 @@ function Dashboard() {
 
   useEffect(() => {
     loadStats()
+    
+    // 자동 새로고침: 30초마다 통계 업데이트
+    const interval = setInterval(() => {
+      loadStats()
+    }, 30000) // 30초
+
+    return () => clearInterval(interval)
   }, [])
 
   const loadStats = async () => {
@@ -49,7 +56,16 @@ function Dashboard() {
 
   return (
     <div>
-      <h1 style={{ marginBottom: '20px' }}>대시보드</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+        <h1 style={{ margin: 0 }}>대시보드</h1>
+        <button 
+          className="button secondary" 
+          onClick={loadStats}
+          disabled={loading}
+        >
+          🔄 새로고침
+        </button>
+      </div>
       
       <div className="stats-grid">
         <div className="stat-card">
