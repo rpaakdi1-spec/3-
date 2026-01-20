@@ -16,6 +16,7 @@ function Dashboard() {
     dispatches: 0,
   })
   const [loading, setLoading] = useState(true)
+  const [lastUpdated, setLastUpdated] = useState<string>('')
 
   useEffect(() => {
     loadStats()
@@ -30,6 +31,7 @@ function Dashboard() {
 
   const loadStats = async () => {
     try {
+      console.log('Dashboard: Loading stats...')
       const [clientsRes, vehiclesRes, ordersRes, dispatchesRes] = await Promise.all([
         clientsAPI.list(),
         vehiclesAPI.list(),
@@ -37,14 +39,28 @@ function Dashboard() {
         dispatchesAPI.list(),
       ])
 
-      setStats({
+      console.log('Dashboard: API responses:', {
+        clients: clientsRes.data,
+        vehicles: vehiclesRes.data,
+        orders: ordersRes.data,
+        dispatches: dispatchesRes.data
+      })
+
+      const newStats = {
         clients: clientsRes.data.total || 0,
         vehicles: vehiclesRes.data.total || 0,
         pendingOrders: ordersRes.data.pending_count || 0,
         dispatches: dispatchesRes.data.total || 0,
-      })
+      }
+
+      console.log('Dashboard: Updated stats:', newStats)
+      setStats(newStats)
+      
+      // 마지막 업데이트 시간 설정
+      const now = new Date()
+      setLastUpdated(now.toLocaleTimeString('ko-KR'))
     } catch (error) {
-      console.error('Failed to load stats:', error)
+      console.error('Dashboard: Failed to load stats:', error)
     } finally {
       setLoading(false)
     }
@@ -57,7 +73,14 @@ function Dashboard() {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h1 style={{ margin: 0 }}>대시보드</h1>
+        <div>
+          <h1 style={{ margin: 0 }}>대시보드</h1>
+          {lastUpdated && (
+            <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#666' }}>
+              마지막 업데이트: {lastUpdated}
+            </p>
+          )}
+        </div>
         <button 
           className="button secondary" 
           onClick={loadStats}
