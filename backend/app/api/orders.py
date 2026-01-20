@@ -66,8 +66,10 @@ def get_order(order_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/", response_model=OrderResponse, status_code=201)
-def create_order(order_data: OrderCreate, db: Session = Depends(get_db)):
+async def create_order(order_data: OrderCreate, db: Session = Depends(get_db)):
     """주문 생성 (거래처 ID 또는 주소로 입력 가능)"""
+    from datetime import time as time_type
+    
     # Check if order number already exists
     existing = db.query(Order).filter(Order.order_number == order_data.order_number).first()
     if existing:
@@ -78,6 +80,14 @@ def create_order(order_data: OrderCreate, db: Session = Depends(get_db)):
     
     order_dict = order_data.model_dump()
     
+    # Convert time strings to time objects
+    for time_field in ['pickup_start_time', 'pickup_end_time', 'delivery_start_time', 'delivery_end_time']:
+        if order_dict.get(time_field):
+            time_str = order_dict[time_field]
+            if isinstance(time_str, str):
+                hour, minute = map(int, time_str.split(':'))
+                order_dict[time_field] = time_type(hour, minute)
+    
     # 거래처 ID로 입력한 경우 - 거래처 존재 확인
     if order_data.pickup_client_id:
         pickup_client = db.query(Client).filter(Client.id == order_data.pickup_client_id).first()
@@ -87,15 +97,15 @@ def create_order(order_data: OrderCreate, db: Session = Depends(get_db)):
         # 주소로 입력한 경우 - Naver 지오코딩
         naver_service = NaverMapService()
         full_address = f"{order_data.pickup_address} {order_data.pickup_address_detail or ''}".strip()
-        location = naver_service.geocode(full_address)
+        latitude, longitude, error = await naver_service.geocode_address(full_address)
         
-        if location and location.get('latitude') and location.get('longitude'):
+        if latitude and longitude:
             # 위경도 저장
-            order_dict['pickup_latitude'] = location['latitude']
-            order_dict['pickup_longitude'] = location['longitude']
-            logger.info(f"Geocoded pickup address: {full_address} -> ({location['latitude']}, {location['longitude']})")
+            order_dict['pickup_latitude'] = latitude
+            order_dict['pickup_longitude'] = longitude
+            logger.info(f"Geocoded pickup address: {full_address} -> ({latitude}, {longitude})")
         else:
-            logger.warning(f"Failed to geocode pickup address: {full_address}")
+            logger.warning(f"Failed to geocode pickup address: {full_address}, error: {error}")
     else:
         raise HTTPException(status_code=400, detail="상차 거래처 ID 또는 주소를 입력해주세요")
     
@@ -107,15 +117,15 @@ def create_order(order_data: OrderCreate, db: Session = Depends(get_db)):
         # 주소로 입력한 경우 - Naver 지오코딩
         naver_service = NaverMapService()
         full_address = f"{order_data.delivery_address} {order_data.delivery_address_detail or ''}".strip()
-        location = naver_service.geocode(full_address)
+        latitude, longitude, error = await naver_service.geocode_address(full_address)
         
-        if location and location.get('latitude') and location.get('longitude'):
+        if latitude and longitude:
             # 위경도 저장
-            order_dict['delivery_latitude'] = location['latitude']
-            order_dict['delivery_longitude'] = location['longitude']
-            logger.info(f"Geocoded delivery address: {full_address} -> ({location['latitude']}, {location['longitude']})")
+            order_dict['delivery_latitude'] = latitude
+            order_dict['delivery_longitude'] = longitude
+            logger.info(f"Geocoded delivery address: {full_address} -> ({latitude}, {longitude})")
         else:
-            logger.warning(f"Failed to geocode delivery address: {full_address}")
+            logger.warning(f"Failed to geocode delivery address: {full_address}, error: {error}")
     else:
         raise HTTPException(status_code=400, detail="하차 거래처 ID 또는 주소를 입력해주세요")
     
