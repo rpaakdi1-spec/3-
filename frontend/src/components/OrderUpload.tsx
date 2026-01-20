@@ -143,6 +143,28 @@ function OrderUpload() {
     }
   }
 
+  // 주문번호 자동 생성
+  const generateOrderNumber = () => {
+    const now = new Date()
+    const year = now.getFullYear()
+    const month = String(now.getMonth() + 1).padStart(2, '0')
+    const day = String(now.getDate()).padStart(2, '0')
+    const hours = String(now.getHours()).padStart(2, '0')
+    const minutes = String(now.getMinutes()).padStart(2, '0')
+    const seconds = String(now.getSeconds()).padStart(2, '0')
+    return `ORD-${year}${month}${day}-${hours}${minutes}${seconds}`
+  }
+
+  // 폼 열기 시 주문번호 자동 생성
+  useEffect(() => {
+    if (showForm && !formData.order_number) {
+      setFormData(prev => ({
+        ...prev,
+        order_number: generateOrderNumber()
+      }))
+    }
+  }, [showForm])
+
   // 거래처 선택 시 주소 자동 입력
   const handleClientSelect = (field: 'pickup' | 'delivery', clientId: string) => {
     const selectedClient = clients.find(c => c.id === parseInt(clientId))
@@ -258,7 +280,35 @@ function OrderUpload() {
       setUsePickupAddress(false)
       setUseDeliveryAddress(false)
     } catch (err: any) {
-      setError(err.response?.data?.detail || '등록 중 오류가 발생했습니다')
+      console.error('Order creation error:', err)
+      let errorMessage = '등록 중 오류가 발생했습니다'
+      
+      if (err.response) {
+        // 서버에서 응답을 받은 경우
+        if (err.response.data?.detail) {
+          errorMessage = err.response.data.detail
+          // 중복 주문번호 오류인 경우 새 번호 제안
+          if (errorMessage.includes('이미 존재하는 주문번호')) {
+            const newOrderNumber = generateOrderNumber()
+            errorMessage += `\n\n새로운 주문번호로 시도해주세요: ${newOrderNumber}`
+            setFormData(prev => ({ ...prev, order_number: newOrderNumber }))
+          }
+        } else if (err.response.status === 400) {
+          errorMessage = '잘못된 요청입니다. 모든 필수 항목을 확인해주세요.'
+        } else if (err.response.status === 404) {
+          errorMessage = '선택한 거래처를 찾을 수 없습니다. 거래처를 다시 선택해주세요.'
+        } else if (err.response.status >= 500) {
+          errorMessage = '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.'
+        }
+      } else if (err.request) {
+        // 요청을 보냈지만 응답을 받지 못한 경우
+        errorMessage = '서버에 연결할 수 없습니다. 인터넷 연결을 확인해주세요.'
+      } else {
+        // 요청 설정 중 오류가 발생한 경우
+        errorMessage = `오류: ${err.message}`
+      }
+      
+      setError(errorMessage)
     } finally {
       setUploading(false)
     }
@@ -292,7 +342,20 @@ function OrderUpload() {
           </button>
         </div>
 
-        {error && <div className="error-message">{error}</div>}
+        {error && (
+          <div className="error-message" style={{ 
+            whiteSpace: 'pre-line',
+            padding: '15px',
+            marginBottom: '20px',
+            backgroundColor: '#f8d7da',
+            border: '1px solid #f5c6cb',
+            borderRadius: '4px',
+            color: '#721c24'
+          }}>
+            <strong>⚠️ 오류가 발생했습니다</strong>
+            <div style={{ marginTop: '8px' }}>{error}</div>
+          </div>
+        )}
         {result && (
           <div className="success-message">
             <strong>등록 완료!</strong>
@@ -319,14 +382,32 @@ function OrderUpload() {
                   <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
                     주문번호 *
                   </label>
-                  <input
-                    type="text"
-                    name="order_number"
-                    value={formData.order_number}
-                    onChange={handleFormChange}
-                    required
-                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
-                  />
+                  <div style={{ display: 'flex', gap: '5px' }}>
+                    <input
+                      type="text"
+                      name="order_number"
+                      value={formData.order_number}
+                      onChange={handleFormChange}
+                      required
+                      style={{ flex: 1, padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, order_number: generateOrderNumber() }))}
+                      style={{ 
+                        padding: '8px 12px', 
+                        borderRadius: '4px', 
+                        border: '1px solid #ddd', 
+                        backgroundColor: '#f8f9fa',
+                        cursor: 'pointer',
+                        fontSize: '14px'
+                      }}
+                      title="새로운 주문번호 생성"
+                    >
+                      🔄
+                    </button>
+                  </div>
+                  <small style={{ color: '#666', fontSize: '12px' }}>자동생성됨. 필요시 수정 가능</small>
                 </div>
                 <div>
                   <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
