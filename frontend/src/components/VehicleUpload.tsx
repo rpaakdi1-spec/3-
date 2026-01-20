@@ -36,6 +36,7 @@ function VehicleUpload() {
   const [showForm, setShowForm] = useState(false)
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [loading, setLoading] = useState(false)
+  const [editingId, setEditingId] = useState<number | null>(null)
   const [formData, setFormData] = useState<VehicleForm>({
     plate_number: '',
     vehicle_type: 'FREEZER',
@@ -142,9 +143,19 @@ function VehicleUpload() {
         vehicle_type: vehicleTypeMap[formData.vehicle_type] || '냉동',
         max_volume_cbm: formData.max_pallets * 1.5 // 팔레트당 평균 1.5 CBM으로 자동 계산
       }
-      await vehiclesAPI.create(dataToSubmit)
-      setResult({ created: 1, failed: 0, total: 1 })
+      
+      if (editingId) {
+        // 수정 모드
+        await vehiclesAPI.update(editingId, dataToSubmit)
+        setResult({ created: 0, updated: 1, failed: 0, total: 1 })
+      } else {
+        // 등록 모드
+        await vehiclesAPI.create(dataToSubmit)
+        setResult({ created: 1, failed: 0, total: 1 })
+      }
+      
       setShowForm(false)
+      setEditingId(null)
       // Reset form
       setFormData({
         plate_number: '',
@@ -158,11 +169,70 @@ function VehicleUpload() {
         fuel_efficiency_kmperliter: 8,
         notes: ''
       })
+      loadVehicles()
     } catch (err: any) {
-      setError(err.response?.data?.detail || '등록 중 오류가 발생했습니다')
+      setError(err.response?.data?.detail || `${editingId ? '수정' : '등록'} 중 오류가 발생했습니다`)
     } finally {
       setUploading(false)
     }
+  }
+
+  const handleEdit = (vehicle: Vehicle) => {
+    // 영어 값으로 변환
+    const vehicleTypeReverseMap: { [key: string]: string } = {
+      '냉동': 'FREEZER',
+      '냉장': 'REFRIGERATED',
+      '겸용': 'DUAL',
+      '상온': 'AMBIENT'
+    }
+    
+    setFormData({
+      plate_number: vehicle.plate_number,
+      vehicle_type: vehicleTypeReverseMap[vehicle.vehicle_type] || 'FREEZER',
+      max_weight_kg: vehicle.max_weight_kg,
+      max_pallets: vehicle.max_pallets,
+      tonnage: 5.0, // TODO: 백엔드에서 가져오기
+      temperature_zones: vehicle.temperature_zones || 'frozen',
+      driver_name: vehicle.driver_name || '',
+      driver_phone: vehicle.driver_phone || '',
+      fuel_efficiency_kmperliter: 8,
+      notes: ''
+    })
+    setEditingId(vehicle.id)
+    setShowForm(true)
+    setError('')
+    setResult(null)
+  }
+
+  const handleDelete = async (id: number, plate_number: string) => {
+    if (!confirm(`차량 "${plate_number}"을(를) 삭제하시겠습니까?`)) {
+      return
+    }
+
+    try {
+      await vehiclesAPI.delete(id)
+      setResult({ deleted: 1 })
+      loadVehicles()
+    } catch (err: any) {
+      setError(err.response?.data?.detail || '삭제 중 오류가 발생했습니다')
+    }
+  }
+
+  const handleCancelEdit = () => {
+    setEditingId(null)
+    setShowForm(false)
+    setFormData({
+      plate_number: '',
+      vehicle_type: 'FREEZER',
+      max_weight_kg: 5000,
+      max_pallets: 20,
+      tonnage: 5.0,
+      temperature_zones: 'frozen',
+      driver_name: '',
+      driver_phone: '',
+      fuel_efficiency_kmperliter: 8,
+      notes: ''
+    })
   }
 
   const getVehicleTypeLabel = (type: string) => {
@@ -208,7 +278,10 @@ function VehicleUpload() {
           </button>
           <button 
             className="button" 
-            onClick={() => setShowForm(!showForm)}
+            onClick={() => {
+              handleCancelEdit()
+              setShowForm(!showForm)
+            }}
             style={{ backgroundColor: showForm ? '#6c757d' : '#28a745' }}
           >
             {showForm ? '❌ 폼 닫기' : '➕ 직접 등록'}
@@ -242,7 +315,9 @@ function VehicleUpload() {
             borderRadius: '8px',
             backgroundColor: '#f8f9fa'
           }}>
-            <h3 style={{ marginBottom: '15px' }}>차량 직접 등록</h3>
+            <h3 style={{ marginBottom: '15px' }}>
+              {editingId ? '차량 정보 수정' : '차량 직접 등록'}
+            </h3>
             <form onSubmit={handleFormSubmit}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
                 <div>
@@ -394,7 +469,7 @@ function VehicleUpload() {
                 <button 
                   type="button" 
                   className="button secondary"
-                  onClick={() => setShowForm(false)}
+                  onClick={handleCancelEdit}
                 >
                   취소
                 </button>
@@ -403,7 +478,7 @@ function VehicleUpload() {
                   className="button"
                   disabled={uploading}
                 >
-                  {uploading ? '등록 중...' : '등록하기'}
+                  {uploading ? (editingId ? '수정 중...' : '등록 중...') : (editingId ? '수정하기' : '등록하기')}
                 </button>
               </div>
             </form>
@@ -450,6 +525,7 @@ function VehicleUpload() {
                   <th>운전자</th>
                   <th>연락처</th>
                   <th>상태</th>
+                  <th>관리</th>
                 </tr>
               </thead>
               <tbody>
@@ -464,6 +540,38 @@ function VehicleUpload() {
                     <td>{vehicle.driver_name || '-'}</td>
                     <td>{vehicle.driver_phone || '-'}</td>
                     <td>{getStatusBadge(vehicle.status)}</td>
+                    <td>
+                      <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                        <button
+                          onClick={() => handleEdit(vehicle)}
+                          style={{
+                            padding: '4px 8px',
+                            fontSize: '12px',
+                            backgroundColor: '#007bff',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          ✏️ 수정
+                        </button>
+                        <button
+                          onClick={() => handleDelete(vehicle.id, vehicle.plate_number)}
+                          style={{
+                            padding: '4px 8px',
+                            fontSize: '12px',
+                            backgroundColor: '#dc3545',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          🗑️ 삭제
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>

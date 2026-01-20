@@ -21,6 +21,8 @@ export const clientsAPI = {
   geocode: (clientIds: number[]) => api.post('/clients/geocode', { client_ids: clientIds }),
   downloadTemplate: () => api.get('/clients/template/download', { responseType: 'blob' }),
   create: (data: any) => api.post('/clients/', data),
+  update: (id: number, data: any) => api.put(`/clients/${id}`, data),
+  delete: (id: number) => api.delete(`/clients/${id}`),
 }
 
 export const vehiclesAPI = {
@@ -34,6 +36,8 @@ export const vehiclesAPI = {
   },
   downloadTemplate: () => api.get('/vehicles/template/download', { responseType: 'blob' }),
   create: (data: any) => api.post('/vehicles/', data),
+  update: (id: number, data: any) => api.put(`/vehicles/${id}`, data),
+  delete: (id: number) => api.delete(`/vehicles/${id}`),
 }
 
 export const ordersAPI = {
