@@ -6,6 +6,7 @@ interface VehicleForm {
   vehicle_type: string
   max_weight_kg: number
   max_pallets: number
+  tonnage: number
   temperature_zones: string
   driver_name?: string
   driver_phone?: string
@@ -40,6 +41,7 @@ function VehicleUpload() {
     vehicle_type: 'FREEZER',
     max_weight_kg: 5000,
     max_pallets: 20,
+    tonnage: 5.0,
     temperature_zones: 'frozen',
     driver_name: '',
     driver_phone: '',
@@ -149,6 +151,7 @@ function VehicleUpload() {
         vehicle_type: 'FREEZER',
         max_weight_kg: 5000,
         max_pallets: 20,
+        tonnage: 5.0,
         temperature_zones: 'frozen',
         driver_name: '',
         driver_phone: '',
@@ -318,6 +321,23 @@ function VehicleUpload() {
                     style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
                   />
                   <small style={{ color: '#666', fontSize: '12px' }}>※ 용적은 자동 계산됩니다 (팔레트당 1.5 CBM)</small>
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                    톤수 *
+                  </label>
+                  <input
+                    type="number"
+                    name="tonnage"
+                    value={formData.tonnage}
+                    onChange={handleFormChange}
+                    required
+                    min="0"
+                    step="0.5"
+                    placeholder="예: 5.0"
+                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                  />
+                  <small style={{ color: '#666', fontSize: '12px' }}>※ 차량 톤수를 입력하세요</small>
                 </div>
                 <div>
                   <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
