@@ -365,14 +365,24 @@ class AdvancedDispatchOptimizationService:
         
         return time_matrix
     
-    def _time_str_to_minutes(self, time_str: str) -> int:
-        """시간 문자열을 분으로 변환 (e.g., "08:00" -> 480)"""
-        if not time_str:
+    def _time_str_to_minutes(self, time_input) -> int:
+        """시간 문자열 또는 time 객체를 분으로 변환 (e.g., "08:00" -> 480)"""
+        from datetime import time as time_type
+        
+        if not time_input:
             return 0
         
         try:
-            hours, minutes = map(int, time_str.split(':'))
-            return hours * 60 + minutes
+            # time 객체인 경우
+            if isinstance(time_input, time_type):
+                return time_input.hour * 60 + time_input.minute
+            
+            # 문자열인 경우
+            if isinstance(time_input, str):
+                hours, minutes = map(int, time_input.split(':'))
+                return hours * 60 + minutes
+            
+            return 0
         except:
             return 0
     
@@ -529,45 +539,93 @@ class AdvancedDispatchOptimizationService:
         for order in orders:
             # 상차 위치
             pickup_client = order.pickup_client
-            if pickup_client.id not in location_map:
-                loc_idx = len(locations)
-                location_map[f"pickup_{pickup_client.id}"] = loc_idx
-                
-                locations.append(Location(
-                    id=loc_idx,
-                    name=f"{pickup_client.name} (상차)",
-                    latitude=pickup_client.latitude or depot_lat,
-                    longitude=pickup_client.longitude or depot_lon,
-                    location_type='pickup',
-                    order_id=order.id,
-                    client_id=pickup_client.id,
-                    time_window_start=self._time_str_to_minutes(pickup_client.pickup_start_time or "08:00"),
-                    time_window_end=self._time_str_to_minutes(pickup_client.pickup_end_time or "18:00"),
-                    service_time=pickup_client.loading_time_minutes,
-                    pallet_demand=order.pallet_count,
-                    weight_demand=order.weight_kg
-                ))
+            if pickup_client:
+                # 거래처로 입력된 경우
+                location_key = f"pickup_{pickup_client.id}"
+                if location_key not in location_map:
+                    loc_idx = len(locations)
+                    location_map[location_key] = loc_idx
+                    
+                    locations.append(Location(
+                        id=loc_idx,
+                        name=f"{pickup_client.name} (상차)",
+                        latitude=pickup_client.latitude or depot_lat,
+                        longitude=pickup_client.longitude or depot_lon,
+                        location_type='pickup',
+                        order_id=order.id,
+                        client_id=pickup_client.id,
+                        time_window_start=self._time_str_to_minutes(pickup_client.pickup_start_time or "08:00"),
+                        time_window_end=self._time_str_to_minutes(pickup_client.pickup_end_time or "18:00"),
+                        service_time=pickup_client.loading_time_minutes,
+                        pallet_demand=order.pallet_count,
+                        weight_demand=order.weight_kg
+                    ))
+            else:
+                # 주소로 직접 입력된 경우
+                location_key = f"pickup_order_{order.id}"
+                if location_key not in location_map:
+                    loc_idx = len(locations)
+                    location_map[location_key] = loc_idx
+                    
+                    locations.append(Location(
+                        id=loc_idx,
+                        name=f"{order.pickup_address or '주소입력'} (상차)",
+                        latitude=order.pickup_latitude or depot_lat,
+                        longitude=order.pickup_longitude or depot_lon,
+                        location_type='pickup',
+                        order_id=order.id,
+                        client_id=None,
+                        time_window_start=self._time_str_to_minutes(order.pickup_start_time or "08:00"),
+                        time_window_end=self._time_str_to_minutes(order.pickup_end_time or "18:00"),
+                        service_time=30,  # 기본 하역 시간
+                        pallet_demand=order.pallet_count,
+                        weight_demand=order.weight_kg
+                    ))
             
             # 하차 위치
             delivery_client = order.delivery_client
-            if delivery_client.id not in location_map:
-                loc_idx = len(locations)
-                location_map[f"delivery_{delivery_client.id}"] = loc_idx
-                
-                locations.append(Location(
-                    id=loc_idx,
-                    name=f"{delivery_client.name} (하차)",
-                    latitude=delivery_client.latitude or depot_lat,
-                    longitude=delivery_client.longitude or depot_lon,
-                    location_type='delivery',
-                    order_id=order.id,
-                    client_id=delivery_client.id,
-                    time_window_start=self._time_str_to_minutes(delivery_client.delivery_start_time or "08:00"),
-                    time_window_end=self._time_str_to_minutes(delivery_client.delivery_end_time or "18:00"),
-                    service_time=delivery_client.loading_time_minutes,
-                    pallet_demand=-order.pallet_count,
-                    weight_demand=-order.weight_kg
-                ))
+            if delivery_client:
+                # 거래처로 입력된 경우
+                location_key = f"delivery_{delivery_client.id}"
+                if location_key not in location_map:
+                    loc_idx = len(locations)
+                    location_map[location_key] = loc_idx
+                    
+                    locations.append(Location(
+                        id=loc_idx,
+                        name=f"{delivery_client.name} (하차)",
+                        latitude=delivery_client.latitude or depot_lat,
+                        longitude=delivery_client.longitude or depot_lon,
+                        location_type='delivery',
+                        order_id=order.id,
+                        client_id=delivery_client.id,
+                        time_window_start=self._time_str_to_minutes(delivery_client.delivery_start_time or "08:00"),
+                        time_window_end=self._time_str_to_minutes(delivery_client.delivery_end_time or "18:00"),
+                        service_time=delivery_client.loading_time_minutes,
+                        pallet_demand=-order.pallet_count,
+                        weight_demand=-order.weight_kg
+                    ))
+            else:
+                # 주소로 직접 입력된 경우
+                location_key = f"delivery_order_{order.id}"
+                if location_key not in location_map:
+                    loc_idx = len(locations)
+                    location_map[location_key] = loc_idx
+                    
+                    locations.append(Location(
+                        id=loc_idx,
+                        name=f"{order.delivery_address or '주소입력'} (하차)",
+                        latitude=order.delivery_latitude or depot_lat,
+                        longitude=order.delivery_longitude or depot_lon,
+                        location_type='delivery',
+                        order_id=order.id,
+                        client_id=None,
+                        time_window_start=self._time_str_to_minutes(order.delivery_start_time or "08:00"),
+                        time_window_end=self._time_str_to_minutes(order.delivery_end_time or "18:00"),
+                        service_time=30,  # 기본 하역 시간
+                        pallet_demand=-order.pallet_count,
+                        weight_demand=-order.weight_kg
+                    ))
         
         logger.info(f"위치: {len(locations)}개 (차고지 1 + 주문 위치 {len(locations)-1})")
         
