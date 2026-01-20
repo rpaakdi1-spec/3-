@@ -55,7 +55,7 @@ export const ordersAPI = {
 }
 
 export const dispatchesAPI = {
-  list: () => api.get('/dispatches'),
+  list: () => api.get('/dispatches/'),
   optimize: (orderIds: number[], vehicleIds?: number[], dispatchDate?: string) =>
     api.post('/dispatches/optimize', { order_ids: orderIds, vehicle_ids: vehicleIds, dispatch_date: dispatchDate }),
   optimizeCVRPTW: (
