@@ -125,10 +125,19 @@ function VehicleUpload() {
     setResult(null)
 
     try {
+      // Convert English values to Korean for backend
+      const vehicleTypeMap: { [key: string]: string } = {
+        'FREEZER': '냉동',
+        'REFRIGERATED': '냉장',
+        'DUAL': '겸용',
+        'AMBIENT': '상온'
+      }
+      
       // 차량 코드는 차량번호로 자동 생성
       const dataToSubmit = {
         ...formData,
         code: formData.plate_number.replace(/[^a-zA-Z0-9]/g, ''), // 특수문자 제거
+        vehicle_type: vehicleTypeMap[formData.vehicle_type] || '냉동',
         max_volume_cbm: formData.max_pallets * 1.5 // 팔레트당 평균 1.5 CBM으로 자동 계산
       }
       await vehiclesAPI.create(dataToSubmit)

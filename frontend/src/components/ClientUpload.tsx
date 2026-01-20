@@ -130,7 +130,13 @@ function ClientUpload() {
     setResult(null)
 
     try {
-      await clientsAPI.create(formData)
+      // Convert English values to Korean for backend
+      const apiData = {
+        ...formData,
+        client_type: formData.client_type === 'PICKUP' ? '상차' : 
+                     formData.client_type === 'DELIVERY' ? '하차' : '양쪽'
+      }
+      await clientsAPI.create(apiData)
       setResult({ created: 1, failed: 0, total: 1 })
       setShowForm(false)
       // Reset form

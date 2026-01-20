@@ -150,7 +150,19 @@ function OrderUpload() {
     setResult(null)
 
     try {
-      await ordersAPI.create(formData)
+      // Convert English values to Korean for backend
+      const tempZoneMap: { [key: string]: string } = {
+        'frozen': '냉동',
+        'chilled': '냉장',
+        'ambient': '상온'
+      }
+      
+      const apiData = {
+        ...formData,
+        temperature_zone: tempZoneMap[formData.temperature_zone] || '냉동'
+      }
+      
+      await ordersAPI.create(apiData)
       setResult({ created: 1, failed: 0, total: 1 })
       setShowForm(false)
       // Reset form
