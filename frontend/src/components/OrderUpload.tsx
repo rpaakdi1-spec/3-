@@ -143,8 +143,45 @@ function OrderUpload() {
     }
   }
 
+  // 거래처 선택 시 주소 자동 입력
+  const handleClientSelect = (field: 'pickup' | 'delivery', clientId: string) => {
+    const selectedClient = clients.find(c => c.id === parseInt(clientId))
+    
+    if (field === 'pickup') {
+      setFormData(prev => ({
+        ...prev,
+        pickup_client_id: clientId ? parseInt(clientId) : '',
+        pickup_address: selectedClient?.address || '',
+        pickup_address_detail: selectedClient?.address_detail || ''
+      }))
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        delivery_client_id: clientId ? parseInt(clientId) : '',
+        delivery_address: selectedClient?.address || '',
+        delivery_address_detail: selectedClient?.address_detail || ''
+      }))
+    }
+  }
+
+  // 팔레트 수 변경 시 용적 자동 계산 (1팔레트 = 1.5 CBM)
+  const handlePalletChange = (pallets: number) => {
+    setFormData(prev => ({
+      ...prev,
+      quantity_pallets: pallets,
+      volume_cbm: pallets * 1.5
+    }))
+  }
+
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
+    
+    // 팔레트 수 변경 시 용적 자동 계산
+    if (name === 'quantity_pallets') {
+      handlePalletChange(parseInt(value) || 0)
+      return
+    }
+    
     setFormData(prev => ({
       ...prev,
       [name]: value
@@ -316,7 +353,7 @@ function OrderUpload() {
                         onChange={(e) => {
                           setUsePickupAddress(e.target.checked)
                           if (e.target.checked) {
-                            setFormData(prev => ({ ...prev, pickup_client_id: '' }))
+                            setFormData(prev => ({ ...prev, pickup_client_id: '', pickup_address: '', pickup_address_detail: '' }))
                           }
                         }}
                       />
@@ -344,20 +381,28 @@ function OrderUpload() {
                       />
                     </>
                   ) : (
-                    <select
-                      name="pickup_client_id"
-                      value={formData.pickup_client_id}
-                      onChange={handleFormChange}
-                      required
-                      style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
-                    >
-                      <option value="">선택하세요</option>
-                      {clients.filter(c => c.client_type === 'PICKUP' || c.client_type === 'BOTH').map(client => (
-                        <option key={client.id} value={client.id}>
-                          {client.name} ({client.code})
-                        </option>
-                      ))}
-                    </select>
+                    <>
+                      <select
+                        name="pickup_client_id"
+                        value={formData.pickup_client_id}
+                        onChange={(e) => handleClientSelect('pickup', e.target.value)}
+                        required
+                        style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                      >
+                        <option value="">선택하세요</option>
+                        {clients.filter(c => c.client_type === '상차' || c.client_type === '양쪽').map(client => (
+                          <option key={client.id} value={client.id}>
+                            {client.name} ({client.code})
+                          </option>
+                        ))}
+                      </select>
+                      {formData.pickup_client_id && formData.pickup_address && (
+                        <div style={{ marginTop: '8px', padding: '8px', backgroundColor: '#e9ecef', borderRadius: '4px', fontSize: '13px' }}>
+                          <div><strong>주소:</strong> {formData.pickup_address}</div>
+                          {formData.pickup_address_detail && <div><strong>상세:</strong> {formData.pickup_address_detail}</div>}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
                 <div>
@@ -372,7 +417,7 @@ function OrderUpload() {
                         onChange={(e) => {
                           setUseDeliveryAddress(e.target.checked)
                           if (e.target.checked) {
-                            setFormData(prev => ({ ...prev, delivery_client_id: '' }))
+                            setFormData(prev => ({ ...prev, delivery_client_id: '', delivery_address: '', delivery_address_detail: '' }))
                           }
                         }}
                       />
@@ -400,20 +445,28 @@ function OrderUpload() {
                       />
                     </>
                   ) : (
-                    <select
-                      name="delivery_client_id"
-                      value={formData.delivery_client_id}
-                      onChange={handleFormChange}
-                      required
-                      style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
-                    >
-                      <option value="">선택하세요</option>
-                      {clients.filter(c => c.client_type === 'DELIVERY' || c.client_type === 'BOTH').map(client => (
-                        <option key={client.id} value={client.id}>
-                          {client.name} ({client.code})
-                        </option>
-                      ))}
-                    </select>
+                    <>
+                      <select
+                        name="delivery_client_id"
+                        value={formData.delivery_client_id}
+                        onChange={(e) => handleClientSelect('delivery', e.target.value)}
+                        required
+                        style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                      >
+                        <option value="">선택하세요</option>
+                        {clients.filter(c => c.client_type === '하차' || c.client_type === '양쪽').map(client => (
+                          <option key={client.id} value={client.id}>
+                            {client.name} ({client.code})
+                          </option>
+                        ))}
+                      </select>
+                      {formData.delivery_client_id && formData.delivery_address && (
+                        <div style={{ marginTop: '8px', padding: '8px', backgroundColor: '#e9ecef', borderRadius: '4px', fontSize: '13px' }}>
+                          <div><strong>주소:</strong> {formData.delivery_address}</div>
+                          {formData.delivery_address_detail && <div><strong>상세:</strong> {formData.delivery_address_detail}</div>}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
                 <div>
@@ -481,22 +534,25 @@ function OrderUpload() {
                     type="number"
                     name="volume_cbm"
                     value={formData.volume_cbm}
-                    onChange={handleFormChange}
-                    required
+                    readOnly
                     min="0"
                     step="0.1"
-                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd', backgroundColor: '#e9ecef' }}
+                    title="팔레트 수에 따라 자동 계산됩니다 (1팔레트 = 1.5 CBM)"
                   />
+                  <small style={{ color: '#666', fontSize: '12px' }}>자동계산: {formData.quantity_pallets} 팔레트 × 1.5 = {formData.volume_cbm} CBM</small>
                 </div>
                 <div>
                   <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
                     상차 시작시간
                   </label>
                   <input
-                    type="time"
+                    type="text"
                     name="pickup_time_start"
                     value={formData.pickup_time_start}
                     onChange={handleFormChange}
+                    placeholder="HH:MM (예: 08:00)"
+                    pattern="[0-2][0-9]:[0-5][0-9]"
                     style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
                   />
                 </div>
@@ -505,10 +561,12 @@ function OrderUpload() {
                     상차 종료시간
                   </label>
                   <input
-                    type="time"
+                    type="text"
                     name="pickup_time_end"
                     value={formData.pickup_time_end}
                     onChange={handleFormChange}
+                    placeholder="HH:MM (예: 18:00)"
+                    pattern="[0-2][0-9]:[0-5][0-9]"
                     style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
                   />
                 </div>
@@ -517,10 +575,12 @@ function OrderUpload() {
                     하차 시작시간
                   </label>
                   <input
-                    type="time"
+                    type="text"
                     name="delivery_time_start"
                     value={formData.delivery_time_start}
                     onChange={handleFormChange}
+                    placeholder="HH:MM (예: 08:00)"
+                    pattern="[0-2][0-9]:[0-5][0-9]"
                     style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
                   />
                 </div>
@@ -529,10 +589,12 @@ function OrderUpload() {
                     하차 종료시간
                   </label>
                   <input
-                    type="time"
+                    type="text"
                     name="delivery_time_end"
                     value={formData.delivery_time_end}
                     onChange={handleFormChange}
+                    placeholder="HH:MM (예: 18:00)"
+                    pattern="[0-2][0-9]:[0-5][0-9]"
                     style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
                   />
                 </div>
