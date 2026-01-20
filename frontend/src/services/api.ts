@@ -52,6 +52,8 @@ export const ordersAPI = {
   },
   downloadTemplate: () => api.get('/orders/template/download', { responseType: 'blob' }),
   create: (data: any) => api.post('/orders/', data),
+  update: (id: number, data: any) => api.put(`/orders/${id}`, data),
+  delete: (id: number) => api.delete(`/orders/${id}`),
 }
 
 export const dispatchesAPI = {

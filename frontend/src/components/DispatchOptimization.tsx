@@ -38,11 +38,16 @@ function DispatchOptimization() {
   }, [])
 
   const loadPendingOrders = async () => {
+    console.log('배차 대기 주문 로드 중...')
     try {
       const response = await ordersAPI.list('배차대기')
-      setOrders(response.data.items || [])
+      console.log('주문 API 응답:', response.data)
+      const orderItems = response.data.items || []
+      console.log(`로드된 주문: ${orderItems.length}건`)
+      setOrders(orderItems)
     } catch (err) {
       console.error('Failed to load orders:', err)
+      setError('주문 목록을 불러오는데 실패했습니다')
     }
   }
 
@@ -68,15 +73,22 @@ function DispatchOptimization() {
       return
     }
 
+    console.log('=== AI 배차 최적화 시작 ===')
+    console.log('선택된 주문:', selectedOrders)
+    console.log('알고리즘:', settings.algorithm)
+    console.log('설정:', settings)
+
     setOptimizing(true)
     setError('')
     setResult(null)
 
     try {
       const today = new Date().toISOString().split('T')[0]
+      console.log('배차 날짜:', today)
       
       let response
       if (settings.algorithm === 'cvrptw') {
+        console.log('CVRPTW 알고리즘 실행 중...')
         // CVRPTW 알고리즘
         response = await dispatchesAPI.optimizeCVRPTW(
           selectedOrders,
@@ -86,22 +98,41 @@ function DispatchOptimization() {
           settings.useTimeWindows,
           settings.useRealRouting
         )
+        console.log('CVRPTW 응답:', response.data)
       } else {
+        console.log('Greedy 알고리즘 실행 중...')
         // Greedy 알고리즘 (기본)
         response = await dispatchesAPI.optimize(selectedOrders, undefined, today)
+        console.log('Greedy 응답:', response.data)
       }
       
       setResult(response.data)
       
       if (response.data.success) {
+        console.log('✅ 배차 최적화 성공!')
         // Reload orders
         await loadPendingOrders()
         setSelectedOrders([])
+      } else {
+        console.warn('⚠️ 배차 최적화 실패:', response.data.error)
+        setError(response.data.error || '배차 최적화에 실패했습니다')
       }
     } catch (err: any) {
-      setError(err.response?.data?.detail || '최적화 중 오류가 발생했습니다')
+      console.error('❌ 배차 최적화 오류:', err)
+      console.error('오류 응답:', err.response)
+      
+      let errorMessage = '최적화 중 오류가 발생했습니다'
+      
+      if (err.response?.data?.detail) {
+        errorMessage = err.response.data.detail
+      } else if (err.message) {
+        errorMessage = err.message
+      }
+      
+      setError(errorMessage)
     } finally {
       setOptimizing(false)
+      console.log('=== AI 배차 최적화 종료 ===')
     }
   }
 
@@ -231,13 +262,30 @@ function DispatchOptimization() {
         </div>
 
         <div style={{ marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h3 style={{ margin: 0 }}>배차 대기 주문 ({orders.length}건)</h3>
+          <h3 style={{ margin: 0 }}>
+            배차 대기 주문 ({orders.length}건)
+            {selectedOrders.length > 0 && (
+              <span style={{ 
+                marginLeft: '12px', 
+                color: '#28a745', 
+                fontWeight: 'bold',
+                fontSize: '16px'
+              }}>
+                ✓ {selectedOrders.length}건 선택됨
+              </span>
+            )}
+          </h3>
           <button
-            className="button button-secondary"
+            className="button secondary"
             onClick={handleSelectAll}
-            style={{ fontSize: '14px', padding: '6px 12px' }}
+            style={{ 
+              fontSize: '14px', 
+              padding: '8px 16px',
+              backgroundColor: selectedOrders.length === orders.length && orders.length > 0 ? '#6c757d' : '#007bff',
+              color: 'white'
+            }}
           >
-            {selectedOrders.length === orders.length ? '전체 해제' : '전체 선택'}
+            {selectedOrders.length === orders.length && orders.length > 0 ? '✗ 전체 해제' : '✓ 전체 선택'}
           </button>
         </div>
 
@@ -250,7 +298,15 @@ function DispatchOptimization() {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th style={{ width: '40px' }}>선택</th>
+                  <th style={{ width: '50px' }}>
+                    <input
+                      type="checkbox"
+                      checked={selectedOrders.length === orders.length && orders.length > 0}
+                      onChange={handleSelectAll}
+                      style={{ cursor: 'pointer' }}
+                      title={selectedOrders.length === orders.length ? '전체 해제' : '전체 선택'}
+                    />
+                  </th>
                   <th>주문번호</th>
                   <th>온도대</th>
                   <th>팔레트</th>
@@ -261,12 +317,15 @@ function DispatchOptimization() {
               </thead>
               <tbody>
                 {orders.map((order) => (
-                  <tr key={order.id}>
+                  <tr key={order.id} style={{ 
+                    backgroundColor: selectedOrders.includes(order.id) ? '#e3f2fd' : 'transparent'
+                  }}>
                     <td>
                       <input
                         type="checkbox"
                         checked={selectedOrders.includes(order.id)}
                         onChange={() => handleSelectOrder(order.id)}
+                        style={{ cursor: 'pointer', width: '18px', height: '18px' }}
                       />
                     </td>
                     <td>{order.order_number}</td>

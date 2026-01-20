@@ -1,6 +1,6 @@
-from datetime import datetime, date
+from datetime import datetime, date, time
 from typing import Optional
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_serializer
 from app.models.order import TemperatureZone, OrderStatus
 
 
@@ -80,6 +80,15 @@ class OrderResponse(OrderBase):
     delivery_longitude: Optional[float] = None
     
     model_config = ConfigDict(from_attributes=True)
+    
+    @field_serializer('pickup_start_time', 'pickup_end_time', 'delivery_start_time', 'delivery_end_time')
+    def serialize_time(self, value: Optional[time], _info) -> Optional[str]:
+        """Convert time objects to HH:MM string format"""
+        if value is None:
+            return None
+        if isinstance(value, time):
+            return value.strftime('%H:%M')
+        return value
 
 
 class OrderListResponse(BaseModel):

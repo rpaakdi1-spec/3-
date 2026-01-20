@@ -33,6 +33,18 @@ interface Order {
   status: string
   pickup_client_name?: string
   delivery_client_name?: string
+  pickup_client_id?: number
+  delivery_client_id?: number
+  pickup_address?: string
+  pickup_address_detail?: string
+  delivery_address?: string
+  delivery_address_detail?: string
+  volume_cbm?: number
+  pickup_time_start?: string
+  pickup_time_end?: string
+  delivery_time_start?: string
+  delivery_time_end?: string
+  notes?: string
 }
 
 function OrderUpload() {
@@ -41,6 +53,7 @@ function OrderUpload() {
   const [result, setResult] = useState<any>(null)
   const [error, setError] = useState<string>('')
   const [showForm, setShowForm] = useState(false)
+  const [editingId, setEditingId] = useState<number | null>(null)
   const [clients, setClients] = useState<any[]>([])
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(false)
@@ -255,9 +268,17 @@ function OrderUpload() {
         apiData.delivery_client_id = formData.delivery_client_id
       }
       
-      await ordersAPI.create(apiData)
-      setResult({ created: 1, failed: 0, total: 1 })
+      // Create or Update
+      if (editingId) {
+        await ordersAPI.update(editingId, apiData)
+        setResult({ created: 0, failed: 0, total: 1, message: '주문이 수정되었습니다.' })
+      } else {
+        await ordersAPI.create(apiData)
+        setResult({ created: 1, failed: 0, total: 1 })
+      }
+      
       setShowForm(false)
+      setEditingId(null)
       // Reset form
       setFormData({
         order_number: '',
@@ -312,6 +333,69 @@ function OrderUpload() {
     } finally {
       setUploading(false)
     }
+  }
+
+  const handleDeleteOrder = async (orderId: number, orderNumber: string) => {
+    if (!window.confirm(`주문번호 "${orderNumber}"을(를) 삭제하시겠습니까?\n\n배차대기 상태의 주문만 삭제 가능합니다.`)) {
+      return
+    }
+
+    try {
+      await ordersAPI.delete(orderId)
+      setResult({ created: 0, failed: 0, total: 0, message: '주문이 삭제되었습니다.' })
+      loadOrders()
+    } catch (err: any) {
+      console.error('Order deletion error:', err)
+      let errorMessage = '삭제 중 오류가 발생했습니다'
+      
+      if (err.response?.data?.detail) {
+        errorMessage = err.response.data.detail
+      }
+      setError(errorMessage)
+    }
+  }
+
+  const handleEditOrder = (order: Order) => {
+    // Set editing mode
+    setEditingId(order.id)
+    
+    // Populate form with order data for editing
+    const tempZoneMap: { [key: string]: string } = {
+      '냉동': 'frozen',
+      '냉장': 'chilled',
+      '상온': 'ambient'
+    }
+
+    setFormData({
+      order_number: order.order_number,
+      order_date: order.order_date,
+      pickup_client_id: order.pickup_client_id || '',
+      delivery_client_id: order.delivery_client_id || '',
+      pickup_address: order.pickup_address || '',
+      pickup_address_detail: order.pickup_address_detail || '',
+      delivery_address: order.delivery_address || '',
+      delivery_address_detail: order.delivery_address_detail || '',
+      product_name: order.product_name,
+      quantity_pallets: order.quantity_pallets,
+      weight_kg: order.weight_kg,
+      volume_cbm: order.volume_cbm || 0,
+      temperature_zone: tempZoneMap[order.temperature_zone] || 'frozen',
+      pickup_time_start: order.pickup_time_start || '08:00',
+      pickup_time_end: order.pickup_time_end || '18:00',
+      delivery_time_start: order.delivery_time_start || '08:00',
+      delivery_time_end: order.delivery_time_end || '18:00',
+      notes: order.notes || ''
+    })
+
+    // Set address mode based on whether addresses are present
+    setUsePickupAddress(!!order.pickup_address)
+    setUseDeliveryAddress(!!order.delivery_address)
+
+    // Show the form
+    setShowForm(true)
+
+    // Scroll to form
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   return (
@@ -375,7 +459,9 @@ function OrderUpload() {
             borderRadius: '8px',
             backgroundColor: '#f8f9fa'
           }}>
-            <h3 style={{ marginBottom: '15px' }}>주문 직접 등록</h3>
+            <h3 style={{ marginBottom: '15px' }}>
+              {editingId ? '주문 수정' : '주문 직접 등록'}
+            </h3>
             <form onSubmit={handleFormSubmit}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
                 <div>
@@ -696,7 +782,10 @@ function OrderUpload() {
                 <button 
                   type="button" 
                   className="button secondary"
-                  onClick={() => setShowForm(false)}
+                  onClick={() => {
+                    setShowForm(false)
+                    setEditingId(null)
+                  }}
                 >
                   취소
                 </button>
@@ -705,7 +794,7 @@ function OrderUpload() {
                   className="button"
                   disabled={uploading}
                 >
-                  {uploading ? '등록 중...' : '등록하기'}
+                  {uploading ? (editingId ? '수정 중...' : '등록 중...') : (editingId ? '수정하기' : '등록하기')}
                 </button>
               </div>
             </form>
@@ -752,6 +841,7 @@ function OrderUpload() {
                   <th>상차지</th>
                   <th>하차지</th>
                   <th>상태</th>
+                  <th>작업</th>
                 </tr>
               </thead>
               <tbody>
@@ -787,6 +877,38 @@ function OrderUpload() {
                          order.status === 'ASSIGNED' ? '배차완료' : 
                          order.status === 'COMPLETED' ? '완료' : order.status}
                       </span>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                        <button
+                          className="button secondary"
+                          onClick={() => handleEditOrder(order)}
+                          style={{ 
+                            padding: '4px 12px',
+                            fontSize: '12px',
+                            backgroundColor: '#17a2b8',
+                            color: 'white'
+                          }}
+                          title="수정"
+                        >
+                          ✏️ 수정
+                        </button>
+                        {order.status === 'PENDING' && (
+                          <button
+                            className="button"
+                            onClick={() => handleDeleteOrder(order.id, order.order_number)}
+                            style={{ 
+                              padding: '4px 12px',
+                              fontSize: '12px',
+                              backgroundColor: '#dc3545',
+                              color: 'white'
+                            }}
+                            title="삭제"
+                          >
+                            🗑️ 삭제
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
