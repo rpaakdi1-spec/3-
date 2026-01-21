@@ -27,7 +27,7 @@ interface Order {
   order_number: string
   order_date: string
   product_name: string
-  quantity_pallets: number
+  pallet_count: number
   weight_kg: number
   temperature_zone: string
   status: string
@@ -376,7 +376,7 @@ function OrderUpload() {
       delivery_address: order.delivery_address || '',
       delivery_address_detail: order.delivery_address_detail || '',
       product_name: order.product_name,
-      quantity_pallets: order.quantity_pallets,
+      quantity_pallets: order.pallet_count,
       weight_kg: order.weight_kg,
       volume_cbm: order.volume_cbm || 0,
       temperature_zone: tempZoneMap[order.temperature_zone] || 'frozen',
@@ -850,7 +850,7 @@ function OrderUpload() {
                     <td><strong>{order.order_number}</strong></td>
                     <td>{order.order_date}</td>
                     <td>{order.product_name}</td>
-                    <td>{order.quantity_pallets}</td>
+                    <td><strong>{order.pallet_count}</strong>팔레트</td>
                     <td>{order.weight_kg.toLocaleString()}</td>
                     <td>
                       <span className={`badge ${
