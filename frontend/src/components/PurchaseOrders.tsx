@@ -57,7 +57,7 @@ const PurchaseOrders: React.FC = () => {
   const loadOrders = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:8000/api/v1/purchase-orders/');
+      const response = await fetch('/api/v1/purchase-orders/');
       const data = await response.json();
       setOrders(data.items || []);
     } catch (error) {
@@ -89,7 +89,7 @@ const PurchaseOrders: React.FC = () => {
       const formData = new FormData();
       formData.append('file', imageFile);
 
-      const response = await fetch('http://localhost:8000/api/v1/purchase-orders/upload-image/', {
+      const response = await fetch('/api/v1/purchase-orders/upload-image/', {
         method: 'POST',
         body: formData,
       });
@@ -111,8 +111,8 @@ const PurchaseOrders: React.FC = () => {
 
     try {
       const url = editingId
-        ? `http://localhost:8000/api/v1/purchase-orders/${editingId}`
-        : 'http://localhost:8000/api/v1/purchase-orders/';
+        ? `/api/v1/purchase-orders/${editingId}`
+        : '/api/v1/purchase-orders/';
       
       const method = editingId ? 'PUT' : 'POST';
 
@@ -170,7 +170,7 @@ const PurchaseOrders: React.FC = () => {
     if (!confirm('정말로 이 발주서를 삭제하시겠습니까?')) return;
 
     try {
-      const response = await fetch(`http://localhost:8000/api/v1/purchase-orders/${id}`, {
+      const response = await fetch(`/api/v1/purchase-orders/${id}`, {
         method: 'DELETE',
       });
 
@@ -397,7 +397,7 @@ const PurchaseOrders: React.FC = () => {
               {formData.image_url && (
                 <div style={{ marginTop: '10px' }}>
                   <img
-                    src={`http://localhost:8000${formData.image_url}`}
+                    src={`/${formData.image_url}`}
                     alt="Preview"
                     style={{ maxWidth: '200px', borderRadius: '4px', border: '1px solid #ddd' }}
                   />
@@ -504,7 +504,7 @@ const PurchaseOrders: React.FC = () => {
             </div>
             {selectedOrder.image_url && (
               <img
-                src={`http://localhost:8000${selectedOrder.image_url}`}
+                src={`/${selectedOrder.image_url}`}
                 alt="발주서 이미지"
                 style={{ maxWidth: '100%', marginBottom: '20px', borderRadius: '4px' }}
               />

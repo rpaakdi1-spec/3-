@@ -43,7 +43,7 @@ const NoticeBoard: React.FC = () => {
   const loadNotices = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:8000/api/v1/notices/');
+      const response = await fetch('/api/v1/notices/');
       const data = await response.json();
       setNotices(data.items || []);
     } catch (error) {
@@ -75,7 +75,7 @@ const NoticeBoard: React.FC = () => {
       const formData = new FormData();
       formData.append('file', imageFile);
 
-      const response = await fetch('http://localhost:8000/api/v1/notices/upload-image/', {
+      const response = await fetch('/api/v1/notices/upload-image/', {
         method: 'POST',
         body: formData,
       });
@@ -97,8 +97,8 @@ const NoticeBoard: React.FC = () => {
 
     try {
       const url = editingId
-        ? `http://localhost:8000/api/v1/notices/${editingId}`
-        : 'http://localhost:8000/api/v1/notices/';
+        ? `/api/v1/notices/${editingId}`
+        : '/api/v1/notices/';
       
       const method = editingId ? 'PUT' : 'POST';
 
@@ -146,7 +146,7 @@ const NoticeBoard: React.FC = () => {
     if (!confirm('정말로 이 공지사항을 삭제하시겠습니까?')) return;
 
     try {
-      const response = await fetch(`http://localhost:8000/api/v1/notices/${id}`, {
+      const response = await fetch(`/api/v1/notices/${id}`, {
         method: 'DELETE',
       });
 
@@ -162,7 +162,7 @@ const NoticeBoard: React.FC = () => {
 
   const handleViewDetail = async (notice: Notice) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/v1/notices/${notice.id}`);
+      const response = await fetch(`/api/v1/notices/${notice.id}`);
       const data = await response.json();
       setSelectedNotice(data);
     } catch (error) {
@@ -303,7 +303,7 @@ const NoticeBoard: React.FC = () => {
               {formData.image_url && (
                 <div style={{ marginTop: '10px' }}>
                   <img
-                    src={`http://localhost:8000${formData.image_url}`}
+                    src={`/${formData.image_url}`}
                     alt="Preview"
                     style={{ maxWidth: '200px', borderRadius: '4px', border: '1px solid #ddd' }}
                   />
@@ -389,7 +389,7 @@ const NoticeBoard: React.FC = () => {
             </div>
             {selectedNotice.image_url && (
               <img
-                src={`http://localhost:8000${selectedNotice.image_url}`}
+                src={`/${selectedNotice.image_url}`}
                 alt="공지사항 이미지"
                 style={{ maxWidth: '100%', marginBottom: '20px', borderRadius: '4px' }}
               />
