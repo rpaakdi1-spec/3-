@@ -1,8 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import Optional
 from datetime import date
+import pandas as pd
+from pathlib import Path
+import tempfile
 
 from app.core.database import get_db
 from app.models.dispatch import Dispatch, DispatchStatus
@@ -277,4 +281,128 @@ def get_dispatch_stats(
         total_vehicles_used=unique_vehicles,
         avg_orders_per_dispatch=round(avg_orders, 2),
         avg_pallets_per_dispatch=round(avg_pallets, 2)
+    )
+
+
+@router.get("/export/excel")
+def export_dispatches_to_excel(
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
+    status: Optional[DispatchStatus] = None,
+    db: Session = Depends(get_db)
+):
+    """배차 내역 엑셀 다운로드"""
+    logger.info("배차 내역 엑셀 다운로드 요청")
+    
+    # Query dispatches with filters
+    query = db.query(Dispatch)
+    
+    if status:
+        query = query.filter(Dispatch.status == status)
+    
+    if start_date:
+        query = query.filter(Dispatch.dispatch_date >= start_date)
+    
+    if end_date:
+        query = query.filter(Dispatch.dispatch_date <= end_date)
+    
+    query = query.order_by(Dispatch.dispatch_date.desc(), Dispatch.created_at.desc())
+    
+    dispatches = query.all()
+    
+    if not dispatches:
+        raise HTTPException(status_code=404, detail="다운로드할 배차 내역이 없습니다")
+    
+    # Prepare data for Excel
+    data = []
+    for dispatch in dispatches:
+        # Get vehicle and driver info
+        vehicle_code = dispatch.vehicle.code if dispatch.vehicle else "-"
+        vehicle_plate = dispatch.vehicle.plate_number if dispatch.vehicle else "-"
+        driver_name = dispatch.driver.name if dispatch.driver else "-"
+        
+        # Get pickup and delivery addresses from routes
+        pickup_addresses = []
+        delivery_addresses = []
+        
+        for route in dispatch.routes:
+            if route.order:
+                # Pickup address
+                if route.order.pickup_client:
+                    pickup_addr = route.order.pickup_client.address or "-"
+                    if route.order.pickup_client.address_detail:
+                        pickup_addr += f" {route.order.pickup_client.address_detail}"
+                elif route.order.pickup_address:
+                    pickup_addr = route.order.pickup_address
+                    if route.order.pickup_address_detail:
+                        pickup_addr += f" {route.order.pickup_address_detail}"
+                else:
+                    pickup_addr = "-"
+                
+                # Delivery address
+                if route.order.delivery_client:
+                    delivery_addr = route.order.delivery_client.address or "-"
+                    if route.order.delivery_client.address_detail:
+                        delivery_addr += f" {route.order.delivery_client.address_detail}"
+                elif route.order.delivery_address:
+                    delivery_addr = route.order.delivery_address
+                    if route.order.delivery_address_detail:
+                        delivery_addr += f" {route.order.delivery_address_detail}"
+                else:
+                    delivery_addr = "-"
+                
+                pickup_addresses.append(pickup_addr)
+                delivery_addresses.append(delivery_addr)
+        
+        # Combine addresses (if multiple stops)
+        pickup_text = " → ".join(set(pickup_addresses)) if pickup_addresses else "-"
+        delivery_text = " → ".join(set(delivery_addresses)) if delivery_addresses else "-"
+        
+        data.append({
+            "배차번호": dispatch.dispatch_number,
+            "배차일자": dispatch.dispatch_date.isoformat(),
+            "차량번호": vehicle_plate,
+            "차량코드": vehicle_code,
+            "기사명": driver_name,
+            "상차지주소": pickup_text,
+            "하차지주소": delivery_text,
+            "주문수": dispatch.total_orders,
+            "팔레트수": dispatch.total_pallets,
+            "총중량(kg)": dispatch.total_weight_kg,
+            "거리(km)": round(dispatch.total_distance_km, 2) if dispatch.total_distance_km else 0,
+            "예상시간(분)": dispatch.estimated_duration_minutes or 0,
+            "상태": dispatch.status.value,
+            "생성일시": dispatch.created_at.strftime("%Y-%m-%d %H:%M")
+        })
+    
+    # Create Excel file
+    df = pd.DataFrame(data)
+    
+    # Create temporary file
+    with tempfile.NamedTemporaryFile(mode='wb', suffix='.xlsx', delete=False) as tmp:
+        tmp_path = tmp.name
+        
+        # Write to Excel with formatting
+        with pd.ExcelWriter(tmp_path, engine='openpyxl') as writer:
+            df.to_excel(writer, sheet_name='배차내역', index=False)
+            
+            # Auto-adjust column widths
+            worksheet = writer.sheets['배차내역']
+            for idx, col in enumerate(df.columns):
+                max_length = max(
+                    df[col].astype(str).apply(len).max(),
+                    len(str(col))
+                ) + 2
+                worksheet.column_dimensions[chr(65 + idx)].width = min(max_length, 50)
+    
+    logger.info(f"배차 내역 엑셀 생성 완료: {len(dispatches)}건")
+    
+    # Generate filename
+    today = date.today().isoformat()
+    filename = f"배차내역_{today}.xlsx"
+    
+    return FileResponse(
+        path=tmp_path,
+        filename=filename,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )

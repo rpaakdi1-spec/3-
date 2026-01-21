@@ -74,6 +74,8 @@ export const dispatchesAPI = {
     ),
   confirm: (dispatchIds: number[]) => api.post('/dispatches/confirm', { dispatch_ids: dispatchIds }),
   stats: () => api.get('/dispatches/stats/summary'),
+  downloadExcel: (params?: { start_date?: string; end_date?: string; status?: string }) =>
+    api.get('/dispatches/export/excel', { params, responseType: 'blob' }),
 }
 
 export const uvisAPI = {

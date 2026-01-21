@@ -4,9 +4,10 @@ import ClientUpload from './components/ClientUpload'
 import VehicleUpload from './components/VehicleUpload'
 import OrderUpload from './components/OrderUpload'
 import DispatchOptimization from './components/DispatchOptimization'
+import DispatchList from './components/DispatchList'
 import RealtimeDashboard from './components/RealtimeDashboard'
 
-type Page = 'dashboard' | 'clients' | 'vehicles' | 'orders' | 'dispatch' | 'realtime'
+type Page = 'dashboard' | 'clients' | 'vehicles' | 'orders' | 'dispatch' | 'dispatch-list' | 'realtime'
 
 function App() {
   const [currentPage, setCurrentPage] = useState<Page>('dashboard')
@@ -23,6 +24,8 @@ function App() {
         return <OrderUpload />
       case 'dispatch':
         return <DispatchOptimization />
+      case 'dispatch-list':
+        return <DispatchList />
       case 'realtime':
         return <RealtimeDashboard />
       default:
@@ -72,6 +75,12 @@ function App() {
               onClick={() => setCurrentPage('dispatch')}
             >
               AI 배차
+            </a>
+            <a
+              className={`nav-link ${currentPage === 'dispatch-list' ? 'active' : ''}`}
+              onClick={() => setCurrentPage('dispatch-list')}
+            >
+              배차 내역
             </a>
           </nav>
         </div>
