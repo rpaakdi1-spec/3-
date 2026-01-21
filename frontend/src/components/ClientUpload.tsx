@@ -24,8 +24,16 @@ interface Client {
   name: string
   client_type: string
   address: string
+  address_detail?: string
   contact_person?: string
   phone?: string
+  has_forklift?: boolean
+  loading_time_minutes?: number
+  pickup_start_time?: string
+  pickup_end_time?: string
+  delivery_start_time?: string
+  delivery_end_time?: string
+  notes?: string
 }
 
 function ClientUpload() {
@@ -34,6 +42,7 @@ function ClientUpload() {
   const [result, setResult] = useState<any>(null)
   const [error, setError] = useState<string>('')
   const [showForm, setShowForm] = useState(false)
+  const [editingId, setEditingId] = useState<number | null>(null)
   const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState<ClientForm>({
@@ -136,9 +145,19 @@ function ClientUpload() {
         client_type: formData.client_type === 'PICKUP' ? '상차' : 
                      formData.client_type === 'DELIVERY' ? '하차' : '양쪽'
       }
-      await clientsAPI.create(apiData)
-      setResult({ created: 1, failed: 0, total: 1 })
+      
+      if (editingId) {
+        // Update existing client
+        await clientsAPI.update(editingId, apiData)
+        setResult({ created: 0, failed: 0, total: 1, message: '거래처가 수정되었습니다.' })
+      } else {
+        // Create new client
+        await clientsAPI.create(apiData)
+        setResult({ created: 1, failed: 0, total: 1 })
+      }
+      
       setShowForm(false)
+      setEditingId(null)
       // Reset form
       setFormData({
         code: '',
@@ -160,6 +179,62 @@ function ClientUpload() {
       setError(err.response?.data?.detail || '등록 중 오류가 발생했습니다')
     } finally {
       setUploading(false)
+    }
+  }
+
+  const handleEditClient = (client: Client) => {
+    // Set editing mode
+    setEditingId(client.id)
+    
+    // Map Korean to English for form
+    const clientTypeMap: { [key: string]: string } = {
+      '상차': 'PICKUP',
+      '하차': 'DELIVERY',
+      '양쪽': 'BOTH'
+    }
+    
+    // Populate form with client data
+    setFormData({
+      code: client.code,
+      name: client.name,
+      client_type: clientTypeMap[client.client_type] || 'DELIVERY',
+      address: client.address,
+      address_detail: client.address_detail || '',
+      contact_person: client.contact_person || '',
+      phone: client.phone || '',
+      has_forklift: client.has_forklift || false,
+      loading_time_minutes: client.loading_time_minutes || 30,
+      pickup_start_time: client.pickup_start_time || '08:00',
+      pickup_end_time: client.pickup_end_time || '18:00',
+      delivery_start_time: client.delivery_start_time || '08:00',
+      delivery_end_time: client.delivery_end_time || '18:00',
+      notes: client.notes || ''
+    })
+    
+    // Show the form
+    setShowForm(true)
+    
+    // Scroll to form
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handleDeleteClient = async (clientId: number, clientName: string) => {
+    if (!window.confirm(`거래처 "${clientName}"을(를) 삭제하시겠습니까?\n\n이 거래처를 사용하는 주문이 있으면 삭제할 수 없습니다.`)) {
+      return
+    }
+
+    try {
+      await clientsAPI.delete(clientId)
+      setResult({ created: 0, failed: 0, total: 0, message: '거래처가 삭제되었습니다.' })
+      loadClients()
+    } catch (err: any) {
+      console.error('Client deletion error:', err)
+      let errorMessage = '삭제 중 오류가 발생했습니다'
+      
+      if (err.response?.data?.detail) {
+        errorMessage = err.response.data.detail
+      }
+      setError(errorMessage)
     }
   }
 
@@ -223,7 +298,9 @@ function ClientUpload() {
             borderRadius: '8px',
             backgroundColor: '#f8f9fa'
           }}>
-            <h3 style={{ marginBottom: '15px' }}>거래처 직접 등록</h3>
+            <h3 style={{ marginBottom: '15px' }}>
+              {editingId ? '거래처 수정' : '거래처 직접 등록'}
+            </h3>
             <form onSubmit={handleFormSubmit}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
                 <div>
@@ -346,7 +423,10 @@ function ClientUpload() {
                 <button 
                   type="button" 
                   className="button secondary"
-                  onClick={() => setShowForm(false)}
+                  onClick={() => {
+                    setShowForm(false)
+                    setEditingId(null)
+                  }}
                 >
                   취소
                 </button>
@@ -355,7 +435,7 @@ function ClientUpload() {
                   className="button"
                   disabled={uploading}
                 >
-                  {uploading ? '등록 중...' : '등록하기'}
+                  {uploading ? (editingId ? '수정 중...' : '등록 중...') : (editingId ? '수정하기' : '등록하기')}
                 </button>
               </div>
             </form>
@@ -403,6 +483,7 @@ function ClientUpload() {
                   <th>주소</th>
                   <th>담당자</th>
                   <th>연락처</th>
+                  <th>작업</th>
                 </tr>
               </thead>
               <tbody>
@@ -424,6 +505,36 @@ function ClientUpload() {
                     </td>
                     <td>{client.contact_person || '-'}</td>
                     <td>{client.phone || '-'}</td>
+                    <td>
+                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                        <button
+                          className="button secondary"
+                          onClick={() => handleEditClient(client)}
+                          style={{ 
+                            padding: '4px 12px',
+                            fontSize: '12px',
+                            backgroundColor: '#17a2b8',
+                            color: 'white'
+                          }}
+                          title="수정"
+                        >
+                          ✏️ 수정
+                        </button>
+                        <button
+                          className="button"
+                          onClick={() => handleDeleteClient(client.id, client.name)}
+                          style={{ 
+                            padding: '4px 12px',
+                            fontSize: '12px',
+                            backgroundColor: '#dc3545',
+                            color: 'white'
+                          }}
+                          title="삭제"
+                        >
+                          🗑️ 삭제
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
