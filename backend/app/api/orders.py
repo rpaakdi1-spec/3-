@@ -170,6 +170,8 @@ def update_order(
     db: Session = Depends(get_db)
 ):
     """주문 수정"""
+    from datetime import time as time_type
+    
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="주문을 찾을 수 없습니다")
@@ -181,6 +183,20 @@ def update_order(
     
     db.commit()
     db.refresh(order)
+    
+    # Add client info
+    order.pickup_client_name = order.pickup_client.name if order.pickup_client else None
+    order.delivery_client_name = order.delivery_client.name if order.delivery_client else None
+    
+    # Convert time objects to HH:MM string format
+    if order.pickup_start_time and isinstance(order.pickup_start_time, time_type):
+        order.pickup_start_time = order.pickup_start_time.strftime('%H:%M')
+    if order.pickup_end_time and isinstance(order.pickup_end_time, time_type):
+        order.pickup_end_time = order.pickup_end_time.strftime('%H:%M')
+    if order.delivery_start_time and isinstance(order.delivery_start_time, time_type):
+        order.delivery_start_time = order.delivery_start_time.strftime('%H:%M')
+    if order.delivery_end_time and isinstance(order.delivery_end_time, time_type):
+        order.delivery_end_time = order.delivery_end_time.strftime('%H:%M')
     
     logger.info(f"Updated order: {order.order_number}")
     return order
