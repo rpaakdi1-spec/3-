@@ -5,6 +5,8 @@ from .driver import Driver
 from .order import Order
 from .dispatch import Dispatch, DispatchRoute
 from .vehicle_location import VehicleLocation, TemperatureAlert
+from .notice import Notice
+from .purchase_order import PurchaseOrder
 
 __all__ = [
     "Base",
@@ -16,4 +18,6 @@ __all__ = [
     "DispatchRoute",
     "VehicleLocation",
     "TemperatureAlert",
+    "Notice",
+    "PurchaseOrder",
 ]

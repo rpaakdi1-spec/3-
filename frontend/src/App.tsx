@@ -6,8 +6,10 @@ import OrderUpload from './components/OrderUpload'
 import DispatchOptimization from './components/DispatchOptimization'
 import DispatchList from './components/DispatchList'
 import RealtimeDashboard from './components/RealtimeDashboard'
+import NoticeBoard from './components/NoticeBoard'
+import PurchaseOrders from './components/PurchaseOrders'
 
-type Page = 'dashboard' | 'clients' | 'vehicles' | 'orders' | 'dispatch' | 'dispatch-list' | 'realtime'
+type Page = 'dashboard' | 'clients' | 'vehicles' | 'orders' | 'dispatch' | 'dispatch-list' | 'realtime' | 'notices' | 'purchase-orders'
 
 function App() {
   const [currentPage, setCurrentPage] = useState<Page>('dashboard')
@@ -28,6 +30,10 @@ function App() {
         return <DispatchList />
       case 'realtime':
         return <RealtimeDashboard />
+      case 'notices':
+        return <NoticeBoard />
+      case 'purchase-orders':
+        return <PurchaseOrders />
       default:
         return <Dashboard />
     }
@@ -81,6 +87,18 @@ function App() {
               onClick={() => setCurrentPage('dispatch-list')}
             >
               배차 내역
+            </a>
+            <a
+              className={`nav-link ${currentPage === 'notices' ? 'active' : ''}`}
+              onClick={() => setCurrentPage('notices')}
+            >
+              📢 공지사항
+            </a>
+            <a
+              className={`nav-link ${currentPage === 'purchase-orders' ? 'active' : ''}`}
+              onClick={() => setCurrentPage('purchase-orders')}
+            >
+              📝 발주서
             </a>
           </nav>
         </div>

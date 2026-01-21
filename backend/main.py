@@ -1,9 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 from loguru import logger
 import sys
+from pathlib import Path
 
 from app.core.config import settings
 from app.core.database import init_db
@@ -113,7 +115,7 @@ async def internal_error_handler(request, exc):
 
 
 # Import and include routers
-from app.api import clients, vehicles, orders, dispatches, tracking, uvis, redispatch
+from app.api import clients, vehicles, orders, dispatches, tracking, uvis, redispatch, notices, purchase_orders
 app.include_router(clients.router, prefix=f"{settings.API_PREFIX}/clients", tags=["Clients"])
 app.include_router(vehicles.router, prefix=f"{settings.API_PREFIX}/vehicles", tags=["Vehicles"])
 app.include_router(orders.router, prefix=f"{settings.API_PREFIX}/orders", tags=["Orders"])
@@ -121,6 +123,13 @@ app.include_router(dispatches.router, prefix=f"{settings.API_PREFIX}/dispatches"
 app.include_router(tracking.router, prefix=f"{settings.API_PREFIX}/tracking", tags=["Tracking"])
 app.include_router(uvis.router, prefix=f"{settings.API_PREFIX}/uvis", tags=["UVIS"])
 app.include_router(redispatch.router, prefix=f"{settings.API_PREFIX}/redispatch", tags=["Redispatch"])
+app.include_router(notices.router, prefix=f"{settings.API_PREFIX}/notices", tags=["Notices"])
+app.include_router(purchase_orders.router, prefix=f"{settings.API_PREFIX}/purchase-orders", tags=["Purchase Orders"])
+
+# Mount static files for uploads
+UPLOAD_DIR = Path("/home/user/webapp/backend/uploads")
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
 
 if __name__ == "__main__":
