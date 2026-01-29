@@ -39,7 +39,7 @@ class Client(Base, IDMixin, TimestampMixin):
     delivery_end_time: Mapped[Optional[str]] = mapped_column(String(5), comment="하차가능종료시간(HH:MM)")
     
     # 시설 정보
-    has_forklift: Mapped[bool] = mapped_column(Boolean, default=False, comment="지게차 유무")
+    forklift_operator_available: Mapped[bool] = mapped_column(Boolean, default=False, comment="지게차 운전능력 가능 여부")
     loading_time_minutes: Mapped[int] = mapped_column(default=30, comment="평균 상하차 소요시간(분)")
     
     # 연락처

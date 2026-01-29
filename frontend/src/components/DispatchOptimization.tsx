@@ -67,6 +67,29 @@ function DispatchOptimization() {
     }
   }
 
+  const handleDeleteOrder = async (orderId: number, orderNumber: string) => {
+    if (!window.confirm(`주문 "${orderNumber}"을(를) 삭제하시겠습니까?`)) {
+      return
+    }
+
+    try {
+      await ordersAPI.delete(orderId)
+      setError('')
+      // Remove from selected orders if it was selected
+      setSelectedOrders(prev => prev.filter(id => id !== orderId))
+      // Reload orders
+      await loadPendingOrders()
+    } catch (err: any) {
+      console.error('Order deletion error:', err)
+      let errorMessage = '주문 삭제 중 오류가 발생했습니다'
+      
+      if (err.response?.data?.detail) {
+        errorMessage = err.response.data.detail
+      }
+      setError(errorMessage)
+    }
+  }
+
   const handleOptimize = async () => {
     if (selectedOrders.length === 0) {
       setError('최소 1개 이상의 주문을 선택해주세요')
@@ -313,6 +336,7 @@ function DispatchOptimization() {
                   <th>중량(kg)</th>
                   <th>상차지</th>
                   <th>하차지</th>
+                  <th style={{ width: '80px' }}>관리</th>
                 </tr>
               </thead>
               <tbody>
@@ -348,6 +372,23 @@ function DispatchOptimization() {
                     <td>{order.weight_kg.toFixed(1)}</td>
                     <td style={{ fontSize: '14px' }}>{order.pickup_client_name}</td>
                     <td style={{ fontSize: '14px' }}>{order.delivery_client_name}</td>
+                    <td>
+                      <button
+                        onClick={() => handleDeleteOrder(order.id, order.order_number)}
+                        style={{
+                          padding: '4px 8px',
+                          fontSize: '12px',
+                          backgroundColor: '#dc3545',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer'
+                        }}
+                        title="주문 삭제"
+                      >
+                        🗑️ 삭제
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>

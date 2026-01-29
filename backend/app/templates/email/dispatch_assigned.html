@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}배차 할당 - {{ dispatch_number }}{% endblock %}
+
+{% block content %}
+<h2 style="color: #1e40af; margin-top: 0;">안녕하세요, {{ driver_name }}님!</h2>
+
+<p>새로운 배차가 할당되었습니다. 아래 내용을 확인하시고 준비해주세요.</p>
+
+<div class="info-box">
+    <h3>배차 정보</h3>
+    <div class="info-row">
+        <span class="info-label">배차 번호:</span>
+        <span class="info-value"><strong>{{ dispatch_number }}</strong></span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">배차 날짜:</span>
+        <span class="info-value">{{ dispatch_date }}</span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">차량:</span>
+        <span class="info-value">{{ vehicle }}</span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">총 주문 수:</span>
+        <span class="info-value">{{ total_orders }}건</span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">총 팔레트:</span>
+        <span class="info-value">{{ total_pallets }}개</span>
+    </div>
+</div>
+
+<h3 style="color: #1e40af; margin-top: 30px;">주문 목록</h3>
+<table>
+    <thead>
+        <tr>
+            <th>주문 번호</th>
+            <th>상차지</th>
+            <th>하차지</th>
+            <th>팔레트</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for order in orders %}
+        <tr>
+            <td>{{ order.order_number }}</td>
+            <td>{{ order.pickup }}</td>
+            <td>{{ order.delivery }}</td>
+            <td>{{ order.pallets }}</td>
+        </tr>
+        {% endfor %}
+        {% if total_orders > 10 %}
+        <tr>
+            <td colspan="4" style="text-align: center; color: #666;">
+                ... 외 {{ total_orders - 10 }}건 (전체 주문은 시스템에서 확인하세요)
+            </td>
+        </tr>
+        {% endif %}
+    </tbody>
+</table>
+
+<p style="margin-top: 20px;">
+    <a href="https://coldchain.com/dispatches/{{ dispatch_number }}" class="button">상세 경로 확인하기</a>
+</p>
+
+<p style="color: #666; font-size: 14px; margin-top: 20px;">
+    ⚠️ 출발 전 차량 및 온도 점검을 잊지 마세요!
+</p>
+{% endblock %}

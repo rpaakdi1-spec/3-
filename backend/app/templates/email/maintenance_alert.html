@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}유지보수 필요 - {{ vehicle_number }}{% endblock %}
+
+{% block content %}
+<div class="alert-box">
+    <h2 style="margin-top: 0;">🔧 차량 유지보수 필요</h2>
+    <p>차량 <strong>{{ vehicle_number }}</strong>에 유지보수가 필요합니다.</p>
+</div>
+
+<div class="info-box">
+    <h3>차량 정보</h3>
+    <div class="info-row">
+        <span class="info-label">차량 번호:</span>
+        <span class="info-value"><strong>{{ vehicle_number }}</strong></span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">차량 유형:</span>
+        <span class="info-value">{{ vehicle_type }}</span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">사유:</span>
+        <span class="info-value">{{ reason }}</span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">알림 시간:</span>
+        <span class="info-value">{{ alert_time }}</span>
+    </div>
+</div>
+
+<div style="background-color: #fef3c7; padding: 15px; border-radius: 4px; margin-top: 20px;">
+    <h3 style="color: #92400e; margin-top: 0;">권장 조치</h3>
+    <ul style="margin: 10px 0; padding-left: 20px;">
+        <li>차량 점검 일정을 예약하세요</li>
+        <li>정비 이력을 확인하세요</li>
+        <li>예방 정비를 고려하세요</li>
+    </ul>
+</div>
+
+<p style="margin-top: 20px;">
+    <a href="https://coldchain.com/vehicles/{{ vehicle_number }}/maintenance" class="button">정비 예약하기</a>
+</p>
+{% endblock %}

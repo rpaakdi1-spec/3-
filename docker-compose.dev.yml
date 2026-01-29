@@ -1,0 +1,94 @@
+version: '3.8'
+
+# Development environment with hot-reload
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: cold-chain-db-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-coldchain}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-coldchain_password}
+      POSTGRES_DB: ${DB_NAME:-coldchain_db}
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - coldchain-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: cold-chain-redis-dev
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data_dev:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - coldchain-network
+
+  # Backend API (Development with hot-reload)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cold-chain-backend-dev
+    restart: unless-stopped
+    environment:
+      APP_ENV: development
+      APP_NAME: "Cold Chain Dispatch System"
+      SECRET_KEY: ${SECRET_KEY}
+      DATABASE_URL: postgresql://${DB_USER:-coldchain}:${DB_PASSWORD:-coldchain_password}@postgres:5432/${DB_NAME:-coldchain_db}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 0
+      NAVER_MAP_CLIENT_ID: ${NAVER_MAP_CLIENT_ID}
+      NAVER_MAP_CLIENT_SECRET: ${NAVER_MAP_CLIENT_SECRET}
+      UVIS_API_URL: ${UVIS_API_URL}
+      UVIS_API_KEY: ${UVIS_API_KEY}
+      CORS_ORIGINS: http://localhost:3000,http://localhost:8000
+    volumes:
+      - ./backend:/app
+      - ./backend/data:/app/data
+      - ./backend/logs:/app/logs
+    ports:
+      - "8000:8000"
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - coldchain-network
+
+  # Frontend (Development with Vite dev server)
+  frontend:
+    image: node:18-alpine
+    container_name: cold-chain-frontend-dev
+    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    command: sh -c "npm install && npm run dev -- --host"
+    environment:
+      - NODE_ENV=development
+    depends_on:
+      - backend
+    networks:
+      - coldchain-network
+
+volumes:
+  postgres_data_dev:
+    driver: local
+  redis_data_dev:
+    driver: local
+
+networks:
+  coldchain-network:
+    driver: bridge

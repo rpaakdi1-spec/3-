@@ -1,3 +1,4 @@
+from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, Field, ConfigDict
@@ -17,7 +18,7 @@ class ClientBase(BaseModel):
     delivery_start_time: Optional[str] = Field(None, max_length=5, description="하차가능시작시간")
     delivery_end_time: Optional[str] = Field(None, max_length=5, description="하차가능종료시간")
     
-    has_forklift: bool = Field(False, description="지게차 유무")
+    forklift_operator_available: bool = Field(False, description="지게차 운전능력 가능 여부")
     loading_time_minutes: int = Field(30, description="평균 상하차 소요시간(분)")
     
     contact_person: Optional[str] = Field(None, max_length=100, description="담당자명")
@@ -43,7 +44,7 @@ class ClientUpdate(BaseModel):
     pickup_end_time: Optional[str] = Field(None, max_length=5)
     delivery_start_time: Optional[str] = Field(None, max_length=5)
     delivery_end_time: Optional[str] = Field(None, max_length=5)
-    has_forklift: Optional[bool] = None
+    forklift_operator_available: Optional[bool] = None
     loading_time_minutes: Optional[int] = None
     contact_person: Optional[str] = Field(None, max_length=100)
     phone: Optional[str] = Field(None, max_length=20)
@@ -81,3 +82,4 @@ class GeocodeResponse(BaseModel):
     success_count: int
     failed_count: int
     results: list[dict]
+    message: Optional[str] = None

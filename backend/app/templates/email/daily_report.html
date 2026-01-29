@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}일일 리포트 - {{ report_date }}{% endblock %}
+
+{% block content %}
+<h2 style="color: #1e40af; margin-top: 0;">📊 일일 운영 리포트</h2>
+<p style="font-size: 18px; color: #666;">{{ report_date }}</p>
+
+<div class="info-box">
+    <h3>배차 현황</h3>
+    <div class="info-row">
+        <span class="info-label">총 배차:</span>
+        <span class="info-value"><strong>{{ total_dispatches }}건</strong></span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">완료 배차:</span>
+        <span class="info-value">{{ completed_dispatches }}건</span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">완료율:</span>
+        <span class="info-value">
+            <span class="badge badge-success">{{ completion_rate | round(1) }}%</span>
+        </span>
+    </div>
+</div>
+
+<div class="info-box">
+    <h3>주문 현황</h3>
+    <div class="info-row">
+        <span class="info-label">총 주문:</span>
+        <span class="info-value"><strong>{{ total_orders }}건</strong></span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">완료 주문:</span>
+        <span class="info-value">{{ completed_orders }}건</span>
+    </div>
+</div>
+
+<div class="info-box">
+    <h3>운영 현황</h3>
+    <div class="info-row">
+        <span class="info-label">가동 차량:</span>
+        <span class="info-value">{{ active_vehicles }}대</span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">총 주행 거리:</span>
+        <span class="info-value">{{ total_distance | round(1) }}km</span>
+    </div>
+</div>
+
+<p style="margin-top: 20px;">
+    <a href="https://coldchain.com/analytics/daily?date={{ report_date }}" class="button">상세 리포트 보기</a>
+</p>
+
+<p style="color: #666; font-size: 12px; margin-top: 20px;">
+    리포트 생성 시간: {{ generated_at }}
+</p>
+{% endblock %}

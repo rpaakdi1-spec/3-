@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}온도 이탈 알림 - {{ vehicle_number }}{% endblock %}
+
+{% block content %}
+<div class="alert-box">
+    <h2 style="margin-top: 0;">⚠️ 온도 이탈 감지</h2>
+    <p><strong>차량 {{ vehicle_number }}에서 온도 이탈이 감지되었습니다!</strong></p>
+</div>
+
+<div class="info-box">
+    <h3>온도 정보</h3>
+    <div class="info-row">
+        <span class="info-label">차량 번호:</span>
+        <span class="info-value"><strong>{{ vehicle_number }}</strong></span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">현재 온도:</span>
+        <span class="info-value" style="color: #ef4444; font-weight: bold;">{{ current_temp }}°C</span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">정상 범위:</span>
+        <span class="info-value">{{ threshold_min }}°C ~ {{ threshold_max }}°C</span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">심각도:</span>
+        <span class="info-value">
+            {% if severity == 'HIGH' %}
+            <span class="badge badge-danger">높음</span>
+            {% else %}
+            <span class="badge badge-warning">중간</span>
+            {% endif %}
+        </span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">감지 시간:</span>
+        <span class="info-value">{{ alert_time }}</span>
+    </div>
+</div>
+
+<div style="background-color: #fef2f2; padding: 15px; border-radius: 4px; margin-top: 20px;">
+    <h3 style="color: #ef4444; margin-top: 0;">긴급 조치 필요</h3>
+    <ul style="margin: 10px 0; padding-left: 20px;">
+        <li>즉시 차량 온도 조절 시스템을 점검하세요</li>
+        <li>화물 상태를 확인하세요</li>
+        <li>필요시 긴급 정비를 요청하세요</li>
+        <li>관리자에게 즉시 보고하세요</li>
+    </ul>
+</div>
+
+<p style="margin-top: 20px;">
+    <a href="https://coldchain.com/vehicles/{{ vehicle_number }}" class="button" style="background-color: #ef4444;">차량 상세 보기</a>
+</p>
+{% endblock %}

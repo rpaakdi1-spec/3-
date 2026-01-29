@@ -10,6 +10,9 @@ from pathlib import Path
 from app.core.config import settings
 from app.core.database import init_db
 from app.services.excel_template_service import ExcelTemplateService
+from app.middleware.security import setup_security_middleware
+from app.middleware.compression import CompressionMiddleware
+from app.middleware.performance import PerformanceMonitoringMiddleware
 
 # Configure logging
 logger.remove()
@@ -46,12 +49,21 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Failed to create templates: {e}")
     
+    # Initialize WebSocket manager
+    logger.info("Initializing WebSocket manager...")
+    from app.websocket.connection_manager import manager
+    from app.services.realtime_metrics_service import metrics_service
+    await manager.initialize()
+    await metrics_service.start()
+    
     logger.info("Application startup complete!")
     
     yield
     
     # Shutdown
     logger.info("Shutting down application...")
+    await metrics_service.stop()
+    await manager.shutdown()
 
 
 # Create FastAPI application
@@ -72,6 +84,26 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Configure Security Middleware
+setup_security_middleware(app)
+
+# Configure Performance Monitoring Middleware
+# DISABLED: Also causes "Unexpected message received: http.request" error
+# TODO: Fix PerformanceMonitoringMiddleware to properly handle ASGI messages
+# app.add_middleware(
+#     PerformanceMonitoringMiddleware,
+#     slow_request_threshold=1.0,  # 1 second
+#     enable_memory_tracking=True
+# )
+
+# Configure Compression Middleware
+# DISABLED: Causes "Unexpected message received: http.request" error
+# TODO: Fix CompressionMiddleware to properly handle ASGI messages
+# app.add_middleware(
+#     CompressionMiddleware,
+#     minimum_size=500  # 500 bytes
+# )
 
 
 # Health check endpoint
@@ -115,19 +147,38 @@ async def internal_error_handler(request, exc):
 
 
 # Import and include routers
-from app.api import clients, vehicles, orders, dispatches, tracking, uvis, redispatch, notices, purchase_orders
+# from app.api import auth, clients, vehicles, orders, dispatches, tracking, uvis, redispatch, notices, purchase_orders, band_messages, uvis_gps, analytics, delivery_tracking, traffic, monitoring, cache
+from app.api import auth, clients, vehicles, orders, dispatches, tracking, uvis, redispatch, notices, purchase_orders, band_messages, uvis_gps, delivery_tracking, traffic, monitoring, cache
+from app.api.v1 import reports, realtime_monitoring, ml_models, fcm_notifications, performance, security, websocket
+app.include_router(auth.router, prefix=f"{settings.API_PREFIX}/auth", tags=["Authentication"])
 app.include_router(clients.router, prefix=f"{settings.API_PREFIX}/clients", tags=["Clients"])
 app.include_router(vehicles.router, prefix=f"{settings.API_PREFIX}/vehicles", tags=["Vehicles"])
 app.include_router(orders.router, prefix=f"{settings.API_PREFIX}/orders", tags=["Orders"])
 app.include_router(dispatches.router, prefix=f"{settings.API_PREFIX}/dispatches", tags=["Dispatches"])
 app.include_router(tracking.router, prefix=f"{settings.API_PREFIX}/tracking", tags=["Tracking"])
+app.include_router(delivery_tracking.router, prefix=f"{settings.API_PREFIX}/delivery-tracking", tags=["Delivery Tracking"])
+app.include_router(traffic.router, prefix=f"{settings.API_PREFIX}/traffic", tags=["Traffic Information"])
+app.include_router(monitoring.router, prefix=f"{settings.API_PREFIX}/monitoring", tags=["Monitoring & Alerts"])
+app.include_router(cache.router, prefix=f"{settings.API_PREFIX}/cache", tags=["Cache Management"])
 app.include_router(uvis.router, prefix=f"{settings.API_PREFIX}/uvis", tags=["UVIS"])
 app.include_router(redispatch.router, prefix=f"{settings.API_PREFIX}/redispatch", tags=["Redispatch"])
 app.include_router(notices.router, prefix=f"{settings.API_PREFIX}/notices", tags=["Notices"])
 app.include_router(purchase_orders.router, prefix=f"{settings.API_PREFIX}/purchase-orders", tags=["Purchase Orders"])
+app.include_router(band_messages.router, prefix=f"{settings.API_PREFIX}/band", tags=["Band Messages"])
+app.include_router(uvis_gps.router, prefix=f"{settings.API_PREFIX}", tags=["UVIS GPS"])
+# app.include_router(analytics.router, prefix=f"{settings.API_PREFIX}", tags=["Analytics"])  # Temporarily disabled due to Pydantic recursion issue
+app.include_router(reports.router, prefix=f"{settings.API_PREFIX}/reports", tags=["Reports"])
+app.include_router(realtime_monitoring.router, prefix=f"{settings.API_PREFIX}/realtime", tags=["Realtime Monitoring"])
+app.include_router(ml_models.router, prefix=f"{settings.API_PREFIX}/ml", tags=["ML Models"])
+app.include_router(fcm_notifications.router, prefix=f"{settings.API_PREFIX}/notifications", tags=["Push Notifications"])
+app.include_router(performance.router, prefix=f"{settings.API_PREFIX}/performance", tags=["Performance Monitoring"])
+app.include_router(security.router, prefix=f"{settings.API_PREFIX}/security", tags=["Security"])
+app.include_router(websocket.router, tags=["WebSocket"])  # WebSocket endpoints
 
 # Mount static files for uploads
-UPLOAD_DIR = Path("/home/user/webapp/backend/uploads")
+import os
+UPLOAD_BASE_DIR = os.getenv("UPLOAD_BASE_DIR", "./uploads")
+UPLOAD_DIR = Path(UPLOAD_BASE_DIR)
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 

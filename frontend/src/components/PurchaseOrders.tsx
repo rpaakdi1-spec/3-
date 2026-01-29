@@ -2,29 +2,17 @@ import React, { useState, useEffect, FormEvent, ChangeEvent } from 'react';
 
 interface PurchaseOrder {
   id: number;
-  po_number: string;
   title: string;
-  supplier: string;
-  order_date: string;
-  delivery_date?: string;
-  total_amount: number;
-  status: string;
   content?: string;
-  image_url?: string;
+  image_urls?: string[];
   author: string;
   created_at: string;
 }
 
 interface POForm {
-  po_number: string;
   title: string;
-  supplier: string;
-  order_date: string;
-  delivery_date: string;
-  total_amount: number;
-  status: string;
   content: string;
-  image_url: string;
+  image_urls: string[];
   author: string;
 }
 
@@ -38,20 +26,23 @@ const PurchaseOrders: React.FC = () => {
   const [uploadingImage, setUploadingImage] = useState(false);
   
   const [formData, setFormData] = useState<POForm>({
-    po_number: '',
     title: '',
-    supplier: '',
-    order_date: new Date().toISOString().split('T')[0],
-    delivery_date: '',
-    total_amount: 0,
-    status: '작성중',
     content: '',
-    image_url: '',
+    image_urls: [],
     author: '',
   });
 
   useEffect(() => {
     loadOrders();
+    // 이미지 프록시 테스트
+    console.log('🔍 이미지 프록시 테스트 시작');
+    fetch('/uploads/purchase_orders/test_red.jpg')
+      .then(res => {
+        console.log('✅ 이미지 프록시 응답:', res.status, res.statusText);
+      })
+      .catch(err => {
+        console.error('❌ 이미지 프록시 실패:', err);
+      });
   }, []);
 
   const loadOrders = async () => {
@@ -67,12 +58,9 @@ const PurchaseOrders: React.FC = () => {
     }
   };
 
-  const handleFormChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleFormChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: name === 'total_amount' ? parseFloat(value) || 0 : value
-    }));
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleImageSelect = (e: ChangeEvent<HTMLInputElement>) => {
@@ -83,6 +71,12 @@ const PurchaseOrders: React.FC = () => {
 
   const handleImageUpload = async () => {
     if (!imageFile) return;
+    
+    // 최대 5개 제한 확인
+    if (formData.image_urls.length >= 5) {
+      alert('이미지는 최대 5개까지만 업로드 가능합니다.');
+      return;
+    }
 
     setUploadingImage(true);
     try {
@@ -94,13 +88,26 @@ const PurchaseOrders: React.FC = () => {
         body: formData,
       });
 
+      if (!response.ok) {
+        throw new Error(`업로드 실패: ${response.status}`);
+      }
+
       const data = await response.json();
-      setFormData(prev => ({ ...prev, image_url: data.image_url }));
+      
+      if (!data.image_url) {
+        throw new Error('이미지 URL을 받지 못했습니다');
+      }
+      
+      console.log('업로드된 이미지 URL:', data.image_url);
+      setFormData(prev => ({ ...prev, image_urls: [...prev.image_urls, data.image_url] }));
       alert('이미지가 업로드되었습니다!');
       setImageFile(null);
+      // 파일 입력 초기화
+      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+      if (fileInput) fileInput.value = '';
     } catch (error) {
       console.error('이미지 업로드 실패:', error);
-      alert('이미지 업로드에 실패했습니다.');
+      alert(`이미지 업로드에 실패했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`);
     } finally {
       setUploadingImage(false);
     }
@@ -128,15 +135,9 @@ const PurchaseOrders: React.FC = () => {
         setShowForm(false);
         setEditingId(null);
         setFormData({
-          po_number: '',
           title: '',
-          supplier: '',
-          order_date: new Date().toISOString().split('T')[0],
-          delivery_date: '',
-          total_amount: 0,
-          status: '작성중',
           content: '',
-          image_url: '',
+          image_urls: [],
           author: '',
         });
       } else {
@@ -152,18 +153,19 @@ const PurchaseOrders: React.FC = () => {
   const handleEdit = (order: PurchaseOrder) => {
     setEditingId(order.id);
     setFormData({
-      po_number: order.po_number,
       title: order.title,
-      supplier: order.supplier,
-      order_date: order.order_date,
-      delivery_date: order.delivery_date || '',
-      total_amount: order.total_amount,
-      status: order.status,
       content: order.content || '',
-      image_url: order.image_url || '',
+      image_urls: order.image_urls || [],
       author: order.author,
     });
     setShowForm(true);
+  };
+  
+  const handleRemoveImage = (indexToRemove: number) => {
+    setFormData(prev => ({
+      ...prev,
+      image_urls: prev.image_urls.filter((_, index) => index !== indexToRemove)
+    }));
   };
 
   const handleDelete = async (id: number) => {
@@ -188,15 +190,7 @@ const PurchaseOrders: React.FC = () => {
     setSelectedOrder(order);
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case '작성중': return '#FF9800';
-      case '발송완료': return '#2196F3';
-      case '승인': return '#4CAF50';
-      case '취소': return '#f44336';
-      default: return '#757575';
-    }
-  };
+
 
   return (
     <div style={{ padding: '20px' }}>
@@ -259,15 +253,16 @@ const PurchaseOrders: React.FC = () => {
         }}>
           <h3>{editingId ? '발주서 수정' : '발주서 작성'}</h3>
           <form onSubmit={handleFormSubmit}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '15px', marginBottom: '15px' }}>
               <div>
-                <label>발주서 번호 *</label>
+                <label>제목 *</label>
                 <input
                   type="text"
-                  name="po_number"
-                  value={formData.po_number}
+                  name="title"
+                  value={formData.title}
                   onChange={handleFormChange}
                   required
+                  placeholder="발주서 제목을 입력하세요"
                   style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
                 />
               </div>
@@ -279,128 +274,113 @@ const PurchaseOrders: React.FC = () => {
                   value={formData.author}
                   onChange={handleFormChange}
                   required
+                  placeholder="작성자명"
                   style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
                 />
               </div>
             </div>
 
             <div style={{ marginBottom: '15px' }}>
-              <label>제목 *</label>
-              <input
-                type="text"
-                name="title"
-                value={formData.title}
-                onChange={handleFormChange}
-                required
-                style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
-              />
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
-              <div>
-                <label>공급업체 *</label>
-                <input
-                  type="text"
-                  name="supplier"
-                  value={formData.supplier}
-                  onChange={handleFormChange}
-                  required
-                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
-                />
-              </div>
-              <div>
-                <label>총 금액</label>
-                <input
-                  type="number"
-                  name="total_amount"
-                  value={formData.total_amount}
-                  onChange={handleFormChange}
-                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
-                />
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '15px', marginBottom: '15px' }}>
-              <div>
-                <label>발주일 *</label>
-                <input
-                  type="date"
-                  name="order_date"
-                  value={formData.order_date}
-                  onChange={handleFormChange}
-                  required
-                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
-                />
-              </div>
-              <div>
-                <label>희망 납기일</label>
-                <input
-                  type="date"
-                  name="delivery_date"
-                  value={formData.delivery_date}
-                  onChange={handleFormChange}
-                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
-                />
-              </div>
-              <div>
-                <label>상태</label>
-                <select
-                  name="status"
-                  value={formData.status}
-                  onChange={handleFormChange}
-                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
-                >
-                  <option value="작성중">작성중</option>
-                  <option value="발송완료">발송완료</option>
-                  <option value="승인">승인</option>
-                  <option value="취소">취소</option>
-                </select>
-              </div>
-            </div>
-
-            <div style={{ marginBottom: '15px' }}>
-              <label>발주 내용 및 특이사항</label>
+              <label>내용</label>
               <textarea
                 name="content"
                 value={formData.content}
                 onChange={handleFormChange}
-                rows={6}
+                rows={8}
+                placeholder="발주 내용을 입력하세요"
                 style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
               />
             </div>
 
             <div style={{ marginBottom: '15px' }}>
-              <label>이미지 첨부</label>
+              <label>이미지 첨부 (최대 5개)</label>
               <div style={{ display: 'flex', gap: '10px', marginTop: '5px' }}>
                 <input
                   type="file"
                   accept="image/*"
                   onChange={handleImageSelect}
+                  disabled={formData.image_urls.length >= 5}
                   style={{ flex: 1 }}
                 />
                 <button
                   type="button"
                   onClick={handleImageUpload}
-                  disabled={!imageFile || uploadingImage}
+                  disabled={!imageFile || uploadingImage || formData.image_urls.length >= 5}
                   style={{
                     padding: '8px 16px',
-                    backgroundColor: imageFile ? '#FF9800' : '#ccc',
+                    backgroundColor: (imageFile && formData.image_urls.length < 5) ? '#FF9800' : '#ccc',
                     color: 'white',
                     border: 'none',
                     borderRadius: '4px',
-                    cursor: imageFile ? 'pointer' : 'not-allowed',
+                    cursor: (imageFile && formData.image_urls.length < 5) ? 'pointer' : 'not-allowed',
                   }}
                 >
                   {uploadingImage ? '업로드 중...' : '📤 업로드'}
                 </button>
               </div>
-              {formData.image_url && (
-                <div style={{ marginTop: '10px' }}>
-                  <img
-                    src={`/${formData.image_url}`}
-                    alt="Preview"
-                    style={{ maxWidth: '200px', borderRadius: '4px', border: '1px solid #ddd' }}
-                  />
+              <div style={{ marginTop: '5px', fontSize: '12px', color: '#757575' }}>
+                {formData.image_urls.length}/5개 업로드됨
+              </div>
+              {formData.image_urls.length > 0 && (
+                <div style={{ marginTop: '10px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '10px' }}>
+                  {formData.image_urls.map((url, index) => (
+                    <div key={index} style={{ position: 'relative' }}>
+                      <img
+                        src={url}
+                        alt={`Preview ${index + 1}`}
+                        style={{ width: '100%', height: '150px', objectFit: 'cover', borderRadius: '4px', border: '1px solid #ddd' }}
+                        onLoad={(e) => {
+                          console.log('✅ 이미지 로딩 성공:', url);
+                          console.log('  - naturalWidth:', e.currentTarget.naturalWidth);
+                          console.log('  - naturalHeight:', e.currentTarget.naturalHeight);
+                        }}
+                        onError={(e) => {
+                          console.error('❌ 이미지 로딩 실패:', url);
+                          console.error('  - 전체 URL:', window.location.origin + url);
+                          console.error('  - currentSrc:', e.currentTarget.currentSrc);
+                          
+                          const imgElement = e.currentTarget;
+                          imgElement.style.display = 'none';
+                          
+                          // 에러 메시지 표시
+                          const errorDiv = document.createElement('div');
+                          errorDiv.style.cssText = 'padding: 20px; background: #ffebee; border: 2px dashed #f44336; border-radius: 4px; color: #c62828; text-align: center; font-size: 12px;';
+                          errorDiv.innerHTML = `<strong>⚠️ 이미지를 불러올 수 없습니다</strong><br/><small>${url}</small>`;
+                          imgElement.parentElement?.appendChild(errorDiv);
+                          
+                          // 자동 재시도 (1회)
+                          setTimeout(() => {
+                            console.log('🔄 이미지 재시도:', url);
+                            imgElement.src = url + '?retry=' + Date.now();
+                            imgElement.style.display = 'block';
+                          }, 2000);
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveImage(index)}
+                        style={{
+                          position: 'absolute',
+                          top: '5px',
+                          right: '5px',
+                          backgroundColor: '#f44336',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '50%',
+                          width: '24px',
+                          height: '24px',
+                          cursor: 'pointer',
+                          fontSize: '14px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                        title="이미지 삭제"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
@@ -471,48 +451,70 @@ const PurchaseOrders: React.FC = () => {
               marginBottom: '20px',
             }}>
               <div style={{ marginBottom: '10px' }}>
-                <strong>발주서 번호:</strong> {selectedOrder.po_number}
-              </div>
-              <div style={{ marginBottom: '10px' }}>
-                <strong>공급업체:</strong> {selectedOrder.supplier}
-              </div>
-              <div style={{ marginBottom: '10px' }}>
-                <strong>발주일:</strong> {selectedOrder.order_date}
-              </div>
-              {selectedOrder.delivery_date && (
-                <div style={{ marginBottom: '10px' }}>
-                  <strong>희망 납기일:</strong> {selectedOrder.delivery_date}
-                </div>
-              )}
-              <div style={{ marginBottom: '10px' }}>
-                <strong>총 금액:</strong> {selectedOrder.total_amount.toLocaleString()}원
-              </div>
-              <div style={{ marginBottom: '10px' }}>
-                <strong>상태:</strong>{' '}
-                <span style={{
-                  padding: '4px 8px',
-                  borderRadius: '4px',
-                  backgroundColor: getStatusColor(selectedOrder.status),
-                  color: 'white',
-                }}>
-                  {selectedOrder.status}
-                </span>
-              </div>
-              <div>
                 <strong>작성자:</strong> {selectedOrder.author}
               </div>
+              <div>
+                <strong>작성일:</strong> {new Date(selectedOrder.created_at).toLocaleString('ko-KR')}
+              </div>
             </div>
-            {selectedOrder.image_url && (
-              <img
-                src={`/${selectedOrder.image_url}`}
-                alt="발주서 이미지"
-                style={{ maxWidth: '100%', marginBottom: '20px', borderRadius: '4px' }}
-              />
+            {selectedOrder.image_urls && selectedOrder.image_urls.length > 0 && (
+              <div style={{ marginBottom: '20px' }}>
+                <strong>첨부 이미지 ({selectedOrder.image_urls.length}개):</strong>
+                <div style={{ marginTop: '10px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '15px' }}>
+                  {selectedOrder.image_urls.map((url, index) => (
+                    <div key={index}>
+                      <img
+                        src={url}
+                        alt={`발주서 이미지 ${index + 1}`}
+                        style={{ width: '100%', height: '200px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer', border: '1px solid #ddd' }}
+                        onClick={() => window.open(url, '_blank')}
+                        onLoad={(e) => {
+                          console.log('✅ 상세보기 이미지 로딩 성공:', url);
+                          console.log('  - 크기:', e.currentTarget.naturalWidth, 'x', e.currentTarget.naturalHeight);
+                        }}
+                        onError={(e) => {
+                          console.error('❌ 상세보기 이미지 로딩 실패:', url);
+                          console.error('  - 전체 URL:', window.location.origin + url);
+                          console.error('  - currentSrc:', e.currentTarget.currentSrc);
+                          
+                          const imgElement = e.currentTarget;
+                          const alreadyRetried = imgElement.getAttribute('data-retried');
+                          
+                          if (!alreadyRetried) {
+                            // 첫 번째 재시도
+                            console.log('🔄 이미지 재시도 (1/2):', url);
+                            imgElement.setAttribute('data-retried', '1');
+                            setTimeout(() => {
+                              imgElement.src = url + '?t=' + Date.now();
+                            }, 1000);
+                          } else if (alreadyRetried === '1') {
+                            // 두 번째 재시도
+                            console.log('🔄 이미지 재시도 (2/2):', url);
+                            imgElement.setAttribute('data-retried', '2');
+                            setTimeout(() => {
+                              // API를 통한 직접 접근 시도
+                              imgElement.src = window.location.origin + url;
+                            }, 1000);
+                          } else {
+                            // 최종 실패
+                            imgElement.style.display = 'none';
+                            const errorDiv = document.createElement('div');
+                            errorDiv.style.cssText = 'padding: 40px 20px; background: #ffebee; border: 2px dashed #f44336; border-radius: 4px; color: #c62828; text-align: center; font-weight: bold;';
+                            errorDiv.innerHTML = `⚠️ 이미지를 불러올 수 없습니다<br/><small style="font-weight: normal; font-size: 12px;">${url}</small><br/><small style="font-weight: normal; font-size: 10px; color: #999;">2회 재시도 실패</small>`;
+                            imgElement.parentElement?.appendChild(errorDiv);
+                          }
+                        }}
+                        title="클릭하여 크게 보기"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
             {selectedOrder.content && (
               <div style={{ marginBottom: '20px' }}>
-                <strong>발주 내용:</strong>
-                <div style={{ whiteSpace: 'pre-wrap', marginTop: '10px', lineHeight: '1.6' }}>
+                <strong>내용:</strong>
+                <div style={{ whiteSpace: 'pre-wrap', marginTop: '10px', lineHeight: '1.6', backgroundColor: '#fafafa', padding: '15px', borderRadius: '4px' }}>
                   {selectedOrder.content}
                 </div>
               </div>
@@ -545,44 +547,32 @@ const PurchaseOrders: React.FC = () => {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ backgroundColor: '#f5f5f5' }}>
-                <th style={{ padding: '12px', border: '1px solid #ddd' }}>발주서 번호</th>
+                <th style={{ padding: '12px', border: '1px solid #ddd', width: '60px' }}>번호</th>
                 <th style={{ padding: '12px', border: '1px solid #ddd' }}>제목</th>
-                <th style={{ padding: '12px', border: '1px solid #ddd' }}>공급업체</th>
-                <th style={{ padding: '12px', border: '1px solid #ddd' }}>발주일</th>
-                <th style={{ padding: '12px', border: '1px solid #ddd' }}>총 금액</th>
-                <th style={{ padding: '12px', border: '1px solid #ddd' }}>상태</th>
-                <th style={{ padding: '12px', border: '1px solid #ddd' }}>액션</th>
+                <th style={{ padding: '12px', border: '1px solid #ddd', width: '120px' }}>작성자</th>
+                <th style={{ padding: '12px', border: '1px solid #ddd', width: '150px' }}>작성일</th>
+                <th style={{ padding: '12px', border: '1px solid #ddd', width: '180px' }}>액션</th>
               </tr>
             </thead>
             <tbody>
-              {orders.map((order) => (
+              {orders.map((order, index) => (
                 <tr key={order.id} style={{ borderBottom: '1px solid #ddd' }}>
                   <td style={{ padding: '12px', textAlign: 'center', border: '1px solid #ddd' }}>
+                    {orders.length - index}
+                  </td>
+                  <td style={{ padding: '12px', border: '1px solid #ddd' }}>
                     <span
                       onClick={() => handleViewDetail(order)}
                       style={{ cursor: 'pointer', color: '#2196F3', textDecoration: 'underline' }}
                     >
-                      {order.po_number}
+                      {order.title}
                     </span>
                   </td>
-                  <td style={{ padding: '12px', border: '1px solid #ddd' }}>{order.title}</td>
-                  <td style={{ padding: '12px', border: '1px solid #ddd' }}>{order.supplier}</td>
                   <td style={{ padding: '12px', textAlign: 'center', border: '1px solid #ddd' }}>
-                    {order.order_date}
-                  </td>
-                  <td style={{ padding: '12px', textAlign: 'right', border: '1px solid #ddd' }}>
-                    {order.total_amount.toLocaleString()}원
+                    {order.author}
                   </td>
                   <td style={{ padding: '12px', textAlign: 'center', border: '1px solid #ddd' }}>
-                    <span style={{
-                      padding: '4px 8px',
-                      borderRadius: '4px',
-                      backgroundColor: getStatusColor(order.status),
-                      color: 'white',
-                      fontSize: '12px',
-                    }}>
-                      {order.status}
-                    </span>
+                    {new Date(order.created_at).toLocaleDateString('ko-KR')}
                   </td>
                   <td style={{ padding: '12px', textAlign: 'center', border: '1px solid #ddd' }}>
                     <button

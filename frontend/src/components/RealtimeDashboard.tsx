@@ -1,297 +1,281 @@
+/**
+ * 실시간 차량 모니터링 (UVIS GPS 연동)
+ * - UVIS GPS API를 통해 실제 차량 위치 표시
+ * - 차량 상태: 시동 ON/OFF, GPS 위치, 온도, 속도
+ * - 지도 중심: 대한민국 중심 (36.5N, 127.5E)
+ */
 import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import { Icon, LatLngExpression } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { uvisAPI } from '../services/api';
 
-interface VehicleLocation {
-  vehicle_id: number;
-  vehicle_code: string;
-  plate_number: string;
-  latitude: number;
-  longitude: number;
-  speed: number;
-  heading: number;
-  timestamp: string;
+const API_BASE = '/api/v1';
+
+interface VehicleRealtimeStatus {
+  vehicle_id: number | null;
+  vehicle_plate_number: string | null;
+  tid_id: string;
+  gps_datetime: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  is_engine_on: boolean | null;
+  speed_kmh: number | null;
+  temperature_datetime: string | null;
+  temperature_a: number | null;
+  temperature_b: number | null;
+  last_updated: string | null;
 }
 
-interface VehicleTemperature {
-  vehicle_id: number;
-  vehicle_code: string;
-  plate_number: string;
-  temperature: number;
-  zone: string;
-  status: string;
-  timestamp: string;
-}
-
-interface Alert {
-  vehicle_id: number;
-  vehicle_code: string;
-  plate_number: string;
-  type: string;
-  severity: string;
-  message: string;
-  timestamp: string;
-}
-
-interface DashboardData {
-  total_vehicles: number;
-  active_vehicles: number;
-  locations: VehicleLocation[];
-  temperatures: VehicleTemperature[];
-  alerts: Alert[];
-}
-
-// Vehicle marker icons
-const createVehicleIcon = (zone: string, status: string) => {
-  let color = '#10b981'; // default green
+// 차량 마커 아이콘 생성
+const createVehicleIcon = (isEngineOn: boolean, tempAvg: number | null) => {
+  let color = '#9ca3af'; // 기본 회색 (시동 OFF)
   
-  if (status === 'warning') {
-    color = '#f59e0b'; // orange
-  }
-  
-  if (zone === 'frozen') {
-    color = '#3b82f6'; // blue
-  } else if (zone === 'chilled') {
-    color = '#10b981'; // green
-  } else {
-    color = '#8b5cf6'; // purple
+  if (isEngineOn) {
+    // 시동 ON인 경우 온도에 따라 색상 결정
+    if (tempAvg === null) {
+      color = '#10b981'; // 녹색 (온도 정보 없음)
+    } else if (tempAvg < -15) {
+      color = '#3b82f6'; // 파란색 (냉동)
+    } else if (tempAvg < 5) {
+      color = '#22d3ee'; // 하늘색 (냉장)
+    } else if (tempAvg < 15) {
+      color = '#10b981'; // 녹색 (정상)
+    } else {
+      color = '#f59e0b'; // 주황색 (경고)
+    }
   }
   
   return new Icon({
     iconUrl: `data:image/svg+xml;base64,${btoa(`
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="${color}" width="32" height="32">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="${color}" width="36" height="36">
         <path d="M18 18.5C18 19.328 17.328 20 16.5 20H7.5C6.672 20 6 19.328 6 18.5V5.5C6 4.672 6.672 4 7.5 4H16.5C17.328 4 18 4.672 18 5.5V18.5ZM8 6V18H16V6H8Z"/>
+        <circle cx="12" cy="12" r="3" fill="white"/>
       </svg>
     `)}`,
-    iconSize: [32, 32],
-    iconAnchor: [16, 32],
-    popupAnchor: [0, -32]
+    iconSize: [36, 36],
+    iconAnchor: [18, 36],
+    popupAnchor: [0, -36]
   });
 };
 
 const RealtimeDashboard: React.FC = () => {
-  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [vehicles, setVehicles] = useState<VehicleRealtimeStatus[]>([]);
+  const [loading, setLoading] = useState(true); // 초기 로딩 상태를 true로 설정
   const [error, setError] = useState<string | null>(null);
-  const [autoRefresh, setAutoRefresh] = useState(true);
-  const [refreshInterval, setRefreshInterval] = useState(30); // seconds
+  const [autoRefresh] = useState(true);
+  const [refreshInterval] = useState(30); // seconds
 
-  // Seoul center coordinates
-  const seoulCenter: LatLngExpression = [37.5665, 126.9780];
+  // 대한민국 중심 좌표
+  const koreaCenter: LatLngExpression = [36.5, 127.5];
 
-  const fetchDashboardData = async () => {
+  // UVIS GPS 데이터 조회
+  const loadRealtimeData = async () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await uvisAPI.getDashboard();
-      setDashboardData(data);
+      console.log('[실시간 모니터링] 데이터 조회 시작...');
+      
+      const response = await fetch(`${API_BASE}/uvis-gps/realtime/vehicles`);
+      
+      if (!response.ok) {
+        throw new Error(`API 오류: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('[실시간 모니터링] API 응답:', data);
+      
+      if (data.items && Array.isArray(data.items)) {
+        setVehicles(data.items);
+        console.log(`[실시간 모니터링] 차량 데이터 ${data.items.length}대 로드 완료`);
+      } else {
+        console.warn('[실시간 모니터링] 예상치 못한 API 응답 형식:', data);
+        setVehicles([]);
+      }
     } catch (err: any) {
-      console.error('Failed to fetch dashboard data:', err);
-      setError(err.message || '대시보드 데이터 조회 실패');
+      console.error('[실시간 모니터링] 데이터 조회 실패:', err);
+      setError(err.message || '데이터 조회 실패');
     } finally {
       setLoading(false);
     }
   };
 
+  // 초기 로드
   useEffect(() => {
-    fetchDashboardData();
+    loadRealtimeData();
   }, []);
 
+  // 자동 새로고침
   useEffect(() => {
     if (!autoRefresh) return;
 
     const interval = setInterval(() => {
-      fetchDashboardData();
+      loadRealtimeData();
     }, refreshInterval * 1000);
 
     return () => clearInterval(interval);
   }, [autoRefresh, refreshInterval]);
 
-  const getTemperatureColor = (zone: string, status: string) => {
-    if (status === 'warning') return 'text-orange-600';
-    if (zone === 'frozen') return 'text-blue-600';
-    if (zone === 'chilled') return 'text-green-600';
-    return 'text-purple-600';
+  // 시간 포맷팅
+  const formatDateTime = (dateStr: string | null) => {
+    if (!dateStr) return '-';
+    try {
+      return new Date(dateStr).toLocaleString('ko-KR', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      });
+    } catch {
+      return dateStr;
+    }
   };
 
-  const getTemperatureIcon = (zone: string) => {
-    if (zone === 'frozen') return '❄️';
-    if (zone === 'chilled') return '🧊';
-    return '🌡️';
+  // 온도 색상
+  const getTempColor = (temp: number | null) => {
+    if (temp === null) return 'text-gray-500';
+    if (temp < -15) return 'text-blue-600';
+    if (temp < 5) return 'text-cyan-600';
+    if (temp < 15) return 'text-green-600';
+    return 'text-orange-600';
   };
 
-  const getSeverityColor = (severity: string) => {
-    if (severity === 'critical') return 'bg-red-100 border-red-500 text-red-800';
-    if (severity === 'warning') return 'bg-orange-100 border-orange-500 text-orange-800';
-    return 'bg-blue-100 border-blue-500 text-blue-800';
-  };
+  // GPS 위치가 있는 차량만 필터링
+  const vehiclesWithLocation = vehicles.filter(
+    v => v.latitude !== null && v.longitude !== null && 
+         v.latitude !== 0 && v.longitude !== 0
+  );
 
-  if (!dashboardData) {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">대시보드 로딩 중...</p>
-        </div>
-      </div>
-    );
-  }
+  // 렌더링 로그
+  console.log('[실시간 모니터링] 렌더링:', {
+    총차량: vehicles.length,
+    GPS차량: vehiclesWithLocation.length,
+    로딩중: loading,
+    에러: error
+  });
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-900">실시간 차량 모니터링</h1>
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <label className="flex items-center space-x-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={autoRefresh}
-                onChange={(e) => setAutoRefresh(e.target.checked)}
-                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-              />
-              <span className="text-sm text-gray-700">자동 새로고침</span>
-            </label>
-            <select
-              value={refreshInterval}
-              onChange={(e) => setRefreshInterval(Number(e.target.value))}
-              disabled={!autoRefresh}
-              className="rounded border-gray-300 text-sm"
-            >
-              <option value={10}>10초</option>
-              <option value={30}>30초</option>
-              <option value={60}>1분</option>
-              <option value={300}>5분</option>
-            </select>
-          </div>
-          <button
-            onClick={fetchDashboardData}
-            disabled={loading}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 text-sm"
-          >
-            {loading ? '새로고침 중...' : '수동 새로고침'}
-          </button>
-        </div>
-      </div>
-
+    <div className="h-screen flex flex-col">
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-          {error}
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded m-4">
+          ⚠️ {error}
         </div>
       )}
 
-      {/* Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center">
-            <div className="flex-shrink-0 bg-blue-100 rounded-md p-3">
-              <svg className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">총 차량</p>
-              <p className="text-2xl font-semibold text-gray-900">{dashboardData.total_vehicles}</p>
-            </div>
+      {/* 로딩 중 */}
+      {loading ? (
+        <div className="flex justify-center items-center h-full">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">차량 데이터 로딩 중...</p>
           </div>
         </div>
-
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center">
-            <div className="flex-shrink-0 bg-green-100 rounded-md p-3">
-              <svg className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">활성 차량</p>
-              <p className="text-2xl font-semibold text-gray-900">{dashboardData.active_vehicles}</p>
-            </div>
+      ) : vehicles.length === 0 ? (
+        <div className="flex justify-center items-center h-full text-gray-500">
+          <div className="text-center">
+            <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <p className="mt-4 text-lg">차량 데이터가 없습니다</p>
+            <p className="mt-2 text-sm">UVIS 데이터 동기화를 실행해주세요</p>
           </div>
         </div>
-
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center">
-            <div className="flex-shrink-0 bg-purple-100 rounded-md p-3">
-              <svg className="h-6 w-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" />
-              </svg>
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">온도 정상</p>
-              <p className="text-2xl font-semibold text-gray-900">
-                {dashboardData.temperatures.filter(t => t.status === 'normal').length}
-              </p>
-            </div>
+      ) : vehiclesWithLocation.length === 0 ? (
+        <div className="flex justify-center items-center h-full text-gray-500">
+          <div className="text-center">
+            <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <p className="mt-4 text-lg">GPS 위치 정보가 있는 차량이 없습니다</p>
+            <p className="mt-2 text-sm">UVIS 데이터 동기화를 실행해주세요</p>
           </div>
         </div>
-
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center">
-            <div className="flex-shrink-0 bg-orange-100 rounded-md p-3">
-              <svg className="h-6 w-6 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">알림</p>
-              <p className="text-2xl font-semibold text-gray-900">{dashboardData.alerts.length}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Map */}
-        <div className="lg:col-span-2 bg-white rounded-lg shadow">
-          <div className="p-4 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">차량 위치</h2>
-          </div>
-          <div className="p-4">
-            <div style={{ height: '600px' }}>
-              <MapContainer
-                center={seoulCenter}
-                zoom={11}
-                style={{ height: '100%', width: '100%' }}
-              >
-                <TileLayer
-                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                />
-                {dashboardData.locations.map((location) => {
-                  const temp = dashboardData.temperatures.find(
-                    (t) => t.vehicle_id === location.vehicle_id
-                  );
-                  const zone = temp?.zone || 'ambient';
-                  const status = temp?.status || 'normal';
+      ) : (
+        <div className="h-full flex-1">
+          <MapContainer
+            center={koreaCenter}
+            zoom={7}
+            style={{ height: '100%', width: '100%' }}
+          >
+            <TileLayer
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              />
+              {vehiclesWithLocation.map((vehicle) => {
+                  const tempAvg = 
+                    vehicle.temperature_a !== null && vehicle.temperature_b !== null
+                      ? (vehicle.temperature_a + vehicle.temperature_b) / 2
+                      : vehicle.temperature_a !== null
+                      ? vehicle.temperature_a
+                      : vehicle.temperature_b;
                   
                   return (
                     <Marker
-                      key={location.vehicle_id}
-                      position={[location.latitude, location.longitude]}
-                      icon={createVehicleIcon(zone, status)}
+                      key={vehicle.tid_id}
+                      position={[vehicle.latitude!, vehicle.longitude!]}
+                      icon={createVehicleIcon(vehicle.is_engine_on || false, tempAvg)}
                     >
                       <Popup>
-                        <div className="p-2">
-                          <h3 className="font-bold text-lg mb-2">{location.plate_number}</h3>
-                          <p className="text-sm text-gray-600">차량코드: {location.vehicle_code}</p>
-                          <p className="text-sm text-gray-600">속도: {location.speed.toFixed(1)} km/h</p>
-                          {temp && (
-                            <>
-                              <p className={`text-sm font-semibold ${getTemperatureColor(temp.zone, temp.status)}`}>
-                                {getTemperatureIcon(temp.zone)} {temp.temperature.toFixed(1)}°C
-                              </p>
-                              <p className="text-xs text-gray-500">
-                                {temp.zone === 'frozen' ? '냉동' : temp.zone === 'chilled' ? '냉장' : '상온'}
-                              </p>
-                            </>
+                        <div className="p-2 min-w-[250px]">
+                          <h3 className="font-bold text-lg mb-2">
+                            {vehicle.vehicle_plate_number || vehicle.tid_id}
+                          </h3>
+                          
+                          {/* 시동 상태 */}
+                          <div className="mb-2">
+                            <span className={`inline-block px-2 py-1 rounded text-sm font-semibold ${
+                              vehicle.is_engine_on 
+                                ? 'bg-green-100 text-green-800' 
+                                : 'bg-gray-100 text-gray-800'
+                            }`}>
+                              {vehicle.is_engine_on ? '🟢 시동 ON' : '⚫ 시동 OFF'}
+                            </span>
+                          </div>
+                          
+                          {/* GPS 정보 */}
+                          <div className="text-sm text-gray-600 space-y-1">
+                            <p>📍 위치: {vehicle.latitude?.toFixed(6)}, {vehicle.longitude?.toFixed(6)}</p>
+                            <p className={vehicle.speed_kmh && vehicle.speed_kmh > 0 ? 'text-green-600 font-semibold' : ''}>
+                              🚗 속도: {vehicle.speed_kmh?.toFixed(1) || 0} km/h
+                            </p>
+                            {vehicle.gps_datetime && (
+                              <p className="text-xs">⏰ GPS: {formatDateTime(vehicle.gps_datetime)}</p>
+                            )}
+                          </div>
+                          
+                          {/* 온도 정보 */}
+                          {(vehicle.temperature_a !== null || vehicle.temperature_b !== null) && (
+                            <div className="mt-2 pt-2 border-t border-gray-200">
+                              <p className="text-sm font-semibold text-gray-700 mb-1">🌡️ 온도</p>
+                              <div className="text-sm space-y-1">
+                                {vehicle.temperature_a !== null && (
+                                  <p className={getTempColor(vehicle.temperature_a)}>
+                                    냉동실 A: <span className="font-bold">{vehicle.temperature_a.toFixed(1)}°C</span>
+                                  </p>
+                                )}
+                                {vehicle.temperature_b !== null && (
+                                  <p className={getTempColor(vehicle.temperature_b)}>
+                                    냉동실 B: <span className="font-bold">{vehicle.temperature_b.toFixed(1)}°C</span>
+                                  </p>
+                                )}
+                                {vehicle.temperature_datetime && (
+                                  <p className="text-xs text-gray-500">
+                                    ⏰ 온도: {formatDateTime(vehicle.temperature_datetime)}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
                           )}
-                          <p className="text-xs text-gray-400 mt-2">
-                            {new Date(location.timestamp).toLocaleString('ko-KR')}
-                          </p>
+                          
+                          {/* 마지막 업데이트 */}
+                          {vehicle.last_updated && (
+                            <p className="text-xs text-gray-400 mt-2 pt-2 border-t border-gray-200">
+                              🔄 업데이트: {formatDateTime(vehicle.last_updated)}
+                            </p>
+                          )}
                         </div>
                       </Popup>
                     </Marker>
@@ -299,75 +283,7 @@ const RealtimeDashboard: React.FC = () => {
                 })}
               </MapContainer>
             </div>
-          </div>
-        </div>
-
-        {/* Temperature and Alerts */}
-        <div className="space-y-6">
-          {/* Alerts */}
-          <div className="bg-white rounded-lg shadow">
-            <div className="p-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">알림</h2>
-            </div>
-            <div className="p-4 max-h-80 overflow-y-auto">
-              {dashboardData.alerts.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">알림이 없습니다</p>
-              ) : (
-                <div className="space-y-2">
-                  {dashboardData.alerts.map((alert, index) => (
-                    <div
-                      key={index}
-                      className={`p-3 rounded border-l-4 ${getSeverityColor(alert.severity)}`}
-                    >
-                      <p className="font-semibold text-sm">{alert.plate_number}</p>
-                      <p className="text-sm">{alert.message}</p>
-                      <p className="text-xs mt-1 opacity-75">
-                        {new Date(alert.timestamp).toLocaleString('ko-KR')}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Temperature List */}
-          <div className="bg-white rounded-lg shadow">
-            <div className="p-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">차량 온도</h2>
-            </div>
-            <div className="p-4 max-h-80 overflow-y-auto">
-              {dashboardData.temperatures.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">온도 데이터가 없습니다</p>
-              ) : (
-                <div className="space-y-2">
-                  {dashboardData.temperatures.map((temp) => (
-                    <div key={temp.vehicle_id} className="p-3 border border-gray-200 rounded">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <p className="font-semibold text-sm">{temp.plate_number}</p>
-                          <p className="text-xs text-gray-500">{temp.vehicle_code}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className={`text-lg font-bold ${getTemperatureColor(temp.zone, temp.status)}`}>
-                            {getTemperatureIcon(temp.zone)} {temp.temperature.toFixed(1)}°C
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {temp.zone === 'frozen' ? '냉동' : temp.zone === 'chilled' ? '냉장' : '상온'}
-                          </p>
-                        </div>
-                      </div>
-                      {temp.status === 'warning' && (
-                        <p className="text-xs text-orange-600 mt-2">⚠️ 온도 이상</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
+          )}
     </div>
   );
 };

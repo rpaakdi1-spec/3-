@@ -80,13 +80,23 @@ const NoticeBoard: React.FC = () => {
         body: formData,
       });
 
+      if (!response.ok) {
+        throw new Error(`업로드 실패: ${response.status}`);
+      }
+
       const data = await response.json();
+      
+      if (!data.image_url) {
+        throw new Error('이미지 URL을 받지 못했습니다');
+      }
+      
+      console.log('업로드된 이미지 URL:', data.image_url);
       setFormData(prev => ({ ...prev, image_url: data.image_url }));
       alert('이미지가 업로드되었습니다!');
       setImageFile(null);
     } catch (error) {
       console.error('이미지 업로드 실패:', error);
-      alert('이미지 업로드에 실패했습니다.');
+      alert(`이미지 업로드에 실패했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`);
     } finally {
       setUploadingImage(false);
     }
@@ -303,9 +313,13 @@ const NoticeBoard: React.FC = () => {
               {formData.image_url && (
                 <div style={{ marginTop: '10px' }}>
                   <img
-                    src={`/${formData.image_url}`}
+                    src={formData.image_url}
                     alt="Preview"
                     style={{ maxWidth: '200px', borderRadius: '4px', border: '1px solid #ddd' }}
+                    onError={(e) => {
+                      console.error('이미지 로딩 실패:', formData.image_url);
+                      e.currentTarget.style.display = 'none';
+                    }}
                   />
                 </div>
               )}
@@ -389,9 +403,13 @@ const NoticeBoard: React.FC = () => {
             </div>
             {selectedNotice.image_url && (
               <img
-                src={`/${selectedNotice.image_url}`}
+                src={selectedNotice.image_url}
                 alt="공지사항 이미지"
                 style={{ maxWidth: '100%', marginBottom: '20px', borderRadius: '4px' }}
+                onError={(e) => {
+                  console.error('이미지 로딩 실패:', selectedNotice.image_url);
+                  e.currentTarget.style.display = 'none';
+                }}
               />
             )}
             <div style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>

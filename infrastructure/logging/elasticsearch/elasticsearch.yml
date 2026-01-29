@@ -1,0 +1,19 @@
+cluster.name: "uvis-gps-cluster"
+network.host: 0.0.0.0
+
+# X-Pack settings
+xpack.security.enabled: true
+xpack.security.enrollment.enabled: true
+xpack.security.http.ssl.enabled: false
+xpack.security.transport.ssl.enabled: false
+
+# Memory settings
+bootstrap.memory_lock: false
+indices.query.bool.max_clause_count: 2048
+
+# Index lifecycle management
+xpack.ilm.enabled: true
+
+# Monitoring
+xpack.monitoring.collection.enabled: true
+xpack.monitoring.elasticsearch.collection.enabled: false

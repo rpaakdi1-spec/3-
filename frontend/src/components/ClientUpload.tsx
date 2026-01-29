@@ -158,6 +158,10 @@ function ClientUpload() {
       
       setShowForm(false)
       setEditingId(null)
+      
+      // Reload clients list
+      await loadClients()
+      
       // Reset form
       setFormData({
         code: '',

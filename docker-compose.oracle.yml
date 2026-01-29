@@ -1,0 +1,109 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: coldchain-postgres
+    environment:
+      POSTGRES_DB: coldchain_db
+      POSTGRES_USER: coldchain
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme123!@#}
+      POSTGRES_INITDB_ARGS: "-E UTF8"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/data/backups:/backups
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U coldchain -d coldchain_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - coldchain-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: coldchain-redis
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis123!@#}
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - coldchain-network
+
+  # Backend API
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.production
+    container_name: coldchain-backend
+    ports:
+      - "8000:8000"
+      - "8001:8001"
+    environment:
+      # Database
+      - DATABASE_URL=postgresql://coldchain:${DB_PASSWORD:-changeme123!@#}@postgres:5432/coldchain_db
+      
+      # Redis
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-redis123!@#}@redis:6379/0
+      
+      # Security
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key-change-this-in-production}
+      - ALGORITHM=HS256
+      - ACCESS_TOKEN_EXPIRE_MINUTES=30
+      
+      # Environment
+      - ENVIRONMENT=production
+      - DEBUG=False
+      
+      # CORS (Frontend URL 추가)
+      - CORS_ORIGINS=["http://localhost:3000","http://localhost","http://132.145.*.*"]
+      
+      # API Keys (선택 사항)
+      - NAVER_MAP_CLIENT_ID=${NAVER_MAP_CLIENT_ID:-}
+      - NAVER_MAP_CLIENT_SECRET=${NAVER_MAP_CLIENT_SECRET:-}
+      
+      # Monitoring
+      - SENTRY_DSN=${SENTRY_DSN:-}
+      
+      # Workers
+      - WORKERS=2
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    volumes:
+      - ./backend/data/uploads:/app/data/uploads
+      - ./backend/data/templates:/app/data/templates
+      - ./backend/logs:/app/logs
+    networks:
+      - coldchain-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  coldchain-network:
+    driver: bridge
