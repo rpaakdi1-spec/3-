@@ -1,0 +1,202 @@
+groups:
+  - name: system_alerts
+    interval: 30s
+    rules:
+      # CPU 사용률 높음
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+          category: system
+        annotations:
+          summary: "높은 CPU 사용률 (인스턴스 {{ $labels.instance }})"
+          description: "CPU 사용률이 {{ $value }}%로 80%를 초과했습니다."
+
+      # 메모리 사용률 높음
+      - alert: HighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          category: system
+        annotations:
+          summary: "높은 메모리 사용률 (인스턴스 {{ $labels.instance }})"
+          description: "메모리 사용률이 {{ $value }}%로 85%를 초과했습니다."
+
+      # 디스크 공간 부족
+      - alert: LowDiskSpace
+        expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100 < 15
+        for: 5m
+        labels:
+          severity: critical
+          category: system
+        annotations:
+          summary: "디스크 공간 부족 (인스턴스 {{ $labels.instance }})"
+          description: "디스크 여유 공간이 {{ $value }}%로 15% 미만입니다."
+
+  - name: container_alerts
+    interval: 30s
+    rules:
+      # 컨테이너 다운
+      - alert: ContainerDown
+        expr: up{job=~"backend-api|frontend"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          category: container
+        annotations:
+          summary: "컨테이너 다운 ({{ $labels.job }})"
+          description: "{{ $labels.job }} 컨테이너가 2분 이상 응답하지 않습니다."
+
+      # 컨테이너 재시작 빈번
+      - alert: ContainerRestarting
+        expr: rate(container_last_seen{name=~"coldchain-.*"}[5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+          category: container
+        annotations:
+          summary: "컨테이너 재시작 빈번 ({{ $labels.name }})"
+          description: "{{ $labels.name }} 컨테이너가 5분 동안 재시작되었습니다."
+
+      # 컨테이너 메모리 사용량 높음
+      - alert: ContainerHighMemory
+        expr: (container_memory_usage_bytes{name=~"coldchain-.*"} / container_spec_memory_limit_bytes{name=~"coldchain-.*"}) * 100 > 90
+        for: 5m
+        labels:
+          severity: warning
+          category: container
+        annotations:
+          summary: "컨테이너 메모리 사용량 높음 ({{ $labels.name }})"
+          description: "{{ $labels.name }} 컨테이너의 메모리 사용률이 {{ $value }}%입니다."
+
+  - name: database_alerts
+    interval: 30s
+    rules:
+      # PostgreSQL 다운
+      - alert: PostgreSQLDown
+        expr: pg_up == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: database
+        annotations:
+          summary: "PostgreSQL 데이터베이스 다운"
+          description: "PostgreSQL 데이터베이스가 1분 이상 응답하지 않습니다."
+
+      # PostgreSQL 연결 수 높음
+      - alert: PostgreSQLTooManyConnections
+        expr: sum(pg_stat_activity_count) > 80
+        for: 5m
+        labels:
+          severity: warning
+          category: database
+        annotations:
+          summary: "PostgreSQL 연결 수 높음"
+          description: "PostgreSQL 연결 수가 {{ $value }}개로 높습니다."
+
+      # PostgreSQL 쿼리 지연
+      - alert: PostgreSQLSlowQueries
+        expr: rate(pg_stat_statements_mean_time_seconds[5m]) > 1
+        for: 5m
+        labels:
+          severity: warning
+          category: database
+        annotations:
+          summary: "PostgreSQL 느린 쿼리 감지"
+          description: "평균 쿼리 실행 시간이 {{ $value }}초입니다."
+
+      # Redis 다운
+      - alert: RedisDown
+        expr: redis_up == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: cache
+        annotations:
+          summary: "Redis 캐시 서버 다운"
+          description: "Redis 서버가 1분 이상 응답하지 않습니다."
+
+      # Redis 메모리 사용률 높음
+      - alert: RedisHighMemory
+        expr: (redis_memory_used_bytes / redis_memory_max_bytes) * 100 > 90
+        for: 5m
+        labels:
+          severity: warning
+          category: cache
+        annotations:
+          summary: "Redis 메모리 사용률 높음"
+          description: "Redis 메모리 사용률이 {{ $value }}%입니다."
+
+  - name: application_alerts
+    interval: 30s
+    rules:
+      # HTTP 5xx 에러 비율 높음
+      - alert: High5xxErrorRate
+        expr: (sum(rate(http_requests_total{status=~"5.."}[5m])) / sum(rate(http_requests_total[5m]))) * 100 > 5
+        for: 5m
+        labels:
+          severity: critical
+          category: application
+        annotations:
+          summary: "높은 5xx 에러 비율"
+          description: "5xx 에러 비율이 {{ $value }}%로 5%를 초과했습니다."
+
+      # 응답 시간 느림
+      - alert: HighResponseTime
+        expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le)) > 1
+        for: 5m
+        labels:
+          severity: warning
+          category: application
+        annotations:
+          summary: "높은 응답 시간"
+          description: "95 percentile 응답 시간이 {{ $value }}초입니다."
+
+      # 요청 처리량 급감
+      - alert: LowRequestThroughput
+        expr: rate(http_requests_total[5m]) < 10
+        for: 10m
+        labels:
+          severity: warning
+          category: application
+        annotations:
+          summary: "낮은 요청 처리량"
+          description: "초당 요청 수가 {{ $value }}개로 낮습니다."
+
+  - name: ecs_alerts
+    interval: 30s
+    rules:
+      # ECS 태스크 다운
+      - alert: ECSTaskDown
+        expr: aws_ecs_service_running_tasks_count < aws_ecs_service_desired_tasks_count
+        for: 5m
+        labels:
+          severity: critical
+          category: ecs
+        annotations:
+          summary: "ECS 태스크 부족 (서비스 {{ $labels.service_name }})"
+          description: "실행 중인 태스크({{ $value }})가 원하는 수보다 적습니다."
+
+      # ECS CPU 사용률 높음
+      - alert: ECSHighCPU
+        expr: aws_ecs_service_cpu_utilization_average > 80
+        for: 10m
+        labels:
+          severity: warning
+          category: ecs
+        annotations:
+          summary: "ECS CPU 사용률 높음 (서비스 {{ $labels.service_name }})"
+          description: "ECS 서비스의 평균 CPU 사용률이 {{ $value }}%입니다."
+
+      # ECS 메모리 사용률 높음
+      - alert: ECSHighMemory
+        expr: aws_ecs_service_memory_utilization_average > 85
+        for: 10m
+        labels:
+          severity: warning
+          category: ecs
+        annotations:
+          summary: "ECS 메모리 사용률 높음 (서비스 {{ $labels.service_name }})"
+          description: "ECS 서비스의 평균 메모리 사용률이 {{ $value }}%입니다."

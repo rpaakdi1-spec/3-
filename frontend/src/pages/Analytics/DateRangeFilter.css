@@ -1,0 +1,143 @@
+/* Date Range Filter Styles */
+
+.date-range-filter {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 24px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  align-items: flex-end;
+}
+
+/* Quick Range */
+.quick-range {
+  display: flex;
+  gap: 8px;
+}
+
+.quick-range button {
+  padding: 8px 16px;
+  border: 1px solid #ddd;
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.quick-range button:hover {
+  background: #f8f9fa;
+  border-color: #007bff;
+}
+
+.quick-range button:active {
+  background: #007bff;
+  color: white;
+}
+
+/* Date Inputs */
+.date-inputs {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.input-group label {
+  font-size: 13px;
+  color: #666;
+  font-weight: 500;
+}
+
+.input-group input[type="date"] {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  min-width: 150px;
+}
+
+.input-group input[type="date"]:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+.separator {
+  font-size: 18px;
+  color: #999;
+  margin: 0 4px;
+}
+
+/* Period Selector */
+.period-selector {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.period-selector label {
+  font-size: 14px;
+  color: #666;
+  font-weight: 500;
+}
+
+.period-buttons {
+  display: flex;
+  gap: 4px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.period-buttons button {
+  padding: 8px 16px;
+  border: none;
+  background: white;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+  border-right: 1px solid #ddd;
+}
+
+.period-buttons button:last-child {
+  border-right: none;
+}
+
+.period-buttons button:hover {
+  background: #f8f9fa;
+}
+
+.period-buttons button.active {
+  background: #007bff;
+  color: white;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .date-range-filter {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .quick-range {
+    flex-wrap: wrap;
+  }
+
+  .date-inputs {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .separator {
+    display: none;
+  }
+}

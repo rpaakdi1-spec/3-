@@ -1,0 +1,116 @@
+site_name: Cold Chain System API Documentation
+site_description: AI 기반 냉동·냉장 화물 배차 시스템 API 문서
+site_author: Cold Chain Development Team
+site_url: https://docs.coldchain.com
+
+# Repository
+repo_name: Cold Chain System
+repo_url: https://github.com/your-org/cold-chain
+
+# Copyright
+copyright: Copyright &copy; 2026 Cold Chain System
+
+# Configuration
+theme:
+  name: material
+  language: ko
+  palette:
+    - scheme: default
+      primary: blue
+      accent: light blue
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: blue
+      accent: light blue
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.tabs.link
+  icon:
+    repo: fontawesome/brands/github
+
+# Extensions
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.details
+  - pymdownx.tabbed:
+      alternate_style: true
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+
+# Plugins
+plugins:
+  - search:
+      lang:
+        - ko
+        - en
+  - awesome-pages
+
+# Navigation
+nav:
+  - 홈:
+      - 개요: index.md
+      - 시작하기: getting-started.md
+      - 인증: authentication.md
+      - 오류 처리: error-handling.md
+  - API 레퍼런스:
+      - 개요: api-reference/index.md
+      - 인증 (Auth): api-reference/auth.md
+      - 주문 (Orders): api-reference/orders.md
+      - 배차 (Dispatches): api-reference/dispatches.md
+      - 차량 (Vehicles): api-reference/vehicles.md
+      - 실시간 모니터링: api-reference/realtime-monitoring.md
+      - 분석 (Analytics): api-reference/analytics.md
+      - ML 모델: api-reference/ml-models.md
+      - FCM 알림: api-reference/fcm-notifications.md
+      - 성능 (Performance): api-reference/performance.md
+      - 보안 (Security): api-reference/security.md
+      - 리포트: api-reference/reports.md
+  - 가이드:
+      - 주문 생성하기: guides/creating-orders.md
+      - 배차 최적화: guides/optimizing-dispatch.md
+      - 실시간 추적: guides/realtime-tracking.md
+      - 리포트 생성: guides/generating-reports.md
+      - 온도 모니터링: guides/temperature-monitoring.md
+  - 예제:
+      - Python 예제: examples/python-examples.md
+      - JavaScript 예제: examples/javascript-examples.md
+      - cURL 예제: examples/curl-examples.md
+  - 배포 및 운영:
+      - 프로덕션 배포: deployment/production.md
+      - Docker 배포: deployment/docker.md
+      - 환경 변수: deployment/environment-variables.md
+      - 모니터링: deployment/monitoring.md
+  - Changelog: changelog.md
+
+# Extra
+extra:
+  version:
+    provider: mike
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/your-org/cold-chain
+    - icon: fontawesome/brands/docker
+      link: https://hub.docker.com/r/your-org/cold-chain
+  analytics:
+    provider: google
+    property: G-XXXXXXXXXX

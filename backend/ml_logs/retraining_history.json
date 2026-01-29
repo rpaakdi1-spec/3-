@@ -1,0 +1,20 @@
+[
+  {
+    "timestamp": "2026-01-28T09:39:25.895111",
+    "event_type": "error",
+    "model_type": "prophet",
+    "reason": null,
+    "success": false,
+    "error": "type object 'Dispatch' has no attribute 'estimated_duration'",
+    "metrics": null
+  },
+  {
+    "timestamp": "2026-01-28T09:39:48.247890",
+    "event_type": "error",
+    "model_type": "prophet",
+    "reason": null,
+    "success": false,
+    "error": "Neither 'Function' object nor 'Comparator' object has an attribute '_isnull'",
+    "metrics": null
+  }
+]

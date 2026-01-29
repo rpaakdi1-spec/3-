@@ -8,11 +8,17 @@ from app.models.client import Client, ClientType
 from app.models.vehicle import Vehicle, VehicleType, VehicleStatus
 from app.models.order import Order, TemperatureZone, OrderStatus
 from app.services.naver_map_service import NaverMapService
+from app.services.excel_template_service import ExcelTemplateService
 from loguru import logger
 
 
 class ExcelUploadService:
-    """Service for uploading data from Excel files"""
+    """
+    Service for uploading data from Excel files
+    
+    This service uses column mappings from ExcelTemplateService to ensure
+    consistency between template generation and data upload.
+    """
     
     @staticmethod
     def parse_client_excel(file_content: bytes) -> List[Dict[str, Any]]:
@@ -20,23 +26,8 @@ class ExcelUploadService:
         try:
             df = pd.read_excel(BytesIO(file_content))
             
-            # Map Korean column names to model fields
-            column_mapping = {
-                "거래처코드": "code",
-                "거래처명": "name",
-                "구분": "client_type",
-                "주소": "address",
-                "상세주소": "address_detail",
-                "상차가능시작": "pickup_start_time",
-                "상차가능종료": "pickup_end_time",
-                "하차가능시작": "delivery_start_time",
-                "하차가능종료": "delivery_end_time",
-                "지게차유무": "has_forklift",
-                "상하차소요시간(분)": "loading_time_minutes",
-                "담당자명": "contact_person",
-                "전화번호": "phone",
-                "특이사항": "notes",
-            }
+            # Use centralized column mapping from template service
+            column_mapping = ExcelTemplateService.get_korean_to_field_mapping("clients")
             
             df = df.rename(columns=column_mapping)
             
@@ -51,8 +42,8 @@ class ExcelUploadService:
                 '양쪽': ClientType.BOTH
             })
             
-            # Convert has_forklift
-            df['has_forklift'] = df['has_forklift'].fillna('N').str.upper() == 'Y'
+            # Convert forklift_operator_available
+            df['forklift_operator_available'] = df['forklift_operator_available'].fillna('N').str.upper() == 'Y'
             
             # Fill defaults
             df['loading_time_minutes'] = df['loading_time_minutes'].fillna(30).astype(int)
@@ -133,33 +124,20 @@ class ExcelUploadService:
         try:
             df = pd.read_excel(BytesIO(file_content))
             
-            # Map Korean column names
-            column_mapping = {
-                "차량코드": "code",
-                "차량번호": "plate_number",
-                "차량타입": "vehicle_type",
-                "UVIS단말기ID": "uvis_device_id",
-                "최대팔레트": "max_pallets",
-                "최대중량(kg)": "max_weight_kg",
-                "최대용적(CBM)": "max_volume_cbm",
-                "톤수": "tonnage",
-                "적재함길이(m)": "length_m",
-                "적재함너비(m)": "width_m",
-                "적재함높이(m)": "height_m",
-                "최저온도": "min_temp_celsius",
-                "최고온도": "max_temp_celsius",
-                "연비(km/L)": "fuel_efficiency_km_per_liter",
-                "리터당연료비": "fuel_cost_per_liter",
-                "차량상태": "status",
-                "차고지주소": "garage_address",
-                "특이사항": "notes",
-            }
+            # Use centralized column mapping from template service
+            column_mapping = ExcelTemplateService.get_korean_to_field_mapping("vehicles")
             
             df = df.rename(columns=column_mapping)
             
             # Filter out example rows and empty rows
             df = df[df['code'].notna()]  # Remove rows with empty code
             df = df[~df['code'].astype(str).str.contains('예시-|TRUCK-001', regex=True)]  # Remove example rows
+            
+            # Convert forklift_operator_available (Y/N to boolean)
+            if 'forklift_operator_available' in df.columns:
+                df['forklift_operator_available'] = df['forklift_operator_available'].fillna('N').str.upper() == 'Y'
+            else:
+                df['forklift_operator_available'] = False
             
             # Convert vehicle_type
             df['vehicle_type'] = df['vehicle_type'].replace({
@@ -237,28 +215,8 @@ class ExcelUploadService:
         try:
             df = pd.read_excel(BytesIO(file_content))
             
-            # Map Korean column names
-            column_mapping = {
-                "주문번호": "order_number",
-                "주문일자": "order_date",
-                "온도대": "temperature_zone",
-                "상차거래처코드": "pickup_client_code",
-                "하차거래처코드": "delivery_client_code",
-                "팔레트수": "pallet_count",
-                "중량(kg)": "weight_kg",
-                "용적(CBM)": "volume_cbm",
-                "품목명": "product_name",
-                "품목코드": "product_code",
-                "상차시작시간": "pickup_start_time",
-                "상차종료시간": "pickup_end_time",
-                "하차시작시간": "delivery_start_time",
-                "하차종료시간": "delivery_end_time",
-                "희망배송일": "requested_delivery_date",
-                "우선순위": "priority",
-                "지게차필요": "requires_forklift",
-                "적재가능": "is_stackable",
-                "특이사항": "notes",
-            }
+            # Use centralized column mapping from template service
+            column_mapping = ExcelTemplateService.get_korean_to_field_mapping("orders")
             
             df = df.rename(columns=column_mapping)
             

@@ -44,3 +44,9 @@ Thumbs.db
 # Logs
 logs/
 *.log
+
+# Deployment credentials and sensitive info
+HETZNER_DEPLOYMENT_INFO.md
+*_CREDENTIALS.md
+*_SECRETS.md
+terraform.tfvars

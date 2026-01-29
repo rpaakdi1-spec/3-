@@ -1,0 +1,97 @@
+/* Statistics Cards Styles */
+
+.statistics-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  margin: 24px 0;
+}
+
+.card-section h3 {
+  font-size: 18px;
+  color: #333;
+  margin-bottom: 12px;
+  font-weight: 600;
+}
+
+.cards-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.stat-card {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.stat-card .icon {
+  font-size: 32px;
+  min-width: 32px;
+}
+
+.stat-card .content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.stat-card .label {
+  font-size: 14px;
+  color: #666;
+}
+
+.stat-card .value {
+  font-size: 28px;
+  font-weight: 700;
+  color: #333;
+}
+
+.stat-card .unit {
+  font-size: 14px;
+  color: #999;
+  margin-left: 4px;
+}
+
+.stat-card .growth {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 12px;
+  margin-top: 4px;
+  display: inline-block;
+  align-self: flex-start;
+}
+
+.stat-card .growth.positive {
+  color: #28a745;
+  background: #d4edda;
+}
+
+.stat-card .growth.negative {
+  color: #dc3545;
+  background: #f8d7da;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .cards-row {
+    grid-template-columns: 1fr;
+  }
+
+  .stat-card .value {
+    font-size: 24px;
+  }
+}

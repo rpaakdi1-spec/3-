@@ -1,0 +1,28 @@
+server.name: kibana
+server.host: "0.0.0.0"
+server.port: 5601
+
+elasticsearch.hosts: ["http://elasticsearch:9200"]
+elasticsearch.username: "elastic"
+elasticsearch.password: "${ELASTICSEARCH_PASSWORD}"
+
+monitoring.ui.container.elasticsearch.enabled: true
+
+# Default space
+xpack.spaces.enabled: true
+
+# Reporting
+xpack.reporting.enabled: true
+
+# Security
+xpack.security.enabled: true
+xpack.security.encryptionKey: "something_at_least_32_characters_long_for_encryption"
+xpack.encryptedSavedObjects.encryptionKey: "something_at_least_32_characters_long_for_saved_objects"
+
+# Logging
+logging.dest: stdout
+logging.quiet: false
+logging.verbose: false
+
+# Time zone
+i18n.locale: "ko-KR"

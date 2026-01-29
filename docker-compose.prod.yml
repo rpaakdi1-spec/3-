@@ -1,0 +1,106 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgis/postgis:14-3.3
+    container_name: uvis-db
+    environment:
+      POSTGRES_USER: uvis_user
+      POSTGRES_PASSWORD: uvis_password
+      POSTGRES_DB: uvis_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U uvis_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - uvis-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: uvis-redis
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - uvis-network
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    container_name: uvis-backend
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - uvis-network
+
+  # Frontend Application
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+      args:
+        REACT_APP_API_URL: http://139.150.11.99:8000
+        REACT_APP_WS_URL: ws://139.150.11.99:8000/ws
+    container_name: uvis-frontend
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    networks:
+      - uvis-network
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: uvis-nginx
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - backend
+      - frontend
+    ports:
+      - "80:80"
+    restart: unless-stopped
+    networks:
+      - uvis-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  uvis-network:
+    driver: bridge

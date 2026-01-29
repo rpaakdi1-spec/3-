@@ -40,11 +40,18 @@ class Vehicle(Base, IDMixin, TimestampMixin):
     max_weight_kg: Mapped[float] = mapped_column(Float, nullable=False, comment="최대 적재중량(kg)")
     max_volume_cbm: Mapped[Optional[float]] = mapped_column(Float, comment="최대 용적(CBM)")
     
+    # 하역 장비
+    forklift_operator_available: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, comment="지게차 운전능력 가능 여부")
+    
     # 차량 사양
     tonnage: Mapped[float] = mapped_column(Float, comment="톤수")
     length_m: Mapped[Optional[float]] = mapped_column(Float, comment="적재함 길이(m)")
     width_m: Mapped[Optional[float]] = mapped_column(Float, comment="적재함 너비(m)")
     height_m: Mapped[Optional[float]] = mapped_column(Float, comment="적재함 높이(m)")
+    
+    # 운전자 정보
+    driver_name: Mapped[Optional[str]] = mapped_column(String(100), comment="운전자명")
+    driver_phone: Mapped[Optional[str]] = mapped_column(String(20), comment="운전자 연락처")
     
     # 온도 범위
     min_temp_celsius: Mapped[Optional[float]] = mapped_column(Float, comment="최저 온도(°C)")
@@ -76,6 +83,8 @@ class Vehicle(Base, IDMixin, TimestampMixin):
     dispatches = relationship("Dispatch", back_populates="vehicle")
     locations = relationship("VehicleLocation", back_populates="vehicle", cascade="all, delete-orphan")
     temperature_alerts = relationship("TemperatureAlert", back_populates="vehicle", cascade="all, delete-orphan")
+    gps_logs = relationship("VehicleGPSLog", back_populates="vehicle", cascade="all, delete-orphan")
+    temperature_logs = relationship("VehicleTemperatureLog", back_populates="vehicle", cascade="all, delete-orphan")
     
     def __repr__(self):
         return f"<Vehicle(code={self.code}, plate={self.plate_number}, type={self.vehicle_type})>"

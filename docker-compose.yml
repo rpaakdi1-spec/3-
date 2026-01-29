@@ -1,0 +1,105 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: coldchain-postgres
+    environment:
+      POSTGRES_DB: coldchain_db
+      POSTGRES_USER: coldchain_user
+      POSTGRES_PASSWORD: coldchain_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infrastructure/docker/init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U coldchain_user -d coldchain_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - coldchain-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: coldchain-redis
+    command: redis-server --appendonly yes --requirepass coldchain_redis_password
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - coldchain-network
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: coldchain-backend
+    environment:
+      - APP_ENV=development
+      - DATABASE_URL=postgresql://coldchain_user:coldchain_password@postgres:5432/coldchain_db
+      - REDIS_URL=redis://:coldchain_redis_password@redis:6379/0
+      - SECRET_KEY=dev-secret-key-change-in-production
+      - CORS_ORIGINS=http://localhost:5173,http://localhost:3000
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - backend_uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - coldchain-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Frontend Application
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: development
+    container_name: coldchain-frontend
+    environment:
+      - NODE_ENV=development
+      - VITE_API_BASE_URL=http://localhost:8000/api
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    command: npm run dev -- --host 0.0.0.0
+    networks:
+      - coldchain-network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  backend_uploads:
+    driver: local
+
+networks:
+  coldchain-network:
+    driver: bridge

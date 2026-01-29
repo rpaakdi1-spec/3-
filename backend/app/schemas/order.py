@@ -1,3 +1,4 @@
+from __future__ import annotations
 from datetime import datetime, date, time
 from typing import Optional
 from pydantic import BaseModel, Field, ConfigDict, field_serializer
@@ -21,7 +22,7 @@ class OrderBase(BaseModel):
     delivery_address_detail: Optional[str] = Field(None, max_length=200, description="하차 상세주소")
     
     pallet_count: int = Field(..., gt=0, description="팔레트 수")
-    weight_kg: float = Field(..., gt=0, description="중량(kg)")
+    weight_kg: Optional[float] = Field(None, gt=0, description="중량(kg)")  # Optional for backward compatibility
     volume_cbm: Optional[float] = Field(None, gt=0, description="용적(CBM)")
     
     product_name: Optional[str] = Field(None, max_length=200, description="품목명")
@@ -34,6 +35,15 @@ class OrderBase(BaseModel):
     
     requested_delivery_date: Optional[date] = Field(None, description="희망 배송일")
     priority: int = Field(5, ge=1, le=10, description="우선순위(1:높음 ~ 10:낮음)")
+    
+    # 예약 관련
+    is_reserved: bool = Field(False, description="예약 오더 여부")
+    reserved_at: Optional[date] = Field(None, description="예약 생성일")
+    confirmed_at: Optional[date] = Field(None, description="오더 확정일")
+    
+    # 반복 오더 설정
+    recurring_type: Optional[str] = Field(None, max_length=20, description="반복 유형 (DAILY, WEEKLY, MONTHLY)")
+    recurring_end_date: Optional[date] = Field(None, description="반복 종료일")
     
     requires_forklift: bool = Field(False, description="지게차 필요 여부")
     is_stackable: bool = Field(True, description="적재 가능 여부")
@@ -57,8 +67,14 @@ class OrderUpdate(BaseModel):
     volume_cbm: Optional[float] = Field(None, gt=0)
     product_name: Optional[str] = Field(None, max_length=200)
     product_code: Optional[str] = Field(None, max_length=100)
+    requested_delivery_date: Optional[date] = None
     status: Optional[OrderStatus] = None
     priority: Optional[int] = Field(None, ge=1, le=10)
+    is_reserved: Optional[bool] = None
+    reserved_at: Optional[date] = None
+    confirmed_at: Optional[date] = None
+    recurring_type: Optional[str] = Field(None, max_length=20)
+    recurring_end_date: Optional[date] = None
     notes: Optional[str] = None
 
 

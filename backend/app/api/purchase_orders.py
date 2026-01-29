@@ -1,34 +1,33 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
-from typing import Optional
+from typing import Optional, List
 import shutil
 import os
+import json
 from pathlib import Path
 from datetime import datetime, date
 
-from ..database import get_db
+from ..core.database import get_db
 from ..models.purchase_order import PurchaseOrder
 from ..schemas.purchase_order import PurchaseOrderCreate, PurchaseOrderUpdate, PurchaseOrderResponse, PurchaseOrderListResponse
 
-router = APIRouter(prefix="/purchase-orders", tags=["Purchase Orders"])
+router = APIRouter(tags=["Purchase Orders"])
 
 # 이미지 업로드 디렉토리 설정
-UPLOAD_DIR = Path("/home/user/webapp/backend/uploads/purchase_orders")
+import os
+UPLOAD_BASE = os.getenv("UPLOAD_BASE_DIR", "./uploads")
+UPLOAD_DIR = Path(UPLOAD_BASE) / "purchase_orders"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 @router.get("/", response_model=PurchaseOrderListResponse)
 def get_purchase_orders(
     skip: int = 0,
     limit: int = 100,
-    status: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
     """발주서 목록 조회"""
     query = db.query(PurchaseOrder).filter(PurchaseOrder.is_active == True)
-    
-    if status:
-        query = query.filter(PurchaseOrder.status == status)
     
     total = query.count()
     items = query.order_by(desc(PurchaseOrder.created_at)).offset(skip).limit(limit).all()
@@ -47,12 +46,14 @@ def get_purchase_order(po_id: int, db: Session = Depends(get_db)):
 @router.post("/", response_model=PurchaseOrderResponse)
 def create_purchase_order(po: PurchaseOrderCreate, db: Session = Depends(get_db)):
     """발주서 생성"""
-    # 발주서 번호 중복 체크
-    existing = db.query(PurchaseOrder).filter(PurchaseOrder.po_number == po.po_number).first()
-    if existing:
-        raise HTTPException(status_code=400, detail="이미 존재하는 발주서 번호입니다")
+    po_data = po.model_dump()
+    # image_urls를 JSON 문자열로 변환
+    if po_data.get('image_urls'):
+        po_data['image_urls'] = json.dumps(po_data['image_urls'])
+    else:
+        po_data['image_urls'] = None
     
-    db_po = PurchaseOrder(**po.model_dump())
+    db_po = PurchaseOrder(**po_data)
     db.add(db_po)
     db.commit()
     db.refresh(db_po)
@@ -91,6 +92,14 @@ def update_purchase_order(
     
     # 수정된 필드만 업데이트
     update_data = po_update.model_dump(exclude_unset=True)
+    
+    # image_urls를 JSON 문자열로 변환
+    if 'image_urls' in update_data:
+        if update_data['image_urls']:
+            update_data['image_urls'] = json.dumps(update_data['image_urls'])
+        else:
+            update_data['image_urls'] = None
+    
     for field, value in update_data.items():
         setattr(db_po, field, value)
     

@@ -1,234 +1,244 @@
 """
-캐싱 서비스
-- 거리 행렬 캐싱
-- 지오코딩 결과 캐싱
-- API 응답 캐싱
+Advanced Redis Caching Service
+- Cache decorators
+- Cache invalidation strategies
+- Cache warming
 """
 
-from typing import Dict, Tuple, Optional, Any
-from datetime import datetime, timedelta
-from functools import lru_cache
-import hashlib
 import json
+import hashlib
+from typing import Any, Optional, Callable
+from functools import wraps
+from datetime import timedelta
+import redis
 from loguru import logger
+
+from app.core.config import settings
 
 
 class CacheService:
-    """인메모리 캐싱 서비스"""
+    """Advanced Redis Caching Service"""
     
     def __init__(self):
-        self._distance_cache: Dict[str, float] = {}
-        self._geocode_cache: Dict[str, Tuple[Optional[float], Optional[float]]] = {}
-        self._route_cache: Dict[str, Dict[str, Any]] = {}
-        self._cache_ttl = timedelta(hours=24)  # 24시간 TTL
-        self._cache_timestamps: Dict[str, datetime] = {}
+        self.redis_client = redis.Redis(
+            host=settings.REDIS_HOST,
+            port=settings.REDIS_PORT,
+            db=0,
+            decode_responses=True
+        )
+        self.default_ttl = 300  # 5 minutes
     
-    def get_distance(self, start_lat: float, start_lon: float, end_lat: float, end_lon: float) -> Optional[float]:
+    def _generate_key(self, prefix: str, *args, **kwargs) -> str:
+        """Generate cache key from arguments"""
+        key_data = f"{prefix}:{args}:{sorted(kwargs.items())}"
+        key_hash = hashlib.md5(key_data.encode()).hexdigest()
+        return f"{prefix}:{key_hash}"
+    
+    def get(self, key: str) -> Optional[Any]:
+        """Get value from cache"""
+        try:
+            value = self.redis_client.get(key)
+            if value:
+                return json.loads(value)
+            return None
+        except Exception as e:
+            logger.error(f"Cache get error: {e}")
+            return None
+    
+    def set(
+        self,
+        key: str,
+        value: Any,
+        ttl: Optional[int] = None
+    ) -> bool:
+        """Set value in cache"""
+        try:
+            ttl = ttl or self.default_ttl
+            serialized = json.dumps(value, default=str)
+            self.redis_client.setex(key, ttl, serialized)
+            return True
+        except Exception as e:
+            logger.error(f"Cache set error: {e}")
+            return False
+    
+    def delete(self, key: str) -> bool:
+        """Delete key from cache"""
+        try:
+            self.redis_client.delete(key)
+            return True
+        except Exception as e:
+            logger.error(f"Cache delete error: {e}")
+            return False
+    
+    def delete_pattern(self, pattern: str) -> int:
+        """Delete all keys matching pattern"""
+        try:
+            keys = self.redis_client.keys(pattern)
+            if keys:
+                return self.redis_client.delete(*keys)
+            return 0
+        except Exception as e:
+            logger.error(f"Cache delete pattern error: {e}")
+            return 0
+    
+    def exists(self, key: str) -> bool:
+        """Check if key exists"""
+        try:
+            return self.redis_client.exists(key) > 0
+        except Exception as e:
+            logger.error(f"Cache exists error: {e}")
+            return False
+    
+    def ttl(self, key: str) -> int:
+        """Get remaining TTL for key"""
+        try:
+            return self.redis_client.ttl(key)
+        except Exception as e:
+            logger.error(f"Cache TTL error: {e}")
+            return -1
+    
+    def flush_all(self) -> bool:
+        """Flush all cache (use with caution)"""
+        try:
+            self.redis_client.flushdb()
+            logger.warning("Cache flushed!")
+            return True
+        except Exception as e:
+            logger.error(f"Cache flush error: {e}")
+            return False
+    
+    def cache_decorator(
+        self,
+        prefix: str,
+        ttl: Optional[int] = None,
+        key_builder: Optional[Callable] = None
+    ):
         """
-        거리 캐시 조회
+        Cache decorator for functions
         
-        Args:
-            start_lat: 출발지 위도
-            start_lon: 출발지 경도
-            end_lat: 도착지 위도
-            end_lon: 도착지 경도
+        Usage:
+            @cache_service.cache_decorator(prefix="users", ttl=600)
+            async def get_user(user_id: int):
+                return await db.query(User).filter(User.id == user_id).first()
+        """
+        def decorator(func: Callable):
+            @wraps(func)
+            async def wrapper(*args, **kwargs):
+                # Build cache key
+                if key_builder:
+                    cache_key = key_builder(*args, **kwargs)
+                else:
+                    cache_key = self._generate_key(prefix, *args, **kwargs)
+                
+                # Try to get from cache
+                cached_value = self.get(cache_key)
+                if cached_value is not None:
+                    logger.debug(f"Cache hit: {cache_key}")
+                    return cached_value
+                
+                # Cache miss - execute function
+                logger.debug(f"Cache miss: {cache_key}")
+                result = await func(*args, **kwargs)
+                
+                # Store in cache
+                self.set(cache_key, result, ttl=ttl)
+                
+                return result
             
-        Returns:
-            캐시된 거리 (m) 또는 None
-        """
-        key = self._make_distance_key(start_lat, start_lon, end_lat, end_lon)
-        
-        # TTL 확인
-        if key in self._cache_timestamps:
-            if datetime.now() - self._cache_timestamps[key] > self._cache_ttl:
-                self._distance_cache.pop(key, None)
-                self._cache_timestamps.pop(key, None)
-                return None
-        
-        return self._distance_cache.get(key)
+            return wrapper
+        return decorator
     
-    def set_distance(self, start_lat: float, start_lon: float, end_lat: float, end_lon: float, distance: float):
+    def invalidate_cache_group(self, group: str):
         """
-        거리 캐시 저장
+        Invalidate all caches in a group
         
-        Args:
-            start_lat: 출발지 위도
-            start_lon: 출발지 경도
-            end_lat: 도착지 위도
-            end_lon: 도착지 경도
-            distance: 거리 (m)
+        Example:
+            cache_service.invalidate_cache_group("users:*")
         """
-        key = self._make_distance_key(start_lat, start_lon, end_lat, end_lon)
-        self._distance_cache[key] = distance
-        self._cache_timestamps[key] = datetime.now()
+        deleted = self.delete_pattern(f"{group}*")
+        logger.info(f"Invalidated {deleted} cache keys in group: {group}")
+        return deleted
     
-    def get_geocode(self, address: str) -> Optional[Tuple[Optional[float], Optional[float]]]:
-        """
-        지오코딩 캐시 조회
-        
-        Args:
-            address: 주소
+    def get_cache_stats(self) -> dict:
+        """Get cache statistics"""
+        try:
+            info = self.redis_client.info("stats")
+            memory = self.redis_client.info("memory")
             
-        Returns:
-            (위도, 경도) 튜플 또는 None
-        """
-        key = self._make_address_key(address)
-        
-        # TTL 확인
-        if key in self._cache_timestamps:
-            if datetime.now() - self._cache_timestamps[key] > self._cache_ttl:
-                self._geocode_cache.pop(key, None)
-                self._cache_timestamps.pop(key, None)
-                return None
-        
-        return self._geocode_cache.get(key)
+            return {
+                "total_keys": self.redis_client.dbsize(),
+                "hits": info.get("keyspace_hits", 0),
+                "misses": info.get("keyspace_misses", 0),
+                "hit_rate": self._calculate_hit_rate(
+                    info.get("keyspace_hits", 0),
+                    info.get("keyspace_misses", 0)
+                ),
+                "memory_used_mb": round(
+                    memory.get("used_memory", 0) / 1024 / 1024, 2
+                ),
+                "memory_peak_mb": round(
+                    memory.get("used_memory_peak", 0) / 1024 / 1024, 2
+                )
+            }
+        except Exception as e:
+            logger.error(f"Error getting cache stats: {e}")
+            return {}
     
-    def set_geocode(self, address: str, latitude: Optional[float], longitude: Optional[float]):
+    def _calculate_hit_rate(self, hits: int, misses: int) -> float:
+        """Calculate cache hit rate"""
+        total = hits + misses
+        if total == 0:
+            return 0.0
+        return round((hits / total) * 100, 2)
+    
+    def warm_cache(self, data_loaders: list):
         """
-        지오코딩 캐시 저장
+        Warm cache with frequently accessed data
         
         Args:
-            address: 주소
-            latitude: 위도
-            longitude: 경도
+            data_loaders: List of (key, loader_func, ttl) tuples
         """
-        key = self._make_address_key(address)
-        self._geocode_cache[key] = (latitude, longitude)
-        self._cache_timestamps[key] = datetime.now()
+        logger.info(f"Starting cache warming with {len(data_loaders)} loaders")
+        
+        warmed = 0
+        for key, loader_func, ttl in data_loaders:
+            try:
+                if not self.exists(key):
+                    data = loader_func()
+                    self.set(key, data, ttl=ttl)
+                    warmed += 1
+            except Exception as e:
+                logger.error(f"Cache warming error for key {key}: {e}")
+        
+        logger.info(f"Cache warming complete: {warmed}/{len(data_loaders)} keys warmed")
+        return warmed
+
+
+# Global cache service instance
+cache_service = CacheService()
+
+
+# Common cache patterns
+class CachePatterns:
+    """Common cache key patterns"""
     
-    def get_route(self, start_lat: float, start_lon: float, end_lat: float, end_lon: float) -> Optional[Dict[str, Any]]:
-        """
-        경로 캐시 조회
-        
-        Args:
-            start_lat: 출발지 위도
-            start_lon: 출발지 경도
-            end_lat: 도착지 위도
-            end_lon: 도착지 경도
-            
-        Returns:
-            경로 정보 또는 None
-        """
-        key = self._make_distance_key(start_lat, start_lon, end_lat, end_lon)
-        
-        # TTL 확인
-        if key in self._cache_timestamps:
-            if datetime.now() - self._cache_timestamps[key] > self._cache_ttl:
-                self._route_cache.pop(key, None)
-                self._cache_timestamps.pop(key, None)
-                return None
-        
-        return self._route_cache.get(key)
+    USER = "user:{user_id}"
+    VEHICLE = "vehicle:{vehicle_id}"
+    DISPATCH = "dispatch:{dispatch_id}"
+    ORDER = "order:{order_id}"
+    CLIENT = "client:{client_id}"
     
-    def set_route(self, start_lat: float, start_lon: float, end_lat: float, end_lon: float, route_data: Dict[str, Any]):
-        """
-        경로 캐시 저장
-        
-        Args:
-            start_lat: 출발지 위도
-            start_lon: 출발지 경도
-            end_lat: 도착지 위도
-            end_lon: 도착지 경도
-            route_data: 경로 정보
-        """
-        key = self._make_distance_key(start_lat, start_lon, end_lat, end_lon)
-        self._route_cache[key] = route_data
-        self._cache_timestamps[key] = datetime.now()
+    ANALYTICS_DASHBOARD = "analytics:dashboard"
+    ANALYTICS_VEHICLES = "analytics:vehicles"
+    ANALYTICS_DRIVERS = "analytics:drivers"
     
-    def clear_expired(self):
-        """만료된 캐시 삭제"""
-        now = datetime.now()
-        expired_keys = [
-            key for key, timestamp in self._cache_timestamps.items()
-            if now - timestamp > self._cache_ttl
-        ]
-        
-        for key in expired_keys:
-            self._distance_cache.pop(key, None)
-            self._geocode_cache.pop(key, None)
-            self._route_cache.pop(key, None)
-            self._cache_timestamps.pop(key, None)
-        
-        if expired_keys:
-            logger.info(f"Cleared {len(expired_keys)} expired cache entries")
-    
-    def get_stats(self) -> Dict[str, Any]:
-        """캐시 통계 조회"""
-        return {
-            'distance_cache_size': len(self._distance_cache),
-            'geocode_cache_size': len(self._geocode_cache),
-            'route_cache_size': len(self._route_cache),
-            'total_entries': len(self._cache_timestamps),
-            'cache_ttl_hours': self._cache_ttl.total_seconds() / 3600
-        }
-    
-    def clear_all(self):
-        """모든 캐시 삭제"""
-        self._distance_cache.clear()
-        self._geocode_cache.clear()
-        self._route_cache.clear()
-        self._cache_timestamps.clear()
-        logger.info("All caches cleared")
+    REALTIME_MONITORING = "realtime:monitoring"
     
     @staticmethod
-    def _make_distance_key(start_lat: float, start_lon: float, end_lat: float, end_lon: float) -> str:
-        """거리 캐시 키 생성"""
-        # 소수점 6자리까지만 사용 (약 0.1m 정확도)
-        start = f"{start_lat:.6f},{start_lon:.6f}"
-        end = f"{end_lat:.6f},{end_lon:.6f}"
-        return f"{start}_{end}"
+    def user_key(user_id: int) -> str:
+        return f"user:{user_id}"
     
     @staticmethod
-    def _make_address_key(address: str) -> str:
-        """주소 캐시 키 생성"""
-        # 주소 정규화 (공백 제거, 소문자 변환)
-        normalized = address.strip().lower()
-        return hashlib.md5(normalized.encode('utf-8')).hexdigest()
-
-
-# 전역 캐시 인스턴스
-_cache_service = None
-
-
-def get_cache_service() -> CacheService:
-    """캐시 서비스 싱글톤 인스턴스 가져오기"""
-    global _cache_service
-    if _cache_service is None:
-        _cache_service = CacheService()
-        logger.info("Cache service initialized")
-    return _cache_service
-
-
-# LRU 캐시 데코레이터 사용 예시
-@lru_cache(maxsize=1000)
-def calculate_haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """
-    Haversine 거리 계산 (LRU 캐시 적용)
-    
-    Args:
-        lat1, lon1: 시작점 좌표
-        lat2, lon2: 종료점 좌표
-        
-    Returns:
-        거리 (km)
-    """
-    from math import radians, cos, sin, asin, sqrt
-    
-    # 지구 반지름 (km)
-    R = 6371.0
-    
-    # 라디안으로 변환
-    lat1_rad = radians(lat1)
-    lon1_rad = radians(lon1)
-    lat2_rad = radians(lat2)
-    lon2_rad = radians(lon2)
-    
-    # Haversine 공식
-    dlat = lat2_rad - lat1_rad
-    dlon = lon2_rad - lon1_rad
-    
-    a = sin(dlat / 2) ** 2 + cos(lat1_rad) * cos(lat2_rad) * sin(dlon / 2) ** 2
-    c = 2 * asin(sqrt(a))
-    
-    distance = R * c
-    return distance
+    def dispatch_list(filters: dict) -> str:
+        filter_hash = hashlib.md5(str(sorted(filters.items())).encode()).hexdigest()
+        return f"dispatch:list:{filter_hash}"

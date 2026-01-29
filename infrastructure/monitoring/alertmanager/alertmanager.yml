@@ -1,0 +1,135 @@
+global:
+  resolve_timeout: 5m
+  smtp_smarthost: 'smtp.gmail.com:587'
+  smtp_from: 'alerts@coldchain-system.com'
+  smtp_auth_username: 'your-email@gmail.com'
+  smtp_auth_password: 'your-app-password'
+  slack_api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+
+# 알림 템플릿
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+
+# 라우팅 규칙
+route:
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 12h
+  receiver: 'default'
+  
+  routes:
+    # Critical 알림 - 즉시 전송
+    - match:
+        severity: critical
+      receiver: 'critical'
+      group_wait: 0s
+      repeat_interval: 5m
+    
+    # Warning 알림 - 그룹화하여 전송
+    - match:
+        severity: warning
+      receiver: 'warning'
+      group_wait: 30s
+      repeat_interval: 1h
+    
+    # Database 알림 - 별도 채널
+    - match:
+        category: database
+      receiver: 'database-team'
+      group_wait: 10s
+    
+    # Application 알림
+    - match:
+        category: application
+      receiver: 'dev-team'
+      group_wait: 10s
+
+# 수신자 설정
+receivers:
+  # 기본 수신자
+  - name: 'default'
+    email_configs:
+      - to: 'ops@coldchain-system.com'
+        headers:
+          Subject: '[Monitoring] {{ .GroupLabels.alertname }}'
+        html: |
+          <h3>알림 요약</h3>
+          <p><strong>클러스터:</strong> {{ .GroupLabels.cluster }}</p>
+          <p><strong>심각도:</strong> {{ .CommonLabels.severity }}</p>
+          <p><strong>설명:</strong> {{ range .Alerts }}{{ .Annotations.description }}<br/>{{ end }}</p>
+
+  # Critical 알림 - 이메일 + Slack
+  - name: 'critical'
+    email_configs:
+      - to: 'ops@coldchain-system.com'
+        send_resolved: true
+        headers:
+          Subject: '🚨 [CRITICAL] {{ .GroupLabels.alertname }}'
+    slack_configs:
+      - channel: '#alerts-critical'
+        username: 'AlertManager'
+        icon_emoji: ':fire:'
+        title: '🚨 Critical Alert: {{ .GroupLabels.alertname }}'
+        text: |
+          *Summary:* {{ range .Alerts }}{{ .Annotations.summary }}{{ end }}
+          *Description:* {{ range .Alerts }}{{ .Annotations.description }}{{ end }}
+          *Severity:* {{ .CommonLabels.severity }}
+          *Cluster:* {{ .GroupLabels.cluster }}
+        send_resolved: true
+
+  # Warning 알림 - Slack만
+  - name: 'warning'
+    slack_configs:
+      - channel: '#alerts-warning'
+        username: 'AlertManager'
+        icon_emoji: ':warning:'
+        title: '⚠️ Warning: {{ .GroupLabels.alertname }}'
+        text: |
+          *Summary:* {{ range .Alerts }}{{ .Annotations.summary }}{{ end }}
+          *Description:* {{ range .Alerts }}{{ .Annotations.description }}{{ end }}
+          *Cluster:* {{ .GroupLabels.cluster }}
+        send_resolved: true
+
+  # Database 팀
+  - name: 'database-team'
+    email_configs:
+      - to: 'dba@coldchain-system.com'
+        headers:
+          Subject: '[Database] {{ .GroupLabels.alertname }}'
+    slack_configs:
+      - channel: '#database-alerts'
+        username: 'AlertManager'
+        icon_emoji: ':database:'
+        title: '💾 Database Alert: {{ .GroupLabels.alertname }}'
+        text: |
+          *Summary:* {{ range .Alerts }}{{ .Annotations.summary }}{{ end }}
+          *Description:* {{ range .Alerts }}{{ .Annotations.description }}{{ end }}
+
+  # 개발 팀
+  - name: 'dev-team'
+    slack_configs:
+      - channel: '#dev-alerts'
+        username: 'AlertManager'
+        icon_emoji: ':computer:'
+        title: '💻 Application Alert: {{ .GroupLabels.alertname }}'
+        text: |
+          *Summary:* {{ range .Alerts }}{{ .Annotations.summary }}{{ end }}
+          *Description:* {{ range .Alerts }}{{ .Annotations.description }}{{ end }}
+          *Service:* {{ .GroupLabels.service }}
+
+# 알림 억제 규칙
+inhibit_rules:
+  # Critical 알림이 있으면 같은 인스턴스의 Warning 억제
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['instance', 'alertname']
+  
+  # ContainerDown 알림이 있으면 같은 컨테이너의 다른 알림 억제
+  - source_match:
+      alertname: 'ContainerDown'
+    target_match_re:
+      alertname: 'Container.*'
+    equal: ['container']

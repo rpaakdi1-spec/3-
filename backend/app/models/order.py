@@ -55,7 +55,7 @@ class Order(Base, IDMixin, TimestampMixin):
     
     # 화물 정보
     pallet_count: Mapped[int] = mapped_column(Integer, nullable=False, comment="팔레트 수")
-    weight_kg: Mapped[float] = mapped_column(Float, nullable=False, comment="중량(kg)")
+    weight_kg: Mapped[Optional[float]] = mapped_column(Float, nullable=True, default=0.0, comment="중량(kg) - Deprecated")
     volume_cbm: Mapped[Optional[float]] = mapped_column(Float, comment="용적(CBM)")
     
     # 품목 정보
@@ -70,6 +70,15 @@ class Order(Base, IDMixin, TimestampMixin):
     
     # 희망 배송일
     requested_delivery_date: Mapped[Optional[date]] = mapped_column(Date, comment="희망 배송일")
+    
+    # 예약 관련
+    is_reserved: Mapped[bool] = mapped_column(Boolean, default=False, comment="예약 오더 여부")
+    reserved_at: Mapped[Optional[date]] = mapped_column(Date, nullable=True, comment="예약 생성일")
+    confirmed_at: Mapped[Optional[date]] = mapped_column(Date, nullable=True, comment="오더 확정일")
+    
+    # 반복 오더 설정
+    recurring_type: Mapped[Optional[str]] = mapped_column(String(20), nullable=True, comment="반복 유형 (DAILY, WEEKLY, MONTHLY)")
+    recurring_end_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True, comment="반복 종료일")
     
     # 우선순위
     priority: Mapped[int] = mapped_column(Integer, default=5, comment="우선순위(1:높음 ~ 10:낮음)")

@@ -1,0 +1,17 @@
+# Documentation Dependencies
+
+# MkDocs and Material Theme
+mkdocs==1.5.3
+mkdocs-material==9.5.3
+mkdocs-awesome-pages-plugin==2.9.2
+
+# Markdown Extensions
+pymdown-extensions==10.7
+markdown==3.5.1
+
+# Code Highlighting
+pygments==2.17.2
+
+# Additional plugins
+mkdocs-minify-plugin==0.7.1
+mkdocs-redirects==1.2.1

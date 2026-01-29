@@ -1,4 +1,5 @@
 from .base import Base
+from .user import User
 from .client import Client
 from .vehicle import Vehicle
 from .driver import Driver
@@ -7,9 +8,14 @@ from .dispatch import Dispatch, DispatchRoute
 from .vehicle_location import VehicleLocation, TemperatureAlert
 from .notice import Notice
 from .purchase_order import PurchaseOrder
+from .band_message import BandMessage, BandChatRoom, BandMessageSchedule
+from .uvis_gps import UvisAccessKey, VehicleGPSLog, VehicleTemperatureLog, UvisApiLog
+from .fcm_token import FCMToken, PushNotificationLog
+from .security import TwoFactorAuth, TwoFactorLog, AuditLog, SecurityAlert
 
 __all__ = [
     "Base",
+    "User",
     "Client",
     "Vehicle",
     "Driver",
@@ -20,4 +26,17 @@ __all__ = [
     "TemperatureAlert",
     "Notice",
     "PurchaseOrder",
+    "BandMessage",
+    "BandChatRoom",
+    "BandMessageSchedule",
+    "UvisAccessKey",
+    "VehicleGPSLog",
+    "VehicleTemperatureLog",
+    "UvisApiLog",
+    "FCMToken",
+    "PushNotificationLog",
+    "TwoFactorAuth",
+    "TwoFactorLog",
+    "AuditLog",
+    "SecurityAlert",
 ]

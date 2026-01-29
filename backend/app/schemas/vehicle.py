@@ -1,3 +1,4 @@
+from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, Field, ConfigDict
@@ -14,10 +15,15 @@ class VehicleBase(BaseModel):
     max_weight_kg: float = Field(..., gt=0, description="최대 적재중량(kg)")
     max_volume_cbm: Optional[float] = Field(None, gt=0, description="최대 용적(CBM)")
     
+    forklift_operator_available: bool = Field(False, description="지게차 운전능력 가능 여부")
+    
     tonnage: float = Field(..., gt=0, description="톤수")
     length_m: Optional[float] = Field(None, gt=0, description="적재함 길이(m)")
     width_m: Optional[float] = Field(None, gt=0, description="적재함 너비(m)")
     height_m: Optional[float] = Field(None, gt=0, description="적재함 높이(m)")
+    
+    driver_name: Optional[str] = Field(None, max_length=100, description="운전자명")
+    driver_phone: Optional[str] = Field(None, max_length=20, description="운전자 연락처")
     
     min_temp_celsius: Optional[float] = Field(None, description="최저 온도(°C)")
     max_temp_celsius: Optional[float] = Field(None, description="최고 온도(°C)")
@@ -47,7 +53,10 @@ class VehicleUpdate(BaseModel):
     max_pallets: Optional[int] = Field(None, gt=0)
     max_weight_kg: Optional[float] = Field(None, gt=0)
     max_volume_cbm: Optional[float] = Field(None, gt=0)
+    forklift_operator_available: Optional[bool] = None
     tonnage: Optional[float] = Field(None, gt=0)
+    driver_name: Optional[str] = Field(None, max_length=100)
+    driver_phone: Optional[str] = Field(None, max_length=20)
     status: Optional[VehicleStatus] = None
     garage_address: Optional[str] = Field(None, max_length=500)
     garage_latitude: Optional[float] = None
@@ -73,3 +82,21 @@ class VehicleListResponse(BaseModel):
     """Schema for vehicle list response"""
     total: int
     items: list[VehicleResponse]
+
+
+class VehicleGPSData(BaseModel):
+    """Real-time GPS data from UVIS"""
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    is_engine_on: Optional[bool] = None
+    speed_kmh: Optional[int] = None
+    temperature_a: Optional[float] = None
+    temperature_b: Optional[float] = None
+    battery_voltage: Optional[float] = None
+    last_updated: Optional[datetime] = None
+    gps_datetime: Optional[str] = None
+
+
+class VehicleWithGPSResponse(VehicleResponse):
+    """Vehicle response with real-time GPS data"""
+    gps_data: Optional[VehicleGPSData] = None

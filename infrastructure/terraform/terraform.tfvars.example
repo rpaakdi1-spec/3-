@@ -1,0 +1,68 @@
+# Example Terraform Variables
+# Copy this file to terraform.tfvars and update with your values
+
+# General Configuration
+project_name = "coldchain"
+environment  = "production"
+aws_region   = "ap-northeast-2" # Seoul
+
+# VPC Configuration
+vpc_cidr           = "10.0.0.0/16"
+enable_nat_gateway = true
+
+# RDS Configuration
+db_instance_class          = "db.t3.medium"
+db_allocated_storage       = 100
+db_max_allocated_storage   = 500
+db_name                    = "coldchain_db"
+db_username                = "coldchain_admin"
+db_password                = "CHANGE_ME_STRONG_PASSWORD_HERE" # ⚠️ Change this!
+db_backup_retention_period = 7
+db_multi_az                = true
+
+# ElastiCache Redis Configuration
+redis_node_type              = "cache.t3.medium"
+redis_num_cache_nodes        = 2
+redis_parameter_group_family = "redis7"
+redis_engine_version         = "7.0"
+
+# ECS Configuration
+ecs_backend_cpu              = 1024  # 1 vCPU
+ecs_backend_memory           = 2048  # 2 GB
+ecs_frontend_cpu             = 512   # 0.5 vCPU
+ecs_frontend_memory          = 1024  # 1 GB
+ecs_backend_desired_count    = 2
+ecs_frontend_desired_count   = 2
+ecs_backend_min_capacity     = 2
+ecs_backend_max_capacity     = 10
+ecs_frontend_min_capacity    = 2
+ecs_frontend_max_capacity    = 6
+
+# S3 Configuration
+s3_bucket_names = {
+  uploads = "coldchain-uploads-prod"
+  backups = "coldchain-backups-prod"
+  logs    = "coldchain-logs-prod"
+}
+
+# CloudWatch Configuration
+cloudwatch_log_retention_days = 30
+
+# Domain Configuration (optional)
+domain_name     = "" # e.g., "coldchain.example.com"
+certificate_arn = "" # Leave empty to create new certificate
+
+# Monitoring Configuration
+enable_detailed_monitoring = true
+alarm_email                = "" # e.g., "ops@example.com"
+
+# Backup Configuration
+enable_automated_backups = true
+backup_window            = "03:00-04:00" # UTC
+maintenance_window       = "mon:04:00-mon:05:00" # UTC
+
+# Additional Tags
+additional_tags = {
+  CostCenter = "Engineering"
+  Owner      = "DevOps Team"
+}

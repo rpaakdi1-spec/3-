@@ -7,14 +7,16 @@ import os
 from pathlib import Path
 from datetime import datetime
 
-from ..database import get_db
+from ..core.database import get_db
 from ..models.notice import Notice
 from ..schemas.notice import NoticeCreate, NoticeUpdate, NoticeResponse, NoticeListResponse
 
-router = APIRouter(prefix="/notices", tags=["Notices"])
+router = APIRouter(tags=["Notices"])
 
 # 이미지 업로드 디렉토리 설정
-UPLOAD_DIR = Path("/home/user/webapp/backend/uploads/notices")
+import os
+UPLOAD_BASE = os.getenv("UPLOAD_BASE_DIR", "./uploads")
+UPLOAD_DIR = Path(UPLOAD_BASE) / "notices"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 @router.get("/", response_model=NoticeListResponse)

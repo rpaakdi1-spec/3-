@@ -10,9 +10,11 @@ from loguru import logger
 
 from app.models.client import Client
 from app.models.vehicle import Vehicle, VehicleType
-from app.models.order import Order, TemperatureZone
+from app.models.order import Order, TemperatureZone, OrderStatus
 from app.models.dispatch import Dispatch, DispatchRoute, RouteType, DispatchStatus
+from app.models.uvis_gps import VehicleGPSLog
 from app.services.naver_map_service import NaverMapService
+from app.services.tsp_optimizer import TSPOptimizer
 
 
 @dataclass
@@ -60,6 +62,21 @@ class DispatchOptimizationService:
     def __init__(self, db: Session):
         self.db = db
         self.naver_service = NaverMapService()
+    
+    async def _get_vehicle_current_location(self, vehicle_id: int) -> Optional[Tuple[float, float]]:
+        """Get vehicle's current GPS location from latest GPS log"""
+        latest_gps = (
+            self.db.query(VehicleGPSLog)
+            .filter(VehicleGPSLog.vehicle_id == vehicle_id)
+            .order_by(VehicleGPSLog.created_at.desc())
+            .first()
+        )
+        
+        if latest_gps and latest_gps.latitude and latest_gps.longitude:
+            logger.info(f"Vehicle {vehicle_id} GPS location: ({latest_gps.latitude}, {latest_gps.longitude})")
+            return (latest_gps.latitude, latest_gps.longitude)
+        
+        return None
         
     def _convert_temp_zone_to_vehicle_type(self, temp_zone: TemperatureZone) -> List[VehicleType]:
         """Convert temperature zone to compatible vehicle types"""
@@ -223,80 +240,163 @@ class DispatchOptimizationService:
             pickup_client = first_order.pickup_client
             depot_idx = 0
             depot_indices = [depot_idx]
-            locations.append(Location(
-                id=pickup_client.id,
-                name=pickup_client.name,
-                latitude=pickup_client.latitude or 37.5665,
-                longitude=pickup_client.longitude or 126.9780,
-                location_type='garage'
-            ))
-        
-        # Add order pickup and delivery locations
-        for order in orders:
-            # Pickup location
-            pickup_client = order.pickup_client
-            if pickup_client.id not in location_map:
-                pickup_idx = len(locations)
-                location_map[pickup_client.id] = pickup_idx
+            
+            # Use pickup client or default location
+            if pickup_client:
                 locations.append(Location(
                     id=pickup_client.id,
                     name=pickup_client.name,
                     latitude=pickup_client.latitude or 37.5665,
                     longitude=pickup_client.longitude or 126.9780,
-                    location_type='pickup',
-                    order_id=order.id,
-                    service_time=pickup_client.loading_time_minutes
+                    location_type='garage'
                 ))
+            else:
+                # Use pickup address if available
+                locations.append(Location(
+                    id=0,
+                    name="상차지",
+                    latitude=first_order.pickup_latitude or 37.5665,
+                    longitude=first_order.pickup_longitude or 126.9780,
+                    location_type='garage'
+                ))
+        
+        # Add order pickup and delivery locations
+        for order in orders:
+            # Pickup location
+            pickup_client = order.pickup_client
+            if pickup_client:
+                # Use client data
+                client_key = f"pickup_{pickup_client.id}"
+                if client_key not in location_map:
+                    pickup_idx = len(locations)
+                    location_map[client_key] = pickup_idx
+                    locations.append(Location(
+                        id=pickup_client.id,
+                        name=pickup_client.name,
+                        latitude=pickup_client.latitude or 37.5665,
+                        longitude=pickup_client.longitude or 126.9780,
+                        location_type='pickup',
+                        order_id=order.id,
+                        service_time=pickup_client.loading_time_minutes or 30
+                    ))
+            else:
+                # Use order address data
+                order_key = f"pickup_order_{order.id}"
+                if order_key not in location_map:
+                    pickup_idx = len(locations)
+                    location_map[order_key] = pickup_idx
+                    locations.append(Location(
+                        id=order.id,
+                        name=order.pickup_address or "상차지",
+                        latitude=order.pickup_latitude or 37.5665,
+                        longitude=order.pickup_longitude or 126.9780,
+                        location_type='pickup',
+                        order_id=order.id,
+                        service_time=30
+                    ))
             
             # Delivery location
             delivery_client = order.delivery_client
-            if delivery_client.id not in location_map:
-                delivery_idx = len(locations)
-                location_map[delivery_client.id] = delivery_idx
-                locations.append(Location(
-                    id=delivery_client.id,
-                    name=delivery_client.name,
-                    latitude=delivery_client.latitude or 37.5665,
-                    longitude=delivery_client.longitude or 126.9780,
-                    location_type='delivery',
-                    order_id=order.id,
-                    service_time=delivery_client.loading_time_minutes
-                ))
+            if delivery_client:
+                # Use client data
+                client_key = f"delivery_{delivery_client.id}"
+                if client_key not in location_map:
+                    delivery_idx = len(locations)
+                    location_map[client_key] = delivery_idx
+                    locations.append(Location(
+                        id=delivery_client.id,
+                        name=delivery_client.name,
+                        latitude=delivery_client.latitude or 37.5665,
+                        longitude=delivery_client.longitude or 126.9780,
+                        location_type='delivery',
+                        order_id=order.id,
+                        service_time=delivery_client.loading_time_minutes or 30
+                    ))
+            else:
+                # Use order address data
+                order_key = f"delivery_order_{order.id}"
+                if order_key not in location_map:
+                    delivery_idx = len(locations)
+                    location_map[order_key] = delivery_idx
+                    locations.append(Location(
+                        id=order.id,
+                        name=order.delivery_address or "하차지",
+                        latitude=order.delivery_latitude or 37.5665,
+                        longitude=order.delivery_longitude or 126.9780,
+                        location_type='delivery',
+                        order_id=order.id,
+                        service_time=30
+                    ))
         
         # Create distance and time matrices
         distance_matrix = self._create_distance_matrix(locations)
         time_matrix = self._create_time_matrix(distance_matrix)
         
-        # Simple greedy assignment (for PoC)
+        # Distance-based greedy assignment using GPS location
         dispatch_plans = []
         remaining_orders = orders.copy()
         
+        # Get current GPS locations for all vehicles
+        vehicle_locations = {}
         for vehicle in vehicles:
-            if not remaining_orders:
-                break
+            gps_loc = await self._get_vehicle_current_location(vehicle.id)
+            if gps_loc:
+                vehicle_locations[vehicle.id] = gps_loc
+            elif vehicle.garage_latitude and vehicle.garage_longitude:
+                vehicle_locations[vehicle.id] = (vehicle.garage_latitude, vehicle.garage_longitude)
+                logger.info(f"Vehicle {vehicle.id} using garage location: ({vehicle.garage_latitude}, {vehicle.garage_longitude})")
+            else:
+                logger.warning(f"Vehicle {vehicle.id} has no GPS or garage location")
+        
+        # Process each order and assign to nearest available vehicle
+        for order in remaining_orders[:]:
+            # Get pickup location
+            pickup_lat = order.pickup_latitude or 37.5665
+            pickup_lon = order.pickup_longitude or 126.9780
             
-            vehicle_orders = []
-            current_pallets = 0
-            current_weight = 0
+            # Find nearest vehicle with capacity
+            best_vehicle = None
+            min_distance = float('inf')
             
-            # Greedily assign orders to vehicle
-            for order in remaining_orders[:]:
-                if (current_pallets + order.pallet_count <= vehicle.max_pallets and
+            for vehicle in vehicles:
+                # Check capacity
+                current_load = sum(o.pallet_count for o in dispatch_plans if dispatch_plans and dispatch_plans[-1]['vehicle'].id == vehicle.id for o in dispatch_plans[-1].get('orders', []))
+                current_weight = sum(o.weight_kg for o in dispatch_plans if dispatch_plans and dispatch_plans[-1]['vehicle'].id == vehicle.id for o in dispatch_plans[-1].get('orders', []))
+                
+                if (current_load + order.pallet_count <= vehicle.max_pallets and
                     current_weight + order.weight_kg <= vehicle.max_weight_kg):
-                    vehicle_orders.append(order)
-                    current_pallets += order.pallet_count
-                    current_weight += order.weight_kg
-                    remaining_orders.remove(order)
+                    
+                    # Calculate distance from vehicle to pickup
+                    if vehicle.id in vehicle_locations:
+                        v_lat, v_lon = vehicle_locations[vehicle.id]
+                        distance = self._calculate_distance(v_lat, v_lon, pickup_lat, pickup_lon)
+                        
+                        if distance < min_distance:
+                            min_distance = distance
+                            best_vehicle = vehicle
             
-            if vehicle_orders:
-                dispatch_plans.append({
-                    'vehicle': vehicle,
-                    'orders': vehicle_orders,
-                    'total_pallets': current_pallets,
-                    'total_weight': current_weight,
-                    'locations': locations,
-                    'distance_matrix': distance_matrix
-                })
+            # Assign order to best vehicle
+            if best_vehicle:
+                logger.info(f"Assigned order {order.order_number} to vehicle {best_vehicle.code} (distance: {min_distance:.2f} km)")
+                
+                # Find or create dispatch plan for this vehicle
+                plan = next((p for p in dispatch_plans if p['vehicle'].id == best_vehicle.id), None)
+                if plan:
+                    plan['orders'].append(order)
+                    plan['total_pallets'] += order.pallet_count
+                    plan['total_weight'] += order.weight_kg
+                else:
+                    dispatch_plans.append({
+                        'vehicle': best_vehicle,
+                        'orders': [order],
+                        'total_pallets': order.pallet_count,
+                        'total_weight': order.weight_kg,
+                        'locations': locations,
+                        'distance_matrix': distance_matrix,
+                        'initial_distance_km': min_distance
+                    })
+                
+                remaining_orders.remove(order)
         
         logger.info(f"Created {len(dispatch_plans)} dispatch plans for zone")
         return dispatch_plans
@@ -307,8 +407,9 @@ class DispatchOptimizationService:
             vehicle = plan['vehicle']
             orders = plan['orders']
             
-            # Generate dispatch number
-            dispatch_number = f"DISP-{datetime.now().strftime('%Y%m%d')}-{vehicle.code}"
+            # Generate unique dispatch number with timestamp
+            timestamp = datetime.now().strftime('%Y%m%d-%H%M%S')
+            dispatch_number = f"DISP-{timestamp}-{vehicle.code}"
             
             # Create dispatch
             dispatch = Dispatch(
@@ -343,55 +444,231 @@ class DispatchOptimizationService:
                 self.db.add(route)
                 sequence += 1
             
-            # Add pickup and delivery routes
-            current_pallets = 0
-            current_weight = 0
-            
-            for order in orders:
-                # Pickup
-                pickup_client = order.pickup_client
-                current_pallets += order.pallet_count
-                current_weight += order.weight_kg
+            # TSP 최적화: 여러 주문이 있는 경우 픽업/배송 순서 최적화
+            if len(orders) > 1:
+                try:
+                    # 주문 데이터 준비
+                    order_data = []
+                    for order in orders:
+                        pickup_client = order.pickup_client
+                        delivery_client = order.delivery_client
+                        
+                        order_data.append({
+                            'id': order.id,
+                            'order_number': order.order_number,
+                            'pickup_latitude': pickup_client.latitude if pickup_client else (order.pickup_latitude or 37.5665),
+                            'pickup_longitude': pickup_client.longitude if pickup_client else (order.pickup_longitude or 126.9780),
+                            'pickup_name': pickup_client.name if pickup_client else (order.pickup_address or "상차지"),
+                            'pickup_address': pickup_client.address if pickup_client else (order.pickup_address or "주소 미등록"),
+                            'pickup_time': pickup_client.loading_time_minutes if pickup_client else 30,
+                            'delivery_latitude': delivery_client.latitude if delivery_client else (order.delivery_latitude or 37.5665),
+                            'delivery_longitude': delivery_client.longitude if delivery_client else (order.delivery_longitude or 126.9780),
+                            'delivery_name': delivery_client.name if delivery_client else (order.delivery_address or "하차지"),
+                            'delivery_address': delivery_client.address if delivery_client else (order.delivery_address or "주소 미등록"),
+                            'delivery_time': delivery_client.loading_time_minutes if delivery_client else 30,
+                            'pallet_count': order.pallet_count,
+                            'weight_kg': order.weight_kg,
+                        })
+                    
+                    # 차량 시작 위치 (차고지 or GPS)
+                    if vehicle.garage_latitude and vehicle.garage_longitude:
+                        start_location = (vehicle.garage_latitude, vehicle.garage_longitude)
+                    else:
+                        # Use first order pickup as start
+                        start_location = (order_data[0]['pickup_latitude'], order_data[0]['pickup_longitude'])
+                    
+                    # TSP 최적화 실행
+                    optimized_locations, total_distance = TSPOptimizer.optimize_pickup_delivery_order(order_data)
+                    
+                    logger.info(f"TSP optimized {len(orders)} orders into {len(optimized_locations)} route stops, total: {total_distance:.2f} km")
+                    
+                    # 최적화된 순서대로 경로 생성
+                    current_pallets = 0
+                    current_weight = 0
+                    
+                    for location in optimized_locations:
+                        if location['type'] == 'pickup':
+                            current_pallets += location['pallet_count']
+                            current_weight += location['weight_kg']
+                        else:  # delivery
+                            current_pallets += location['pallet_count']  # Already negative
+                            current_weight += location['weight_kg']  # Already negative
+                        
+                        route_type = RouteType.PICKUP if location['type'] == 'pickup' else RouteType.DELIVERY
+                        
+                        route = DispatchRoute(
+                            dispatch_id=dispatch.id,
+                            sequence=sequence,
+                            route_type=route_type,
+                            order_id=location['order_id'],
+                            location_name=location['name'],
+                            address=location['address'],
+                            latitude=location['latitude'],
+                            longitude=location['longitude'],
+                            estimated_work_duration_minutes=30,
+                            current_pallets=current_pallets,
+                            current_weight_kg=current_weight
+                        )
+                        self.db.add(route)
+                        sequence += 1
+                        
+                        # Update order status when its delivery is done
+                        if location['type'] == 'delivery':
+                            order_obj = next((o for o in orders if o.id == location['order_id']), None)
+                            if order_obj:
+                                order_obj.status = OrderStatus.ASSIGNED
+                    
+                except Exception as e:
+                    logger.warning(f"TSP optimization failed: {e}, using sequential order")
+                    # Fallback: 순차 처리
+                    current_pallets = 0
+                    current_weight = 0
+                    
+                    for order in orders:
+                        # Pickup
+                        pickup_client = order.pickup_client
+                        current_pallets += order.pallet_count
+                        current_weight += order.weight_kg
+                        
+                        if pickup_client:
+                            pickup_name = pickup_client.name
+                            pickup_address = pickup_client.address
+                            pickup_lat = pickup_client.latitude or 37.5665
+                            pickup_lon = pickup_client.longitude or 126.9780
+                            pickup_time = pickup_client.loading_time_minutes or 30
+                        else:
+                            pickup_name = order.pickup_address or "상차지"
+                            pickup_address = order.pickup_address or "주소 미등록"
+                            pickup_lat = order.pickup_latitude or 37.5665
+                            pickup_lon = order.pickup_longitude or 126.9780
+                            pickup_time = 30
+                        
+                        route = DispatchRoute(
+                            dispatch_id=dispatch.id,
+                            sequence=sequence,
+                            route_type=RouteType.PICKUP,
+                            order_id=order.id,
+                            location_name=pickup_name,
+                            address=pickup_address,
+                            latitude=pickup_lat,
+                            longitude=pickup_lon,
+                            estimated_work_duration_minutes=pickup_time,
+                            current_pallets=current_pallets,
+                            current_weight_kg=current_weight
+                        )
+                        self.db.add(route)
+                        sequence += 1
+                        
+                        # Delivery
+                        delivery_client = order.delivery_client
+                        current_pallets -= order.pallet_count
+                        current_weight -= order.weight_kg
+                        
+                        if delivery_client:
+                            delivery_name = delivery_client.name
+                            delivery_address = delivery_client.address
+                            delivery_lat = delivery_client.latitude or 37.5665
+                            delivery_lon = delivery_client.longitude or 126.9780
+                            delivery_time = delivery_client.loading_time_minutes or 30
+                        else:
+                            delivery_name = order.delivery_address or "하차지"
+                            delivery_address = order.delivery_address or "주소 미등록"
+                            delivery_lat = order.delivery_latitude or 37.5665
+                            delivery_lon = order.delivery_longitude or 126.9780
+                            delivery_time = 30
+                        
+                        route = DispatchRoute(
+                            dispatch_id=dispatch.id,
+                            sequence=sequence,
+                            route_type=RouteType.DELIVERY,
+                            order_id=order.id,
+                            location_name=delivery_name,
+                            address=delivery_address,
+                            latitude=delivery_lat,
+                            longitude=delivery_lon,
+                            estimated_work_duration_minutes=delivery_time,
+                            current_pallets=current_pallets,
+                            current_weight_kg=current_weight
+                        )
+                        self.db.add(route)
+                        sequence += 1
+                        
+                        order.status = OrderStatus.ASSIGNED
+            else:
+                # 단일 주문: TSP 불필요
+                current_pallets = 0
+                current_weight = 0
                 
-                route = DispatchRoute(
-                    dispatch_id=dispatch.id,
-                    sequence=sequence,
-                    route_type=RouteType.PICKUP,
-                    order_id=order.id,
-                    location_name=pickup_client.name,
-                    address=pickup_client.address,
-                    latitude=pickup_client.latitude or 37.5665,
-                    longitude=pickup_client.longitude or 126.9780,
-                    estimated_work_duration_minutes=pickup_client.loading_time_minutes,
-                    current_pallets=current_pallets,
-                    current_weight_kg=current_weight
-                )
-                self.db.add(route)
-                sequence += 1
-                
-                # Delivery
-                delivery_client = order.delivery_client
-                current_pallets -= order.pallet_count
-                current_weight -= order.weight_kg
-                
-                route = DispatchRoute(
-                    dispatch_id=dispatch.id,
-                    sequence=sequence,
-                    route_type=RouteType.DELIVERY,
-                    order_id=order.id,
-                    location_name=delivery_client.name,
-                    address=delivery_client.address,
-                    latitude=delivery_client.latitude or 37.5665,
-                    longitude=delivery_client.longitude or 126.9780,
-                    estimated_work_duration_minutes=delivery_client.loading_time_minutes,
-                    current_pallets=current_pallets,
-                    current_weight_kg=current_weight
-                )
-                self.db.add(route)
-                sequence += 1
-                
-                # Update order status
-                order.status = 'assigned'
+                for order in orders:
+                    # Pickup
+                    pickup_client = order.pickup_client
+                    current_pallets += order.pallet_count
+                    current_weight += order.weight_kg
+                    
+                    if pickup_client:
+                        pickup_name = pickup_client.name
+                        pickup_address = pickup_client.address
+                        pickup_lat = pickup_client.latitude or 37.5665
+                        pickup_lon = pickup_client.longitude or 126.9780
+                        pickup_time = pickup_client.loading_time_minutes or 30
+                    else:
+                        pickup_name = order.pickup_address or "상차지"
+                        pickup_address = order.pickup_address or "주소 미등록"
+                        pickup_lat = order.pickup_latitude or 37.5665
+                        pickup_lon = order.pickup_longitude or 126.9780
+                        pickup_time = 30
+                    
+                    route = DispatchRoute(
+                        dispatch_id=dispatch.id,
+                        sequence=sequence,
+                        route_type=RouteType.PICKUP,
+                        order_id=order.id,
+                        location_name=pickup_name,
+                        address=pickup_address,
+                        latitude=pickup_lat,
+                        longitude=pickup_lon,
+                        estimated_work_duration_minutes=pickup_time,
+                        current_pallets=current_pallets,
+                        current_weight_kg=current_weight
+                    )
+                    self.db.add(route)
+                    sequence += 1
+                    
+                    # Delivery
+                    delivery_client = order.delivery_client
+                    current_pallets -= order.pallet_count
+                    current_weight -= order.weight_kg
+                    
+                    if delivery_client:
+                        delivery_name = delivery_client.name
+                        delivery_address = delivery_client.address
+                        delivery_lat = delivery_client.latitude or 37.5665
+                        delivery_lon = delivery_client.longitude or 126.9780
+                        delivery_time = delivery_client.loading_time_minutes or 30
+                    else:
+                        delivery_name = order.delivery_address or "하차지"
+                        delivery_address = order.delivery_address or "주소 미등록"
+                        delivery_lat = order.delivery_latitude or 37.5665
+                        delivery_lon = order.delivery_longitude or 126.9780
+                        delivery_time = 30
+                    
+                    route = DispatchRoute(
+                        dispatch_id=dispatch.id,
+                        sequence=sequence,
+                        route_type=RouteType.DELIVERY,
+                        order_id=order.id,
+                        location_name=delivery_name,
+                        address=delivery_address,
+                        latitude=delivery_lat,
+                        longitude=delivery_lon,
+                        estimated_work_duration_minutes=delivery_time,
+                        current_pallets=current_pallets,
+                        current_weight_kg=current_weight
+                    )
+                    self.db.add(route)
+                    sequence += 1
+                    
+                    order.status = OrderStatus.ASSIGNED
             
             # End at garage
             if vehicle.garage_latitude and vehicle.garage_longitude:

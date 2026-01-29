@@ -26,7 +26,7 @@ export const clientsAPI = {
 }
 
 export const vehiclesAPI = {
-  list: () => api.get('/vehicles/'),
+  list: (params?: { include_gps?: boolean }) => api.get('/vehicles/', { params }),
   upload: (file: File) => {
     const formData = new FormData()
     formData.append('file', file)
@@ -35,6 +35,7 @@ export const vehiclesAPI = {
     })
   },
   downloadTemplate: () => api.get('/vehicles/template/download', { responseType: 'blob' }),
+  syncUvis: () => api.post('/vehicles/sync/uvis'),
   create: (data: any) => api.post('/vehicles/', data),
   update: (id: number, data: any) => api.put(`/vehicles/${id}`, data),
   delete: (id: number) => api.delete(`/vehicles/${id}`),
@@ -76,6 +77,7 @@ export const dispatchesAPI = {
   stats: () => api.get('/dispatches/stats/summary'),
   downloadExcel: (params?: { start_date?: string; end_date?: string; status?: string }) =>
     api.get('/dispatches/export/excel', { params, responseType: 'blob' }),
+  delete: (id: number) => api.delete(`/dispatches/${id}`),
 }
 
 export const uvisAPI = {
@@ -95,4 +97,12 @@ export const uvisAPI = {
     const response = await api.get('/uvis/dashboard');
     return response.data;
   },
+  getRealtimeVehicles: (vehicleIds?: string) => 
+    api.get('/uvis-gps/realtime/vehicles', { params: vehicleIds ? { vehicle_ids: vehicleIds } : {} }),
+  syncGPS: (params?: { force_new_key?: boolean }) => 
+    api.post('/uvis-gps/sync/gps', params || { force_new_key: false }),
+  syncTemperature: (params?: { force_new_key?: boolean }) => 
+    api.post('/uvis-gps/sync/temperature', params || { force_new_key: false }),
+  syncAll: (params?: { force_new_key?: boolean }) => 
+    api.post('/uvis-gps/sync/all', params || { force_new_key: false }),
 }
