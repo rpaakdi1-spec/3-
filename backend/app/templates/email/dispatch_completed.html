@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}배차 완료 - {{ dispatch_number }}{% endblock %}
+
+{% block content %}
+<div class="success-box">
+    <h2 style="margin-top: 0;">✅ 배차가 완료되었습니다</h2>
+    <p>배차 번호: <strong>{{ dispatch_number }}</strong></p>
+</div>
+
+<div class="info-box">
+    <h3>배차 요약</h3>
+    <div class="info-row">
+        <span class="info-label">배차 날짜:</span>
+        <span class="info-value">{{ dispatch_date }}</span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">차량:</span>
+        <span class="info-value">{{ vehicle }}</span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">운전자:</span>
+        <span class="info-value">{{ driver }}</span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">총 주문:</span>
+        <span class="info-value">{{ total_orders }}건</span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">완료 주문:</span>
+        <span class="info-value">{{ completed_orders }}건</span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">총 주행 거리:</span>
+        <span class="info-value">{{ total_distance | round(1) }}km</span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">완료 시간:</span>
+        <span class="info-value">{{ completed_at }}</span>
+    </div>
+</div>
+
+<p style="margin-top: 20px;">
+    <a href="https://coldchain.com/dispatches/{{ dispatch_number }}" class="button">상세 리포트 보기</a>
+</p>
+{% endblock %}

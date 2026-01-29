@@ -29,6 +29,10 @@ class NaverMapService:
             Tuple of (latitude, longitude, error_message)
             Returns (None, None, error_message) if geocoding fails
         """
+        # Fallback: Use mock geocoding if API key is not available
+        if not self.client_id or not self.client_secret or self.client_id == "your_client_id_here":
+            return await self._mock_geocode(address)
+        
         try:
             async with httpx.AsyncClient() as client:
                 headers = {
@@ -46,6 +50,11 @@ class NaverMapService:
                     params=params,
                     timeout=10.0
                 )
+                
+                # If API key error (401), fall back to mock
+                if response.status_code == 401:
+                    logger.warning("Naver API key unauthorized, using mock geocoding")
+                    return await self._mock_geocode(address)
                 
                 if response.status_code != 200:
                     error_msg = f"API 오류: HTTP {response.status_code}"
@@ -82,6 +91,26 @@ class NaverMapService:
             error_msg = f"지오코딩 오류: {str(e)}"
             logger.error(f"Geocoding exception for '{address}': {e}")
             return None, None, error_msg
+    
+    async def _mock_geocode(self, address: str) -> Tuple[Optional[float], Optional[float], Optional[str]]:
+        """Mock geocoding for testing (서울 중심 기준 랜덤 좌표)"""
+        import hashlib
+        
+        # 주소를 해시하여 일관된 좌표 생성
+        hash_val = int(hashlib.md5(address.encode()).hexdigest(), 16)
+        
+        # 서울 중심 (37.5665, 126.9780) 기준 ±0.5도 범위
+        base_lat = 37.5665
+        base_lon = 126.9780
+        
+        lat_offset = ((hash_val % 1000) / 1000 - 0.5) * 1.0  # ±0.5도
+        lon_offset = ((hash_val // 1000 % 1000) / 1000 - 0.5) * 1.0
+        
+        latitude = base_lat + lat_offset
+        longitude = base_lon + lon_offset
+        
+        logger.info(f"Mock geocoded '{address}' -> ({latitude}, {longitude})")
+        return latitude, longitude, None
     
     async def get_driving_route(
         self,

@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 Vehicle Location Schemas
 실시간 차량 위치 및 온도 스키마

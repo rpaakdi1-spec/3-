@@ -113,12 +113,38 @@ function VehicleUpload() {
     }
   }
 
+  // 전화번호 포맷팅 함수 (000-0000-0000)
+  const formatPhoneNumber = (value: string) => {
+    // 숫자만 추출
+    const numbers = value.replace(/[^\d]/g, '')
+    
+    // 포맷팅
+    if (numbers.length <= 3) {
+      return numbers
+    } else if (numbers.length <= 7) {
+      return `${numbers.slice(0, 3)}-${numbers.slice(3)}`
+    } else if (numbers.length <= 11) {
+      return `${numbers.slice(0, 3)}-${numbers.slice(3, 7)}-${numbers.slice(7)}`
+    }
+    // 11자리 초과는 자름
+    return `${numbers.slice(0, 3)}-${numbers.slice(3, 7)}-${numbers.slice(7, 11)}`
+  }
+
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }))
+    
+    // 전화번호 필드인 경우 포맷팅 적용
+    if (name === 'driver_phone') {
+      setFormData(prev => ({
+        ...prev,
+        [name]: formatPhoneNumber(value)
+      }))
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }))
+    }
   }
 
   const handleFormSubmit = async (e: React.FormEvent) => {
@@ -132,7 +158,7 @@ function VehicleUpload() {
       const vehicleTypeMap: { [key: string]: string } = {
         'FREEZER': '냉동',
         'REFRIGERATED': '냉장',
-        'DUAL': '겸용',
+        'BOTH': '겸용',
         'AMBIENT': '상온'
       }
       
@@ -182,7 +208,7 @@ function VehicleUpload() {
     const vehicleTypeReverseMap: { [key: string]: string } = {
       '냉동': 'FREEZER',
       '냉장': 'REFRIGERATED',
-      '겸용': 'DUAL',
+      '겸용': 'BOTH',
       '상온': 'AMBIENT'
     }
     
@@ -194,7 +220,7 @@ function VehicleUpload() {
       tonnage: 5.0, // TODO: 백엔드에서 가져오기
       temperature_zones: vehicle.temperature_zones || 'frozen',
       driver_name: vehicle.driver_name || '',
-      driver_phone: vehicle.driver_phone || '',
+      driver_phone: vehicle.driver_phone ? formatPhoneNumber(vehicle.driver_phone) : '',
       fuel_efficiency_kmperliter: 8,
       notes: ''
     })
@@ -449,6 +475,7 @@ function VehicleUpload() {
                     name="driver_phone"
                     value={formData.driver_phone}
                     onChange={handleFormChange}
+                    placeholder="000-0000-0000"
                     style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
                   />
                 </div>
@@ -538,7 +565,7 @@ function VehicleUpload() {
                     <td>{vehicle.max_volume_cbm} CBM</td>
                     <td>{vehicle.max_pallets} 개</td>
                     <td>{vehicle.driver_name || '-'}</td>
-                    <td>{vehicle.driver_phone || '-'}</td>
+                    <td>{vehicle.driver_phone ? formatPhoneNumber(vehicle.driver_phone) : '-'}</td>
                     <td>{getStatusBadge(vehicle.status)}</td>
                     <td>
                       <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>

@@ -127,12 +127,87 @@ async def upload_clients_excel(
         raise HTTPException(status_code=500, detail="업로드 중 오류가 발생했습니다")
 
 
+@router.post("/geocode/auto", response_model=GeocodeResponse)
+async def auto_geocode_missing_clients(
+    db: Session = Depends(get_db)
+):
+    """위도/경도가 없는 거래처 자동 지오코딩"""
+    # 위도/경도가 null이고 주소가 있는 거래처 조회
+    clients = db.query(Client).filter(
+        Client.is_active == True,
+        Client.address.isnot(None),
+        Client.address != "",
+        Client.latitude.is_(None)
+    ).all()
+    
+    if not clients:
+        logger.info("지오코딩이 필요한 거래처가 없습니다")
+        return GeocodeResponse(
+            success_count=0,
+            failed_count=0,
+            results=[],
+            message="지오코딩이 필요한 거래처가 없습니다"
+        )
+    
+    logger.info(f"자동 지오코딩 시작: {len(clients)}개 거래처")
+    
+    naver_service = NaverMapService()
+    success_count = 0
+    failed_count = 0
+    results = []
+    
+    for client in clients:
+        lat, lon, error = await naver_service.geocode_address(client.address)
+        
+        if lat and lon:
+            client.latitude = lat
+            client.longitude = lon
+            client.geocoded = True
+            client.geocode_error = None
+            
+            results.append({
+                "client_id": client.id,
+                "client_code": client.code,
+                "client_name": client.name,
+                "address": client.address,
+                "success": True,
+                "latitude": lat,
+                "longitude": lon
+            })
+            success_count += 1
+            logger.info(f"✅ 지오코딩 성공: {client.code} - {client.name}")
+        else:
+            client.geocode_error = error
+            
+            results.append({
+                "client_id": client.id,
+                "client_code": client.code,
+                "client_name": client.name,
+                "address": client.address,
+                "success": False,
+                "error": error
+            })
+            failed_count += 1
+            logger.warning(f"❌ 지오코딩 실패: {client.code} - {client.name}: {error}")
+    
+    db.commit()
+    
+    logger.info(f"자동 지오코딩 완료: {success_count}개 성공, {failed_count}개 실패")
+    
+    return GeocodeResponse(
+        success_count=success_count,
+        failed_count=failed_count,
+        results=results,
+        message=f"{success_count}개 거래처 지오코딩 완료"
+    )
+
+
 @router.post("/geocode", response_model=GeocodeResponse)
 async def geocode_clients(
     request: GeocodeRequest,
     db: Session = Depends(get_db)
 ):
-    """거래처 주소 지오코딩"""
+    """거래처 주소 지오코딩 (선택한 거래처)"""
     naver_service = NaverMapService()
     
     success_count = 0

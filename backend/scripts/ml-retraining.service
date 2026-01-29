@@ -1,0 +1,17 @@
+[Unit]
+Description=ML Model Retraining Service
+After=network.target postgresql.service redis.service
+
+[Service]
+Type=oneshot
+User=www-data
+Group=www-data
+WorkingDirectory=/home/user/webapp/backend
+Environment="PATH=/home/user/webapp/backend/venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="PYTHONPATH=/home/user/webapp/backend"
+ExecStart=/home/user/webapp/backend/venv/bin/python3 /home/user/webapp/backend/scripts/retraining_job.py
+StandardOutput=append:/home/user/webapp/backend/logs/retraining_service.log
+StandardError=append:/home/user/webapp/backend/logs/retraining_service.log
+
+[Install]
+WantedBy=multi-user.target

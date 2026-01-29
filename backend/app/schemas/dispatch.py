@@ -1,3 +1,4 @@
+from __future__ import annotations
 from datetime import date, datetime
 from typing import List, Optional
 from pydantic import BaseModel, Field, ConfigDict
@@ -97,14 +98,6 @@ class OptimizationRequest(BaseModel):
     vehicle_ids: Optional[List[int]] = Field(None, description="사용할 차량 ID 목록 (None=전체 사용 가능)")
     dispatch_date: Optional[str] = Field(None, description="배차 일자 (YYYY-MM-DD, None=오늘)")
     
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "order_ids": [1, 2, 3, 4, 5],
-                "vehicle_ids": [1, 2, 3],
-                "dispatch_date": "2026-01-20"
-            }
-        }
 
 
 class OptimizationResponse(BaseModel):

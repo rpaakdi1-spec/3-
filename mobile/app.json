@@ -1,0 +1,75 @@
+{
+  "name": "UVISMobile",
+  "displayName": "UVIS GPS Fleet",
+  "expo": {
+    "name": "UVIS GPS Fleet Management",
+    "slug": "uvis-gps-fleet",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0066FF"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.uvis.gpsfleet",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "배송 중 실시간 위치 추적을 위해 필요합니다",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "백그라운드에서 위치 추적을 위해 필요합니다",
+        "NSCameraUsageDescription": "배송 증명 사진 촬영을 위해 필요합니다",
+        "NSPhotoLibraryUsageDescription": "갤러리에서 사진 선택을 위해 필요합니다"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0066FF"
+      },
+      "package": "com.uvis.gpsfleet",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "배송 중 실시간 GPS 추적을 위해 위치 권한이 필요합니다."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#0066FF",
+          "sounds": ["./assets/notification.wav"]
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "배송 증명 사진 촬영을 위해 카메라 권한이 필요합니다."
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "uvis-gps-fleet"
+      }
+    }
+  }
+}

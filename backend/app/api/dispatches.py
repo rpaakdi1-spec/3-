@@ -123,6 +123,9 @@ def get_dispatches(
         if item.vehicle:
             item.vehicle_code = item.vehicle.code
             item.vehicle_plate = item.vehicle.plate_number
+            # Also include driver info from vehicle if dispatch.driver is not set
+            if not item.driver and item.vehicle.driver_name:
+                item.driver_name = item.vehicle.driver_name
         if item.driver:
             item.driver_name = item.driver.name
     
@@ -140,6 +143,9 @@ def get_dispatch(dispatch_id: int, db: Session = Depends(get_db)):
     if dispatch.vehicle:
         dispatch.vehicle_code = dispatch.vehicle.code
         dispatch.vehicle_plate = dispatch.vehicle.plate_number
+        # Also include driver info from vehicle if dispatch.driver is not set
+        if not dispatch.driver and dispatch.vehicle.driver_name:
+            dispatch.driver_name = dispatch.vehicle.driver_name
     if dispatch.driver:
         dispatch.driver_name = dispatch.driver.name
     

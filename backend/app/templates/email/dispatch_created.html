@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}새로운 배차 생성 - {{ dispatch_number }}{% endblock %}
+
+{% block content %}
+<h2 style="color: #1e40af; margin-top: 0;">새로운 배차가 생성되었습니다</h2>
+
+<p>새로운 배차가 생성되었습니다. 아래 상세 내역을 확인하세요.</p>
+
+<div class="info-box">
+    <h3>배차 정보</h3>
+    <div class="info-row">
+        <span class="info-label">배차 번호:</span>
+        <span class="info-value"><strong>{{ dispatch_number }}</strong></span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">배차 날짜:</span>
+        <span class="info-value">{{ dispatch_date }}</span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">차량:</span>
+        <span class="info-value">{{ vehicle }}</span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">운전자:</span>
+        <span class="info-value">{{ driver }}</span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">총 주문 수:</span>
+        <span class="info-value">{{ total_orders }}건</span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">총 팔레트:</span>
+        <span class="info-value">{{ total_pallets }}개</span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">총 중량:</span>
+        <span class="info-value">{{ total_weight }}kg</span>
+    </div>
+</div>
+
+<p style="margin-top: 20px;">
+    <a href="https://coldchain.com/dispatches/{{ dispatch_number }}" class="button">배차 상세 보기</a>
+</p>
+
+<p style="color: #666; font-size: 14px; margin-top: 20px;">
+    생성 시간: {{ created_at }}
+</p>
+{% endblock %}
