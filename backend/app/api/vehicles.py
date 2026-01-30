@@ -277,9 +277,8 @@ async def sync_uvis_vehicles(db: Session = Depends(get_db)):
                 ).first()
                 
                 if vehicle:
-                    # 기존 차량 업데이트
+                    # 기존 차량 업데이트 - 차량번호만 덮어쓰기
                     vehicle.plate_number = cm_number
-                    vehicle.uvis_enabled = True
                     updated_count += 1
                 else:
                     # 새 차량 생성
