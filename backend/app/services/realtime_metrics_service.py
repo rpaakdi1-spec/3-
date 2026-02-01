@@ -78,7 +78,10 @@ class RealtimeMetricsService:
     async def _broadcast_dashboard_metrics(self):
         """Broadcast dashboard metrics to /ws/dashboard channel"""
         try:
-            async for db in get_db():
+            # Use next() to get single DB session from generator
+            db_gen = get_db()
+            db = next(db_gen)
+            try:
                 metrics = await self._collect_dashboard_metrics(db)
                 
                 await manager.broadcast_to_channel(
@@ -96,8 +99,12 @@ class RealtimeMetricsService:
                     "data": metrics,
                     "timestamp": datetime.utcnow().isoformat()
                 })
-                
-                break  # Exit after first iteration
+            finally:
+                # Close the session
+                try:
+                    next(db_gen)
+                except StopIteration:
+                    pass
         except Exception as e:
             logger.error(f"❌ Error broadcasting dashboard metrics: {e}")
     
@@ -155,7 +162,10 @@ class RealtimeMetricsService:
     async def _broadcast_vehicle_updates(self):
         """Broadcast vehicle location updates"""
         try:
-            async for db in get_db():
+            # Use next() to get single DB session from generator
+            db_gen = get_db()
+            db = next(db_gen)
+            try:
                 # Get vehicles that have active tracking
                 from app.models.vehicle import Vehicle
                 
@@ -180,8 +190,12 @@ class RealtimeMetricsService:
                         f"vehicles/{vehicle.id}",
                         vehicle_data
                     )
-                
-                break
+            finally:
+                # Close the session
+                try:
+                    next(db_gen)
+                except StopIteration:
+                    pass
         except Exception as e:
             logger.error(f"❌ Error broadcasting vehicle updates: {e}")
     

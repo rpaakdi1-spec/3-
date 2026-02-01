@@ -148,12 +148,14 @@ async def internal_error_handler(request, exc):
 
 # Import and include routers
 # from app.api import auth, clients, vehicles, orders, dispatches, tracking, uvis, redispatch, notices, purchase_orders, band_messages, uvis_gps, analytics, delivery_tracking, traffic, monitoring, cache
-from app.api import auth, clients, vehicles, orders, dispatches, tracking, uvis, redispatch, notices, purchase_orders, band_messages, uvis_gps, delivery_tracking, traffic, monitoring, cache
+from app.api import auth, clients, vehicles, orders, dispatches, tracking, uvis, redispatch, notices, purchase_orders, band_messages, uvis_gps, delivery_tracking, traffic, monitoring, cache, emergency, ml_training, ai_chat, ai_usage
 from app.api.v1 import reports, realtime_monitoring, ml_models, fcm_notifications, performance, security, websocket
 app.include_router(auth.router, prefix=f"{settings.API_PREFIX}/auth", tags=["Authentication"])
 app.include_router(clients.router, prefix=f"{settings.API_PREFIX}/clients", tags=["Clients"])
 app.include_router(vehicles.router, prefix=f"{settings.API_PREFIX}/vehicles", tags=["Vehicles"])
 app.include_router(orders.router, prefix=f"{settings.API_PREFIX}/orders", tags=["Orders"])
+app.include_router(ai_chat.router, prefix=f"{settings.API_PREFIX}/ai-chat", tags=["AI Chat"])
+app.include_router(ai_usage.router, prefix=f"{settings.API_PREFIX}/ai-usage", tags=["AI Usage"])
 app.include_router(dispatches.router, prefix=f"{settings.API_PREFIX}/dispatches", tags=["Dispatches"])
 app.include_router(tracking.router, prefix=f"{settings.API_PREFIX}/tracking", tags=["Tracking"])
 app.include_router(delivery_tracking.router, prefix=f"{settings.API_PREFIX}/delivery-tracking", tags=["Delivery Tracking"])
@@ -166,10 +168,12 @@ app.include_router(notices.router, prefix=f"{settings.API_PREFIX}/notices", tags
 app.include_router(purchase_orders.router, prefix=f"{settings.API_PREFIX}/purchase-orders", tags=["Purchase Orders"])
 app.include_router(band_messages.router, prefix=f"{settings.API_PREFIX}/band", tags=["Band Messages"])
 app.include_router(uvis_gps.router, prefix=f"{settings.API_PREFIX}", tags=["UVIS GPS"])
+app.include_router(emergency.router, prefix=f"{settings.API_PREFIX}", tags=["Emergency Maintenance"])
+app.include_router(ml_training.router, prefix=f"{settings.API_PREFIX}/ml", tags=["ML Training"])
 # app.include_router(analytics.router, prefix=f"{settings.API_PREFIX}", tags=["Analytics"])  # Temporarily disabled due to Pydantic recursion issue
 app.include_router(reports.router, prefix=f"{settings.API_PREFIX}/reports", tags=["Reports"])
 app.include_router(realtime_monitoring.router, prefix=f"{settings.API_PREFIX}/realtime", tags=["Realtime Monitoring"])
-app.include_router(ml_models.router, prefix=f"{settings.API_PREFIX}/ml", tags=["ML Models"])
+app.include_router(ml_models.router, prefix=f"{settings.API_PREFIX}/ml-models", tags=["ML Models"])
 app.include_router(fcm_notifications.router, prefix=f"{settings.API_PREFIX}/notifications", tags=["Push Notifications"])
 app.include_router(performance.router, prefix=f"{settings.API_PREFIX}/performance", tags=["Performance Monitoring"])
 app.include_router(security.router, prefix=f"{settings.API_PREFIX}/security", tags=["Security"])

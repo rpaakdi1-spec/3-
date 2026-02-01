@@ -36,26 +36,76 @@ export interface Vehicle {
 export interface Order {
   id: number;
   order_number: string;
-  client_id: number;
-  client_name?: string;
-  pickup_address: string;
-  pickup_latitude: number;
-  pickup_longitude: number;
-  delivery_address: string;
-  delivery_latitude: number;
-  delivery_longitude: number;
-  cargo_type: 'FROZEN' | 'REFRIGERATED' | 'BOTH';
-  temperature_min: number;
-  temperature_max: number;
+  order_date: string;
+  
+  // Client selection mode
+  pickup_client_id?: number;
+  delivery_client_id?: number;
+  pickup_client_name?: string;
+  delivery_client_name?: string;
+  
+  // Address direct input mode
+  pickup_address?: string;
+  pickup_address_detail?: string;
+  pickup_latitude?: number;
+  pickup_longitude?: number;
+  delivery_address?: string;
+  delivery_address_detail?: string;
+  delivery_latitude?: number;
+  delivery_longitude?: number;
+  
+  // Order details
+  temperature_zone: '냉동' | '냉장' | '상온';  // Backend uses Korean values
   pallet_count: number;
-  weight_kg?: number;  // Optional - deprecated
-  volume_cbm: number;
+  weight_kg?: number;
+  volume_cbm?: number;
+  
+  // Product info
+  product_name?: string;
+  product_code?: string;
+  
+  // Time windows
+  pickup_start_time?: string;  // HH:MM format
+  pickup_end_time?: string;
+  delivery_start_time?: string;
+  delivery_end_time?: string;
+  
+  // Scheduling
+  requested_delivery_date?: string;
+  priority: number;  // 1-10
+  
+  // Reservation
+  is_reserved?: boolean;
+  reserved_at?: string;
+  confirmed_at?: string;
+  
+  // Recurring
+  recurring_type?: string;  // DAILY, WEEKLY, MONTHLY
+  recurring_end_date?: string;
+  
+  // Handling
+  requires_forklift?: boolean;
+  is_stackable?: boolean;
+  
+  // Notes
+  notes?: string;
+  
+  // Status
+  status: 'PENDING' | 'ASSIGNED' | 'IN_TRANSIT' | 'DELIVERED' | 'CANCELLED';
+  
+  // Timestamps
+  created_at: string;
+  updated_at: string;
+  
+  // Legacy fields (for backward compatibility)
+  client_id?: number;
+  client_name?: string;
+  cargo_type?: 'FROZEN' | 'REFRIGERATED' | 'BOTH';
+  temperature_min?: number;
+  temperature_max?: number;
   desired_pickup_time?: string;
   desired_delivery_time?: string;
   special_instructions?: string;
-  status: 'PENDING' | 'DISPATCHED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
-  created_at: string;
-  updated_at: string;
 }
 
 export interface Dispatch {
