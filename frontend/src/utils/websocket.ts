@@ -5,22 +5,32 @@ class WebSocketClient {
   private maxReconnectAttempts = 5;
   private reconnectTimeout = 3000;
   private listeners: Map<string, Set<(data: any) => void>> = new Map();
+  private channel: string = 'dashboard';
 
-  connect() {
+  connect(channel: string = 'dashboard') {
+    this.channel = channel;
     const token = localStorage.getItem('token');
+    
+    // WebSocket connection is optional - only connect if explicitly needed
     if (!token) {
-      console.warn('No authentication token found');
+      console.log('WebSocket: No token, skipping connection (not required)');
       return;
     }
 
-    const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:8000/ws';
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsHost = import.meta.env.VITE_WS_URL || `${wsProtocol}//${window.location.host}/ws`;
     
     try {
-      this.ws = new WebSocket(`${wsUrl}?token=${token}`);
+      this.ws = new WebSocket(`${wsHost}/${channel}?token=${token}`);
       
       this.ws.onopen = () => {
-        console.log('WebSocket connected');
+        console.log(`WebSocket connected to ${channel}`);
         this.reconnectAttempts = 0;
+        
+        // Send pong in response to ping
+        this.on('ping', (data) => {
+          this.send('pong', { timestamp: new Date().toISOString() });
+        });
       };
 
       this.ws.onmessage = (event) => {
@@ -38,11 +48,12 @@ class WebSocketClient {
 
       this.ws.onclose = () => {
         console.log('WebSocket disconnected');
-        this.attemptReconnect();
+        // Don't auto-reconnect - WebSocket is optional
+        // this.attemptReconnect();
       };
     } catch (error) {
       console.error('Failed to create WebSocket connection:', error);
-      this.attemptReconnect();
+      // Don't auto-reconnect - WebSocket is optional
     }
   }
 

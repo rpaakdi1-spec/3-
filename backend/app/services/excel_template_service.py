@@ -85,6 +85,20 @@ class ExcelTemplateService:
             "운전면허번호": ("license_number", "12-34-567890-12", ""),
             "면허종류": ("license_type", "1종 대형", ""),
             "특이사항": ("notes", "", ""),
+        },
+        "ml_training": {
+            "배차일자": ("dispatch_date", "2026-01-29", ""),
+            "차량코드": ("vehicle_code", "V001", ""),
+            "차량번호": ("vehicle_plate", "12가3456", ""),
+            "차량온도대": ("vehicle_temp_zone", "냉동", ""),
+            "주문번호": ("order_number", "ORD-001", ""),
+            "주문팔레트": ("order_pallets", 15, 15),
+            "주문온도대": ("order_temp_zone", "냉동", "냉동"),
+            "출발지주소": ("origin_address", "서울특별시 송파구 문정동 123", ""),
+            "도착지주소": ("dest_address", "서울특별시 강남구 테헤란로 427", ""),
+            "실제비용(원)": ("actual_cost", 150000, 150000),
+            "지연여부": ("is_delayed", "N", "N"),
+            "배차상태": ("status", "완료", "완료"),
         }
     }
     
@@ -202,6 +216,11 @@ class ExcelTemplateService:
         return cls.create_template("drivers", "기사")
     
     @classmethod
+    def create_ml_training_template(cls) -> Path:
+        """Create Excel template for ML training data upload"""
+        return cls.create_template("ml_training", "AI학습데이터")
+    
+    @classmethod
     def create_all_templates(cls) -> Dict[str, Path]:
         """
         Create all Excel templates
@@ -214,6 +233,7 @@ class ExcelTemplateService:
             "orders": cls.create_orders_template(),
             "vehicles": cls.create_vehicles_template(),
             "drivers": cls.create_drivers_template(),
+            "ml_training": cls.create_ml_training_template(),
         }
     
     @classmethod

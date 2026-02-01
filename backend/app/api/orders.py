@@ -27,8 +27,6 @@ def get_orders(
     db: Session = Depends(get_db)
 ):
     """주문 목록 조회"""
-    from datetime import time as time_type
-    
     query = db.query(Order)
     
     if status:
@@ -43,22 +41,12 @@ def get_orders(
     total = query.count()
     items = query.offset(skip).limit(limit).all()
     
-    # Add client names and convert time objects to strings
+    # Add client names (Pydantic's field_serializer will handle time conversion)
     for item in items:
         if item.pickup_client:
             item.pickup_client_name = item.pickup_client.name
         if item.delivery_client:
             item.delivery_client_name = item.delivery_client.name
-        
-        # Convert time objects to HH:MM string format
-        if item.pickup_start_time and isinstance(item.pickup_start_time, time_type):
-            item.pickup_start_time = item.pickup_start_time.strftime('%H:%M')
-        if item.pickup_end_time and isinstance(item.pickup_end_time, time_type):
-            item.pickup_end_time = item.pickup_end_time.strftime('%H:%M')
-        if item.delivery_start_time and isinstance(item.delivery_start_time, time_type):
-            item.delivery_start_time = item.delivery_start_time.strftime('%H:%M')
-        if item.delivery_end_time and isinstance(item.delivery_end_time, time_type):
-            item.delivery_end_time = item.delivery_end_time.strftime('%H:%M')
     
     return OrderListResponse(total=total, items=items)
 
@@ -66,25 +54,13 @@ def get_orders(
 @router.get("/{order_id}", response_model=OrderWithClientsResponse)
 def get_order(order_id: int, db: Session = Depends(get_db)):
     """주문 상세 조회"""
-    from datetime import time as time_type
-    
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="주문을 찾을 수 없습니다")
     
-    # Add client info
+    # Add client info (Pydantic's field_serializer will handle time conversion)
     order.pickup_client_name = order.pickup_client.name if order.pickup_client else None
     order.delivery_client_name = order.delivery_client.name if order.delivery_client else None
-    
-    # Convert time objects to HH:MM string format
-    if order.pickup_start_time and isinstance(order.pickup_start_time, time_type):
-        order.pickup_start_time = order.pickup_start_time.strftime('%H:%M')
-    if order.pickup_end_time and isinstance(order.pickup_end_time, time_type):
-        order.pickup_end_time = order.pickup_end_time.strftime('%H:%M')
-    if order.delivery_start_time and isinstance(order.delivery_start_time, time_type):
-        order.delivery_start_time = order.delivery_start_time.strftime('%H:%M')
-    if order.delivery_end_time and isinstance(order.delivery_end_time, time_type):
-        order.delivery_end_time = order.delivery_end_time.strftime('%H:%M')
     
     return order
 
@@ -170,8 +146,6 @@ def update_order(
     db: Session = Depends(get_db)
 ):
     """주문 수정"""
-    from datetime import time as time_type
-    
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="주문을 찾을 수 없습니다")
@@ -184,19 +158,9 @@ def update_order(
     db.commit()
     db.refresh(order)
     
-    # Add client info
+    # Add client info (Pydantic's field_serializer will handle time conversion)
     order.pickup_client_name = order.pickup_client.name if order.pickup_client else None
     order.delivery_client_name = order.delivery_client.name if order.delivery_client else None
-    
-    # Convert time objects to HH:MM string format
-    if order.pickup_start_time and isinstance(order.pickup_start_time, time_type):
-        order.pickup_start_time = order.pickup_start_time.strftime('%H:%M')
-    if order.pickup_end_time and isinstance(order.pickup_end_time, time_type):
-        order.pickup_end_time = order.pickup_end_time.strftime('%H:%M')
-    if order.delivery_start_time and isinstance(order.delivery_start_time, time_type):
-        order.delivery_start_time = order.delivery_start_time.strftime('%H:%M')
-    if order.delivery_end_time and isinstance(order.delivery_end_time, time_type):
-        order.delivery_end_time = order.delivery_end_time.strftime('%H:%M')
     
     logger.info(f"Updated order: {order.order_number}")
     return order
