@@ -25,13 +25,11 @@ const OrdersPage: React.FC = () => {
 
   useEffect(() => {
     fetchOrders();
-    // 기본 날짜 필터: 오늘 ~ 내일
+    // 기본 날짜 필터: 오늘 ~ 오늘
     const today = new Date();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
     
     setStartDate(today.toISOString().split('T')[0]);
-    setEndDate(tomorrow.toISOString().split('T')[0]);
+    setEndDate(today.toISOString().split('T')[0]);
   }, []);
 
   const fetchOrders = async () => {
