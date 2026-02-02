@@ -65,6 +65,20 @@ class VehicleUpdate(BaseModel):
     is_active: Optional[bool] = None
 
 
+class VehicleGPSData(BaseModel):
+    """Real-time GPS data from UVIS"""
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    current_address: Optional[str] = Field(None, description="현재 위치 주소 (역지오코딩)")
+    is_engine_on: Optional[bool] = None
+    speed_kmh: Optional[int] = None
+    temperature_a: Optional[float] = None
+    temperature_b: Optional[float] = None
+    battery_voltage: Optional[float] = None
+    last_updated: Optional[datetime] = None
+    gps_datetime: Optional[str] = None
+
+
 class VehicleResponse(VehicleBase):
     """Schema for vehicle response"""
     id: int
@@ -74,6 +88,7 @@ class VehicleResponse(VehicleBase):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+    gps_data: Optional[VehicleGPSData] = Field(None, description="Real-time GPS data (when include_gps=true)")
     
     model_config = ConfigDict(from_attributes=True)
 
