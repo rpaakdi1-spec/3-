@@ -7,7 +7,7 @@ import Loading from '../components/common/Loading';
 import OrderModal from '../components/orders/OrderModal';
 import apiClient from '../api/client';
 import { Order } from '../types';
-import { Package, Plus, Search, Filter, Upload, Download, Trash2, Edit2, FileSpreadsheet, Zap } from 'lucide-react';
+import { Package, Plus, Search, Filter, Upload, Download, Trash2, Edit2, FileSpreadsheet, Zap, Calendar, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const OrdersPage: React.FC = () => {
@@ -20,6 +20,8 @@ const OrdersPage: React.FC = () => {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
   useEffect(() => {
     fetchOrders();
@@ -177,12 +179,42 @@ const OrdersPage: React.FC = () => {
     );
   };
 
+  const isPastOrder = (order: Order): boolean => {
+    const now = new Date();
+    const pickupTime = new Date(`${order.order_date}T${order.pickup_time_start || '00:00:00'}`);
+    return pickupTime < now && order.status === 'PENDING';
+  };
+
+  const formatDateTime = (date: string, time?: string): string => {
+    const d = new Date(date);
+    const dateStr = `${d.getMonth() + 1}/${d.getDate()}`;
+    if (time) {
+      const timeStr = time.substring(0, 5); // HH:MM
+      return `${dateStr} ${timeStr}`;
+    }
+    return dateStr;
+  };
+
   const filteredOrders = orders.filter((order) => {
     const matchesSearch =
       order.order_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (order.client_name?.toLowerCase() || '').includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'ALL' || order.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    
+    // 날짜 필터링
+    let matchesDate = true;
+    if (startDate || endDate) {
+      const orderDate = new Date(order.order_date);
+      if (startDate && endDate) {
+        matchesDate = orderDate >= new Date(startDate) && orderDate <= new Date(endDate);
+      } else if (startDate) {
+        matchesDate = orderDate >= new Date(startDate);
+      } else if (endDate) {
+        matchesDate = orderDate <= new Date(endDate);
+      }
+    }
+    
+    return matchesSearch && matchesStatus && matchesDate;
   });
 
   // Calculate pending orders count for AI dispatch
@@ -269,8 +301,8 @@ const OrdersPage: React.FC = () => {
 
         {/* Filters */}
         <Card>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="col-span-1 md:col-span-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="col-span-1 md:col-span-2 lg:col-span-2">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
                 <input
@@ -279,6 +311,30 @@ const OrdersPage: React.FC = () => {
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+            </div>
+            <div>
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                <input
+                  type="date"
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  placeholder="시작일"
+                />
+              </div>
+            </div>
+            <div>
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                <input
+                  type="date"
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  placeholder="종료일"
                 />
               </div>
             </div>
@@ -296,8 +352,30 @@ const OrdersPage: React.FC = () => {
                 <option value="CANCELLED">취소</option>
               </select>
             </div>
-            <Button variant="secondary">
-              <Filter size={20} className="mr-2" />
+          </div>
+          <div className="mt-4 flex items-center justify-between">
+            <div className="text-sm text-gray-600">
+              {startDate || endDate ? (
+                <>
+                  {startDate && <span>시작: {new Date(startDate).toLocaleDateString('ko-KR')}</span>}
+                  {startDate && endDate && <span className="mx-2">~</span>}
+                  {endDate && <span>종료: {new Date(endDate).toLocaleDateString('ko-KR')}</span>}
+                </>
+              ) : (
+                <span>전체 기간</span>
+              )}
+            </div>
+            <Button 
+              variant="secondary" 
+              size="sm"
+              onClick={() => {
+                setSearchTerm('');
+                setStatusFilter('ALL');
+                setStartDate('');
+                setEndDate('');
+              }}
+            >
+              <Filter size={16} className="mr-2" />
               필터 초기화
             </Button>
           </div>
@@ -337,6 +415,7 @@ const OrdersPage: React.FC = () => {
                     />
                   </th>
                   <th className="text-left py-3 px-4 font-semibold text-gray-700">주문번호</th>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-700">상차 날짜/시간</th>
                   <th className="text-left py-3 px-4 font-semibold text-gray-700">거래처</th>
                   <th className="text-left py-3 px-4 font-semibold text-gray-700">상차지</th>
                   <th className="text-left py-3 px-4 font-semibold text-gray-700">하차지</th>
@@ -349,58 +428,84 @@ const OrdersPage: React.FC = () => {
               <tbody>
                 {filteredOrders.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="text-center py-8 text-gray-500">
+                    <td colSpan={10} className="text-center py-8 text-gray-500">
                       <Package size={48} className="mx-auto mb-4 text-gray-300" />
                       <p>주문이 없습니다</p>
                     </td>
                   </tr>
                 ) : (
-                  filteredOrders.map((order) => (
-                    <tr key={order.id} className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="py-3 px-4">
-                        <input
-                          type="checkbox"
-                          checked={selectedIds.includes(order.id)}
-                          onChange={() => handleSelectOne(order.id)}
-                          className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-                        />
-                      </td>
-                      <td className="py-3 px-4 font-medium text-blue-600">{order.order_number}</td>
-                      <td className="py-3 px-4">{order.client_name || order.pickup_client_name || order.delivery_client_name || '-'}</td>
-                      <td className="py-3 px-4 max-w-xs truncate">{order.pickup_address || order.pickup_client_name || '-'}</td>
-                      <td className="py-3 px-4 max-w-xs truncate">{order.delivery_address || order.delivery_client_name || '-'}</td>
-                      <td className="py-3 px-4">
-                        <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm">
-                          {order.temperature_zone || order.cargo_type || '-'}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4">{order.pallet_count || 0}개</td>
-                      <td className="py-3 px-4">{getStatusBadge(order.status)}</td>
-                      <td className="py-3 px-4">
-                        <div className="flex space-x-2">
-                          <Button 
-                            size="sm" 
-                            variant="secondary"
-                            onClick={() => {
-                              setSelectedOrder(order);
-                              setModalOpen(true);
-                            }}
-                          >
-                            <Edit2 size={14} className="mr-1" />
-                            수정
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            variant="danger"
-                            onClick={() => handleDelete(order.id)}
-                          >
-                            <Trash2 size={14} className="mr-1" />
-                            삭제
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                  filteredOrders.map((order) => {
+                    const isPast = isPastOrder(order);
+                    return (
+                      <tr 
+                        key={order.id} 
+                        className={`border-b border-gray-100 hover:bg-gray-50 ${isPast ? 'bg-red-50' : ''}`}
+                      >
+                        <td className="py-3 px-4">
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.includes(order.id)}
+                            onChange={() => handleSelectOne(order.id)}
+                            className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                          />
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-blue-600">{order.order_number}</span>
+                            {isPast && (
+                              <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded text-xs font-medium">
+                                지난 오더
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-1 text-sm">
+                            <Clock size={14} className="text-gray-400" />
+                            <span>{formatDateTime(order.order_date, order.pickup_time_start)}</span>
+                          </div>
+                          {order.pickup_time_start && order.pickup_time_end && (
+                            <div className="text-xs text-gray-500 mt-1">
+                              {order.pickup_time_start.substring(0, 5)} ~ {order.pickup_time_end.substring(0, 5)}
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-3 px-4">{order.client_name || order.pickup_client_name || order.delivery_client_name || '-'}</td>
+                        <td className="py-3 px-4 max-w-xs truncate">{order.pickup_address || order.pickup_client_name || '-'}</td>
+                        <td className="py-3 px-4 max-w-xs truncate">{order.delivery_address || order.delivery_client_name || '-'}</td>
+                        <td className="py-3 px-4">
+                          <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm">
+                            {order.temperature_zone || order.cargo_type || '-'}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4">{order.pallet_count || 0}개</td>
+                        <td className="py-3 px-4">{getStatusBadge(order.status)}</td>
+                        <td className="py-3 px-4">
+                          <div className="flex space-x-2">
+                            <Button 
+                              size="sm" 
+                              variant="secondary"
+                              onClick={() => {
+                                setSelectedOrder(order);
+                                setModalOpen(true);
+                              }}
+                            >
+                              <Edit2 size={14} className="mr-1" />
+                              수정
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="danger"
+                              onClick={() => handleDelete(order.id)}
+                            >
+                              <Trash2 size={14} className="mr-1" />
+                              삭제
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
