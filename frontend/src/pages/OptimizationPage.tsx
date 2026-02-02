@@ -444,10 +444,14 @@ const OptimizationPage: React.FC = () => {
                             {assignment.vehicle.license_plate} | {assignment.vehicle.driver_name || '미배정'}
                           </p>
                           {/* GPS 현재 위치 */}
-                          {assignment.vehicle.gps_data?.current_address && (
+                          {assignment.vehicle.gps_data && (assignment.vehicle.gps_data.current_address || assignment.vehicle.gps_data.latitude) && (
                             <p className="text-xs text-blue-600 mt-1 flex items-center gap-1">
                               <MapPin className="w-3 h-3" />
-                              현재 위치: {assignment.vehicle.gps_data.current_address}
+                              {assignment.vehicle.gps_data.current_address ? (
+                                `현재 위치: ${assignment.vehicle.gps_data.current_address}`
+                              ) : (
+                                `GPS: ${assignment.vehicle.gps_data.latitude?.toFixed(6)}, ${assignment.vehicle.gps_data.longitude?.toFixed(6)}`
+                              )}
                             </p>
                           )}
                         </div>
