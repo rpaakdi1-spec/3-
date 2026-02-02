@@ -19,7 +19,7 @@ router = APIRouter()
 
 
 @router.get("/", response_model=VehicleListResponse)
-def get_vehicles(
+async def get_vehicles(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     vehicle_type: Optional[str] = None,
@@ -119,14 +119,11 @@ def get_vehicles(
                     current_address = None
                     if latest_gps and latest_gps.latitude and latest_gps.longitude:
                         try:
-                            import asyncio
                             naver_map_service = NaverMapService()
-                            # Run async function in sync context
-                            current_address = asyncio.run(
-                                naver_map_service.reverse_geocode(
-                                    latest_gps.latitude,
-                                    latest_gps.longitude
-                                )
+                            # Use await in async function
+                            current_address = await naver_map_service.reverse_geocode(
+                                latest_gps.latitude,
+                                latest_gps.longitude
                             )
                         except Exception as e:
                             logger.warning(f"Failed to reverse geocode for vehicle {vehicle.id}: {e}")
