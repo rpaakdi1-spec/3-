@@ -19,6 +19,7 @@ import {
 import { DollarSign, TrendingUp, TrendingDown, Activity, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../api/client';
+import Sidebar from '../components/common/Sidebar';
 
 interface CostSummary {
   period: string;
@@ -150,17 +151,23 @@ const AICostDashboardPage: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">데이터 로딩 중...</p>
+      <div className="flex h-screen bg-gray-100">
+        <Sidebar />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">데이터 로딩 중...</p>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
+    <div className="flex h-screen bg-gray-100">
+      <Sidebar />
+      <div className="flex-1 overflow-auto">
+        <div className="p-6 bg-gray-50 min-h-full">
       {/* 헤더 */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -373,6 +380,8 @@ const AICostDashboardPage: React.FC = () => {
             <span><strong>현재 비용:</strong> 월 {costSummary ? `$${(costSummary.total_cost / costSummary.period_days * 30).toFixed(2)}` : '$0'} 예상 (현재 추세 기준)</span>
           </li>
         </ul>
+      </div>
+    </div>
       </div>
     </div>
   );
