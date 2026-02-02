@@ -104,6 +104,8 @@ export const dispatchesAPI = {
       { order_ids: orderIds, vehicle_ids: vehicleIds, dispatch_date: dispatchDate }
     ),
   confirm: (dispatchIds: number[]) => api.post('/dispatches/confirm', { dispatch_ids: dispatchIds }),
+  complete: (dispatchIds: number[]) => api.post('/dispatches/complete', { dispatch_ids: dispatchIds }),
+  cancel: (dispatchIds: number[], reason?: string) => api.post('/dispatches/cancel', { dispatch_ids: dispatchIds, reason }),
   stats: () => api.get('/dispatches/stats/summary'),
   downloadExcel: (params?: { start_date?: string; end_date?: string; status?: string }) =>
     api.get('/dispatches/export/excel', { params, responseType: 'blob' }),
