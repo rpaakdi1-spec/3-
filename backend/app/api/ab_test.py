@@ -7,12 +7,22 @@ ML Dispatch 점진적 롤아웃을 위한 A/B 테스트 관리 엔드포인트
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import Dict, Any
 from loguru import logger
+import os
 
-from app.core.deps import get_current_user, get_redis
+from app.api.auth import get_current_user
 from app.models.user import User
 from app.services.ab_test_service import ABTestService, ABTestMetricsService
 from redis import Redis
 from pydantic import BaseModel, Field
+
+
+# Dependency for Redis connection
+def get_redis():
+    """Get Redis connection"""
+    redis_host = os.getenv("REDIS_HOST", "localhost")
+    redis_port = int(os.getenv("REDIS_PORT", 6379))
+    
+    return Redis(host=redis_host, port=redis_port, decode_responses=False)
 
 
 router = APIRouter(prefix="/api/v1/ab-test")
