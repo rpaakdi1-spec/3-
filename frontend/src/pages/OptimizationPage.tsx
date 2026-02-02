@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Truck, MapPin, Package, Clock, AlertCircle, RefreshCw, Navigation, Loader2 } from 'lucide-react';
+import { Truck, MapPin, Package, Clock, AlertCircle, RefreshCw, Navigation, Loader2, CheckCircle } from 'lucide-react';
 import Layout from '../components/common/Layout';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
@@ -33,6 +33,7 @@ interface OptimizationResult {
   total_distance_km: number;
   estimated_total_time_minutes: number;
   vehicle_assignments: VehicleAssignment[];
+  dispatch_ids?: number[];
 }
 
 interface VehicleAssignment {
@@ -49,6 +50,8 @@ const OptimizationPage: React.FC = () => {
   const [optimizationResult, setOptimizationResult] = useState<OptimizationResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isOptimizing, setIsOptimizing] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [isConfirmed, setIsConfirmed] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -74,6 +77,7 @@ const OptimizationPage: React.FC = () => {
 
   const handleOptimize = async () => {
     setIsOptimizing(true);
+    setIsConfirmed(false);
     try {
       // TODO: 실제 최적화 API 호출
       toast.success('배차 최적화를 시작합니다...');
@@ -85,6 +89,7 @@ const OptimizationPage: React.FC = () => {
           total_pallets: 125,
           total_distance_km: 350,
           estimated_total_time_minutes: 480,
+          dispatch_ids: [1001, 1002, 1003],
           vehicle_assignments: vehicles.slice(0, 3).map((vehicle, index) => ({
             vehicle,
             orders: [
@@ -123,6 +128,35 @@ const OptimizationPage: React.FC = () => {
     }
   };
 
+  const handleConfirm = async () => {
+    if (!optimizationResult?.dispatch_ids || optimizationResult.dispatch_ids.length === 0) {
+      toast.error('확정할 배차 정보가 없습니다.');
+      return;
+    }
+
+    setIsConfirming(true);
+    try {
+      // TODO: 실제 배차 확정 API 호출
+      // await apiClient.confirmDispatches(optimizationResult.dispatch_ids);
+      
+      // 시뮬레이션 (실제로는 위 API 호출)
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      setIsConfirmed(true);
+      toast.success(`${optimizationResult.dispatch_ids.length}건의 배차가 확정되었습니다!`);
+      
+      // 3초 후 배차 관리 페이지로 이동
+      setTimeout(() => {
+        window.location.href = '/dispatches';
+      }, 3000);
+    } catch (error) {
+      console.error('배차 확정 실패:', error);
+      toast.error('배차 확정에 실패했습니다.');
+    } finally {
+      setIsConfirming(false);
+    }
+  };
+
   return (
     <Layout>
       <div className="p-4 sm:p-6">
@@ -141,7 +175,7 @@ const OptimizationPage: React.FC = () => {
             <div className="flex gap-2">
               <Button
                 onClick={loadData}
-                disabled={isLoading || isOptimizing}
+                disabled={isLoading || isOptimizing || isConfirming}
                 variant="secondary"
                 className="text-sm sm:text-base"
               >
@@ -154,7 +188,8 @@ const OptimizationPage: React.FC = () => {
               </Button>
               <Button
                 onClick={handleOptimize}
-                disabled={isLoading || isOptimizing || vehicles.length === 0}
+                disabled={isLoading || isOptimizing || isConfirming || vehicles.length === 0}
+                variant="secondary"
                 className="text-sm sm:text-base"
               >
                 {isOptimizing ? (
@@ -164,6 +199,22 @@ const OptimizationPage: React.FC = () => {
                 )}
                 최적화 실행
               </Button>
+              {optimizationResult && (
+                <Button
+                  onClick={handleConfirm}
+                  disabled={isConfirming || isConfirmed}
+                  className="text-sm sm:text-base bg-green-600 hover:bg-green-700"
+                >
+                  {isConfirming ? (
+                    <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin mr-2" />
+                  ) : isConfirmed ? (
+                    <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+                  ) : (
+                    <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+                  )}
+                  {isConfirmed ? '확정 완료' : '배차 확정'}
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -174,6 +225,21 @@ const OptimizationPage: React.FC = () => {
           </div>
         ) : (
           <>
+            {/* 확정 완료 알림 */}
+            {isConfirmed && (
+              <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <CheckCircle className="w-6 h-6 text-green-600" />
+                  <div>
+                    <h3 className="font-semibold text-green-900">배차가 확정되었습니다!</h3>
+                    <p className="text-sm text-green-700 mt-1">
+                      곧 배차 관리 페이지로 이동합니다...
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* 통계 카드 */}
             {optimizationResult && (
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
