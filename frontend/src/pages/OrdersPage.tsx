@@ -187,9 +187,10 @@ const OrdersPage: React.FC = () => {
 
   // Calculate pending orders count for AI dispatch
   // Check for both 'PENDING' and '배차대기' status
-  const pendingOrdersCount = orders.filter(order => 
+  const pendingOrders = orders.filter(order => 
     order.status === 'PENDING' || order.status === '배차대기'
-  ).length;
+  );
+  const pendingOrdersCount = pendingOrders.length;
 
   if (loading) {
     return (
@@ -211,7 +212,10 @@ const OrdersPage: React.FC = () => {
           <div className="flex flex-wrap gap-2 mt-4 md:mt-0">
             <Button 
               variant={pendingOrdersCount > 0 ? "success" : "secondary"}
-              onClick={() => navigate('/optimization')}
+              onClick={() => {
+                const orderIds = pendingOrders.map(o => o.id).join(',');
+                navigate(`/optimization?order_ids=${orderIds}`);
+              }}
               className={pendingOrdersCount > 0 ? "animate-pulse" : ""}
               disabled={pendingOrdersCount === 0}
               title={pendingOrdersCount === 0 ? "배차대기 주문이 없습니다" : "AI 배차 최적화 페이지로 이동"}
