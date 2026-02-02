@@ -45,6 +45,8 @@ interface VehicleAssignment {
   utilization_percentage: number;
   route_distance_km: number;
   estimated_time_minutes: number;
+  dispatch_id?: number;
+  confirmed?: boolean;
 }
 
 const OptimizationPage: React.FC = () => {
@@ -56,6 +58,7 @@ const OptimizationPage: React.FC = () => {
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
   const [isConfirmed, setIsConfirmed] = useState(false);
+  const [confirmingVehicleId, setConfirmingVehicleId] = useState<number | null>(null);
 
   useEffect(() => {
     loadData();
@@ -139,7 +142,7 @@ const OptimizationPage: React.FC = () => {
             vehicle,
             orders: assignedOrders.map(order => ({
               order_number: order.order_number,
-              delivery_address: order.delivery_location || '배송지 미정',
+              delivery_address: order.delivery_address || order.delivery_location || order.delivery_client_name || '배송지 미정',
               pallet_count: order.pallet_count || 0,
               temperature_zone: order.temperature_zone || '상온',
               distance_km: 50 + Math.random() * 100, // Mock distance
@@ -149,6 +152,8 @@ const OptimizationPage: React.FC = () => {
             utilization_percentage: Math.round((totalPallets / vehicle.max_pallets) * 100),
             route_distance_km: 100 + Math.random() * 200,
             estimated_time_minutes: 180 + Math.random() * 180,
+            dispatch_id: 1000 + i,
+            confirmed: false,
           });
         }
         
@@ -173,6 +178,36 @@ const OptimizationPage: React.FC = () => {
       console.error('최적화 실패:', error);
       toast.error('배차 최적화에 실패했습니다.');
       setIsOptimizing(false);
+    }
+  };
+
+  const handleConfirmVehicle = async (vehicleId: number, dispatchId: number) => {
+    setConfirmingVehicleId(vehicleId);
+    try {
+      // TODO: 실제 API 호출
+      // await apiClient.confirmDispatch(dispatchId);
+      
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // 해당 차량의 confirmed 상태 업데이트
+      if (optimizationResult) {
+        const updatedAssignments = optimizationResult.vehicle_assignments.map(assignment => 
+          assignment.vehicle.id === vehicleId 
+            ? { ...assignment, confirmed: true }
+            : assignment
+        );
+        setOptimizationResult({
+          ...optimizationResult,
+          vehicle_assignments: updatedAssignments,
+        });
+      }
+      
+      toast.success(`차량 ${vehicleId}번 배차가 확정되었습니다!`);
+    } catch (error) {
+      console.error('배차 확정 실패:', error);
+      toast.error('배차 확정에 실패했습니다.');
+    } finally {
+      setConfirmingVehicleId(null);
     }
   };
 
@@ -418,7 +453,7 @@ const OptimizationPage: React.FC = () => {
                       <div className="flex items-center gap-2 text-sm">
                         <MapPin className="w-4 h-4 text-gray-400" />
                         <span className="text-gray-600">총 거리:</span>
-                        <span className="font-semibold">{assignment.route_distance_km}km</span>
+                        <span className="font-semibold">{assignment.route_distance_km.toFixed(2)}km</span>
                       </div>
                       <div className="flex items-center gap-2 text-sm">
                         <Clock className="w-4 h-4 text-gray-400" />
@@ -433,10 +468,41 @@ const OptimizationPage: React.FC = () => {
                         <span className="font-semibold">{assignment.orders.length}건</span>
                       </div>
                     </div>
+                    <div className="mb-4 p-2 bg-blue-50 rounded text-xs text-blue-700">
+                      💡 총 거리: 모든 배송지를 순회하는 최적 경로의 총 주행거리입니다.
+                    </div>
 
                     {/* 주문 목록 */}
                     <div className="space-y-2">
-                      <h4 className="text-sm font-semibold text-gray-700">배정된 주문</h4>
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="text-sm font-semibold text-gray-700">배정된 주문</h4>
+                        {assignment.dispatch_id && (
+                          <Button
+                            size="sm"
+                            variant={assignment.confirmed ? "secondary" : "primary"}
+                            onClick={() => handleConfirmVehicle(assignment.vehicle.id, assignment.dispatch_id!)}
+                            disabled={confirmingVehicleId === assignment.vehicle.id || assignment.confirmed}
+                            className={assignment.confirmed ? "bg-green-600" : ""}
+                          >
+                            {confirmingVehicleId === assignment.vehicle.id ? (
+                              <>
+                                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                                확정 중...
+                              </>
+                            ) : assignment.confirmed ? (
+                              <>
+                                <CheckCircle className="w-4 h-4 mr-1" />
+                                확정 완료
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle className="w-4 h-4 mr-1" />
+                                이 차량 배차 확정
+                              </>
+                            )}
+                          </Button>
+                        )}
+                      </div>
                       <div className="space-y-2">
                         {assignment.orders.map((order, orderIndex) => (
                           <div
@@ -464,8 +530,8 @@ const OptimizationPage: React.FC = () => {
                                 {order.pallet_count}팔레트
                               </span>
                               {order.distance_km && (
-                                <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs whitespace-nowrap">
-                                  {order.distance_km}km
+                                <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs whitespace-nowrap" title="출발지부터 이 배송지까지의 거리">
+                                  📍 {order.distance_km.toFixed(1)}km
                                 </span>
                               )}
                             </div>
