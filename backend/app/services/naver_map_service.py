@@ -15,6 +15,7 @@ class NaverMapService:
     """
     
     BASE_URL_GEOCODING = "https://naveropenapi.apigw.ntruss.com/map-geocode/v2/geocode"
+    BASE_URL_REVERSE_GEOCODING = "https://naveropenapi.apigw.ntruss.com/map-reversegeocode/v2/gc"
     BASE_URL_DIRECTIONS = "https://naveropenapi.apigw.ntruss.com/map-direction/v1/driving"
     
     def __init__(self, client_id: Optional[str] = None, client_secret: Optional[str] = None):
@@ -74,6 +75,95 @@ class NaverMapService:
         
         except Exception as e:
             logger.error(f"Geocoding error: {e}")
+            return None
+    
+    async def reverse_geocode(self, latitude: float, longitude: float) -> Optional[str]:
+        """
+        좌표(위도, 경도)를 주소로 변환 (역 지오코딩)
+        
+        Args:
+            latitude: 위도
+            longitude: 경도
+            
+        Returns:
+            주소 문자열 또는 None
+        """
+        if not self.client_id or not self.client_secret:
+            logger.warning("Reverse geocoding skipped: API credentials not configured")
+            return None
+        
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    self.BASE_URL_REVERSE_GEOCODING,
+                    headers={
+                        "X-NCP-APIGW-API-KEY-ID": self.client_id,
+                        "X-NCP-APIGW-API-KEY": self.client_secret
+                    },
+                    params={
+                        "coords": f"{longitude},{latitude}",  # 경도, 위도 순서
+                        "orders": "roadaddr,addr",  # 도로명 주소 우선
+                        "output": "json"
+                    }
+                )
+                
+                if response.status_code != 200:
+                    logger.error(f"Reverse geocoding failed: {response.status_code} - {response.text}")
+                    return None
+                
+                data = response.json()
+                
+                if data.get("status", {}).get("code") != 0 or not data.get("results"):
+                    logger.warning(f"No reverse geocoding results for coords: {latitude}, {longitude}")
+                    return None
+                
+                # 첫 번째 결과 사용 (도로명 주소 or 지번 주소)
+                first_result = data["results"][0]
+                
+                # 도로명 주소 우선
+                if first_result.get("name") == "roadaddr":
+                    land = first_result.get("land", {})
+                    if land:
+                        # 도로명 주소 조합
+                        area1 = land.get("name", "")
+                        area2 = land.get("addition0", {}).get("value", "")
+                        number1 = land.get("number1", "")
+                        number2 = land.get("number2", "")
+                        
+                        address_parts = [area1, area2]
+                        if number1:
+                            if number2:
+                                address_parts.append(f"{number1}-{number2}")
+                            else:
+                                address_parts.append(number1)
+                        
+                        address = " ".join(filter(None, address_parts))
+                        if address:
+                            return address
+                
+                # 도로명 주소가 없으면 지번 주소 사용
+                region = first_result.get("region", {})
+                area1 = region.get("area1", {}).get("name", "")
+                area2 = region.get("area2", {}).get("name", "")
+                area3 = region.get("area3", {}).get("name", "")
+                area4 = region.get("area4", {}).get("name", "")
+                
+                land = first_result.get("land", {})
+                number1 = land.get("number1", "")
+                number2 = land.get("number2", "")
+                
+                address_parts = [area1, area2, area3, area4]
+                if number1:
+                    if number2:
+                        address_parts.append(f"{number1}-{number2}")
+                    else:
+                        address_parts.append(number1)
+                
+                address = " ".join(filter(None, address_parts))
+                return address if address else None
+        
+        except Exception as e:
+            logger.error(f"Reverse geocoding error: {e}")
             return None
     
     async def calculate_distance_and_duration(

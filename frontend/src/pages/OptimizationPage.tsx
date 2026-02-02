@@ -18,10 +18,17 @@ interface Vehicle {
   current_pallets?: number;
   driver_name?: string;
   assigned_orders?: AssignedOrder[];
+  gps_data?: {
+    latitude?: number;
+    longitude?: number;
+    current_address?: string;
+    last_updated?: string;
+  };
 }
 
 interface AssignedOrder {
   order_number: string;
+  pickup_address?: string;
   delivery_address: string;
   pallet_count: number;
   temperature_zone: string;
@@ -71,8 +78,8 @@ const OptimizationPage: React.FC = () => {
       const orderIdsParam = searchParams.get('order_ids');
       const orderIds = orderIdsParam ? orderIdsParam.split(',').map(id => parseInt(id)) : [];
 
-      // 차량 목록 조회
-      const vehiclesData = await apiClient.getVehicles();
+      // 차량 목록 조회 (GPS 데이터 포함)
+      const vehiclesData = await apiClient.getVehicles({ include_gps: true });
       const availableVehicles = (vehiclesData.items || vehiclesData || []).filter(
         (v: Vehicle) => v.status === '운행가능'
       );
@@ -142,7 +149,8 @@ const OptimizationPage: React.FC = () => {
             vehicle,
             orders: assignedOrders.map(order => ({
               order_number: order.order_number,
-              delivery_address: order.delivery_address || order.delivery_location || order.delivery_client_name || '배송지 미정',
+              pickup_address: order.pickup_address || order.pickup_location || order.pickup_client_name || '상차지 미정',
+              delivery_address: order.delivery_address || order.delivery_location || order.delivery_client_name || '하차지 미정',
               pallet_count: order.pallet_count || 0,
               temperature_zone: order.temperature_zone || '상온',
               distance_km: 50 + Math.random() * 100, // Mock distance
@@ -435,6 +443,13 @@ const OptimizationPage: React.FC = () => {
                           <p className="text-xs sm:text-sm text-gray-600">
                             {assignment.vehicle.license_plate} | {assignment.vehicle.driver_name || '미배정'}
                           </p>
+                          {/* GPS 현재 위치 */}
+                          {assignment.vehicle.gps_data?.current_address && (
+                            <p className="text-xs text-blue-600 mt-1 flex items-center gap-1">
+                              <MapPin className="w-3 h-3" />
+                              현재 위치: {assignment.vehicle.gps_data.current_address}
+                            </p>
+                          )}
                         </div>
                       </div>
                       
@@ -517,9 +532,19 @@ const OptimizationPage: React.FC = () => {
                                 <p className="font-medium text-sm sm:text-base text-gray-900 break-words">
                                   {order.order_number}
                                 </p>
-                                <p className="text-xs sm:text-sm text-gray-600 break-words">
-                                  {order.delivery_address}
-                                </p>
+                                {/* 상차지 → 하차지 */}
+                                <div className="space-y-1 mt-1">
+                                  {order.pickup_address && (
+                                    <p className="text-xs text-gray-600 break-words flex items-start gap-1">
+                                      <span className="text-blue-600 font-semibold flex-shrink-0">🔼 상차지:</span>
+                                      <span>{order.pickup_address}</span>
+                                    </p>
+                                  )}
+                                  <p className="text-xs text-gray-600 break-words flex items-start gap-1">
+                                    <span className="text-green-600 font-semibold flex-shrink-0">🔽 하차지:</span>
+                                    <span>{order.delivery_address}</span>
+                                  </p>
+                                </div>
                               </div>
                             </div>
                             <div className="flex flex-wrap gap-2 sm:ml-auto">
