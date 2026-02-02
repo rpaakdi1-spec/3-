@@ -378,6 +378,7 @@ const AICostDashboardPage: React.FC = () => {
           </li>
         </ul>
       </div>
+      </div>
     </Layout>
   );
 };

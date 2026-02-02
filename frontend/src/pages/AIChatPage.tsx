@@ -134,7 +134,7 @@ const AIChatPage: React.FC = () => {
     setInput('');
     setIsLoading(true);
 
-    try:
+    try {
       // AI 채팅 API 호출 (선택된 모델 사용)
       const response = await apiClient.processChatMessage(userMessage.content, {
         pending_order: pendingOrder,
