@@ -17,9 +17,22 @@ from app.models.order import Order, OrderStatus
 from app.models.dispatch import Dispatch, DispatchStatus
 from app.api.auth import get_current_user
 from app.services.ml_dispatch_service import MLDispatchService
+from app.services.ab_test_service import ABTestService, ABTestMetricsService
 
 
 router = APIRouter(prefix="/api/ml-dispatch", tags=["ML Dispatch"])
+
+
+# Dependency for Redis connection
+def get_redis():
+    """Get Redis connection (placeholder - implement based on your setup)"""
+    from redis import Redis
+    import os
+    
+    redis_host = os.getenv("REDIS_HOST", "localhost")
+    redis_port = int(os.getenv("REDIS_PORT", 6379))
+    
+    return Redis(host=redis_host, port=redis_port, decode_responses=False)
 
 
 # ============================================
@@ -563,3 +576,229 @@ def _calculate_dispatch_metrics(dispatches: List[Dispatch]) -> dict:
         "avg_score": round(avg_score, 3),
         "with_scores": len(scores)
     }
+
+
+# ============================================
+# Phase 3: A/B Testing
+# ============================================
+
+@router.get("/ab-test/assignment")
+async def get_ab_test_assignment(
+    current_user: User = Depends(get_current_user),
+    redis = Depends(get_redis)
+):
+    """
+    현재 사용자의 A/B 테스트 그룹 조회
+    
+    Returns:
+        {
+            "user_id": 123,
+            "group": "treatment" | "control",
+            "ml_enabled": true | false,
+            "rollout_percentage": 10
+        }
+    """
+    try:
+        ab_service = ABTestService(redis)
+        group = ab_service.assign_user_to_group(current_user.id)
+        
+        return {
+            "user_id": current_user.id,
+            "group": group,
+            "ml_enabled": (group == "treatment"),
+            "rollout_percentage": ab_service._get_rollout_percentage()
+        }
+    except Exception as e:
+        logger.error(f"A/B test assignment error: {e}")
+        # Fallback to control
+        return {
+            "user_id": current_user.id,
+            "group": "control",
+            "ml_enabled": False,
+            "error": str(e)
+        }
+
+
+@router.post("/ab-test/rollout")
+async def update_rollout_percentage(
+    percentage: int = Query(..., ge=0, le=100),
+    current_user: User = Depends(get_current_user),
+    redis = Depends(get_redis)
+):
+    """
+    롤아웃 비율 업데이트 (관리자 전용)
+    
+    Args:
+        percentage: 0-100 (treatment 그룹 비율)
+    
+    Returns:
+        {
+            "success": true,
+            "old_percentage": 10,
+            "new_percentage": 30,
+            "stats": {...}
+        }
+    """
+    # TODO: Admin 권한 체크
+    # if not current_user.is_admin:
+    #     raise HTTPException(status_code=403, detail="Admin only")
+    
+    try:
+        ab_service = ABTestService(redis)
+        old_percentage = ab_service._get_rollout_percentage()
+        
+        ab_service.set_rollout_percentage(percentage)
+        
+        stats = ab_service.get_experiment_stats()
+        
+        logger.info(
+            f"Rollout updated by user {current_user.id}: "
+            f"{old_percentage}% → {percentage}%"
+        )
+        
+        return {
+            "success": True,
+            "old_percentage": old_percentage,
+            "new_percentage": percentage,
+            "stats": stats
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Rollout update error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/ab-test/stats")
+async def get_ab_test_stats(
+    current_user: User = Depends(get_current_user),
+    redis = Depends(get_redis)
+):
+    """
+    A/B 테스트 통계 조회
+    
+    Returns:
+        {
+            "total_users": 1250,
+            "control_count": 1125,
+            "treatment_count": 125,
+            "actual_treatment_percentage": 10.0,
+            "target_rollout_percentage": 10
+        }
+    """
+    try:
+        ab_service = ABTestService(redis)
+        stats = ab_service.get_experiment_stats()
+        
+        return stats
+    except Exception as e:
+        logger.error(f"A/B test stats error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/ab-test/metrics")
+async def get_ab_test_metrics(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    redis = Depends(get_redis)
+):
+    """
+    A/B 테스트 메트릭 비교
+    
+    Returns:
+        {
+            "control": {
+                "total_dispatches": 450,
+                "success_rate": 0.956,
+                "avg_response_time": 1.23
+            },
+            "treatment": {
+                "total_dispatches": 50,
+                "success_rate": 0.980,
+                "avg_score": 0.756,
+                "avg_response_time": 1.45
+            },
+            "improvements": {
+                "success_rate": 0.024,
+                "success_rate_percentage": 2.4
+            },
+            "winner": "treatment"
+        }
+    """
+    try:
+        metrics_service = ABTestMetricsService(db, redis)
+        comparison = metrics_service.compare_groups()
+        
+        return comparison
+    except Exception as e:
+        logger.error(f"A/B test metrics error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/ab-test/history")
+async def get_rollout_history(
+    limit: int = Query(20, ge=1, le=100),
+    current_user: User = Depends(get_current_user),
+    redis = Depends(get_redis)
+):
+    """
+    롤아웃 변경 이력 조회
+    
+    Returns:
+        [
+            {
+                "timestamp": "2026-02-02T10:30:00",
+                "old_percentage": 10,
+                "new_percentage": 30
+            },
+            ...
+        ]
+    """
+    try:
+        ab_service = ABTestService(redis)
+        history = ab_service.get_rollout_history(limit)
+        
+        return {
+            "history": history,
+            "count": len(history)
+        }
+    except Exception as e:
+        logger.error(f"Rollout history error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/ab-test/force-assign")
+async def force_assign_user(
+    user_id: int,
+    group: str = Query(..., regex="^(control|treatment)$"),
+    current_user: User = Depends(get_current_user),
+    redis = Depends(get_redis)
+):
+    """
+    사용자를 특정 그룹에 강제 할당 (테스트용)
+    
+    Args:
+        user_id: 대상 사용자 ID
+        group: 'control' or 'treatment'
+    """
+    # TODO: Admin 권한 체크
+    
+    try:
+        ab_service = ABTestService(redis)
+        ab_service.force_assign_user(user_id, group)
+        
+        logger.warning(
+            f"User {user_id} force assigned to {group} "
+            f"by admin {current_user.id}"
+        )
+        
+        return {
+            "success": True,
+            "user_id": user_id,
+            "group": group
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Force assign error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
