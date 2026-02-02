@@ -142,18 +142,18 @@ export const mlDispatchAPI = {
   },
 
   // Phase 3: A/B Testing
-  getABTestAssignment: () => api.get('/ml-dispatch/ab-test/assignment'),
+  getABTestAssignment: () => api.get('/ab-test/user-group'),
   
   updateRollout: (percentage: number) => 
-    api.post(`/ml-dispatch/ab-test/rollout?percentage=${percentage}`),
+    api.put('/ab-test/rollout', { percentage }),
   
-  getABTestStats: () => api.get('/ml-dispatch/ab-test/stats'),
+  getABTestStats: () => api.get('/ab-test/stats'),
   
-  getABTestMetrics: () => api.get('/ml-dispatch/ab-test/metrics'),
+  getABTestMetrics: () => api.get('/ab-test/metrics/compare'),
   
   getRolloutHistory: (limit: number = 20) => 
-    api.get(`/ml-dispatch/ab-test/history?limit=${limit}`),
+    api.get(`/ab-test/rollout/history?limit=${limit}`),
   
   forceAssignUser: (userId: number, group: 'control' | 'treatment') => 
-    api.post(`/ml-dispatch/ab-test/force-assign?user_id=${userId}&group=${group}`)
+    api.post(`/ab-test/force-assign?user_id=${userId}&group=${group}`)
 }

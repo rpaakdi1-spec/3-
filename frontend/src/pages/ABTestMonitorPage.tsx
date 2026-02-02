@@ -11,14 +11,13 @@ interface ABTestStats {
   total_users: number;
   control_count: number;
   treatment_count: number;
-  control_percentage: number;
-  treatment_percentage: number;
+  actual_treatment_percentage: number;
   target_rollout_percentage: number;
   last_updated: string;
   stats_cache?: {
-    control_total: number;
-    treatment_total: number;
-    total_assignments: number;
+    control_total?: number;
+    treatment_total?: number;
+    total_assignments?: number;
   };
 }
 
@@ -123,7 +122,11 @@ const ABTestMonitorPage: React.FC = () => {
                   <div className="ml-4">
                     <p className="text-sm font-medium text-gray-500">Control 그룹</p>
                     <p className="text-2xl font-semibold text-gray-900">{stats.control_count}</p>
-                    <p className="text-xs text-gray-400">{stats.control_percentage.toFixed(1)}%</p>
+                    <p className="text-xs text-gray-400">
+                      {stats.total_users > 0 
+                        ? ((stats.control_count / stats.total_users) * 100).toFixed(1) 
+                        : '0.0'}%
+                    </p>
                   </div>
                 </div>
               </Card>
@@ -139,7 +142,7 @@ const ABTestMonitorPage: React.FC = () => {
                   <div className="ml-4">
                     <p className="text-sm font-medium text-gray-500">Treatment 그룹</p>
                     <p className="text-2xl font-semibold text-gray-900">{stats.treatment_count}</p>
-                    <p className="text-xs text-gray-400">{stats.treatment_percentage.toFixed(1)}%</p>
+                    <p className="text-xs text-gray-400">{stats.actual_treatment_percentage.toFixed(1)}%</p>
                   </div>
                 </div>
               </Card>
