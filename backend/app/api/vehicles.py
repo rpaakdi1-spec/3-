@@ -95,51 +95,57 @@ async def get_vehicles(
                 ).order_by(desc(VehicleTemperatureLog.created_at)).first()
                 
                 if latest_gps or latest_temp:
-                    from datetime import timedelta
-                    
-                    # GPS datetime
-                    gps_datetime = None
-                    if latest_gps and latest_gps.bi_date and latest_gps.bi_time:
-                        try:
-                            gps_datetime = f"{latest_gps.bi_date[:4]}-{latest_gps.bi_date[4:6]}-{latest_gps.bi_date[6:8]} {latest_gps.bi_time[:2]}:{latest_gps.bi_time[2:4]}:{latest_gps.bi_time[4:6]}"
-                        except:
-                            pass
-                    
-                    # Last updated (KST)
-                    last_updated = None
-                    if latest_gps and latest_temp:
-                        last_updated_utc = max(latest_gps.created_at, latest_temp.created_at)
-                        last_updated = last_updated_utc + timedelta(hours=9)
-                    elif latest_gps:
-                        last_updated = latest_gps.created_at + timedelta(hours=9)
-                    elif latest_temp:
-                        last_updated = latest_temp.created_at + timedelta(hours=9)
-                    
-                    # Reverse geocoding: Convert GPS coordinates to address
-                    current_address = None
-                    if latest_gps and latest_gps.latitude and latest_gps.longitude:
-                        try:
-                            naver_map_service = NaverMapService()
-                            # Use await in async function
-                            current_address = await naver_map_service.reverse_geocode(
-                                latest_gps.latitude,
-                                latest_gps.longitude
-                            )
-                        except Exception as e:
-                            logger.warning(f"Failed to reverse geocode for vehicle {vehicle.id}: {e}")
-                    
-                    vehicle_data['gps_data'] = VehicleGPSData(
-                        latitude=latest_gps.latitude if latest_gps else None,
-                        longitude=latest_gps.longitude if latest_gps else None,
-                        current_address=current_address,
-                        is_engine_on=latest_gps.is_engine_on if latest_gps else None,
-                        speed_kmh=latest_gps.speed_kmh if latest_gps else None,
-                        temperature_a=latest_temp.temperature_a if latest_temp else None,
-                        temperature_b=latest_temp.temperature_b if latest_temp else None,
-                        battery_voltage=None,  # TODO: Add battery voltage to UVIS data
-                        last_updated=last_updated,
-                        gps_datetime=gps_datetime
-                    )
+                    try:
+                        from datetime import timedelta
+                        
+                        # GPS datetime
+                        gps_datetime = None
+                        if latest_gps and latest_gps.bi_date and latest_gps.bi_time:
+                            try:
+                                gps_datetime = f"{latest_gps.bi_date[:4]}-{latest_gps.bi_date[4:6]}-{latest_gps.bi_date[6:8]} {latest_gps.bi_time[:2]}:{latest_gps.bi_time[2:4]}:{latest_gps.bi_time[4:6]}"
+                            except:
+                                pass
+                        
+                        # Last updated (KST)
+                        last_updated = None
+                        if latest_gps and latest_temp:
+                            last_updated_utc = max(latest_gps.created_at, latest_temp.created_at)
+                            last_updated = last_updated_utc + timedelta(hours=9)
+                        elif latest_gps:
+                            last_updated = latest_gps.created_at + timedelta(hours=9)
+                        elif latest_temp:
+                            last_updated = latest_temp.created_at + timedelta(hours=9)
+                        
+                        # Reverse geocoding: Convert GPS coordinates to address
+                        current_address = None
+                        if latest_gps and latest_gps.latitude and latest_gps.longitude:
+                            try:
+                                naver_map_service = NaverMapService()
+                                # Use await in async function
+                                current_address = await naver_map_service.reverse_geocode(
+                                    latest_gps.latitude,
+                                    latest_gps.longitude
+                                )
+                            except Exception as e:
+                                logger.warning(f"Failed to reverse geocode for vehicle {vehicle.id}: {e}")
+                                # Continue even if reverse geocoding fails
+                        
+                        vehicle_data['gps_data'] = VehicleGPSData(
+                            latitude=latest_gps.latitude if latest_gps else None,
+                            longitude=latest_gps.longitude if latest_gps else None,
+                            current_address=current_address,
+                            is_engine_on=latest_gps.is_engine_on if latest_gps else None,
+                            speed_kmh=latest_gps.speed_kmh if latest_gps else None,
+                            temperature_a=latest_temp.temperature_a if latest_temp else None,
+                            temperature_b=latest_temp.temperature_b if latest_temp else None,
+                            battery_voltage=None,  # TODO: Add battery voltage to UVIS data
+                            last_updated=last_updated,
+                            gps_datetime=gps_datetime
+                        )
+                    except Exception as e:
+                        logger.error(f"Failed to build GPS data for vehicle {vehicle.id}: {e}")
+                        # Add GPS data as None on error
+                        vehicle_data['gps_data'] = None
             
             enhanced_items.append(vehicle_data)
         
