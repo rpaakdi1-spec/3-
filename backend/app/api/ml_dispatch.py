@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from loguru import logger
 
-from app.database import get_db
+from app.core.database import get_db
 from app.models.user import User
 from app.models.vehicle import Vehicle, VehicleStatus
 from app.models.order import Order, OrderStatus
