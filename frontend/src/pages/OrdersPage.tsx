@@ -160,16 +160,16 @@ const OrdersPage: React.FC = () => {
   const getStatusBadge = (status: string) => {
     const styles = {
       PENDING: 'bg-yellow-100 text-yellow-800',
-      DISPATCHED: 'bg-blue-100 text-blue-800',
-      IN_PROGRESS: 'bg-green-100 text-green-800',
-      COMPLETED: 'bg-gray-100 text-gray-800',
+      ASSIGNED: 'bg-blue-100 text-blue-800',
+      IN_TRANSIT: 'bg-green-100 text-green-800',
+      DELIVERED: 'bg-gray-100 text-gray-800',
       CANCELLED: 'bg-red-100 text-red-800',
     };
     const labels = {
-      PENDING: '대기',
-      DISPATCHED: '배차완료',
-      IN_PROGRESS: '진행중',
-      COMPLETED: '완료',
+      PENDING: '배차대기',
+      ASSIGNED: '배차완료',
+      IN_TRANSIT: '운송중',
+      DELIVERED: '배송완료',
       CANCELLED: '취소',
     };
     return (
@@ -218,9 +218,8 @@ const OrdersPage: React.FC = () => {
   });
 
   // Calculate pending orders count for AI dispatch
-  // Check for both 'PENDING' and '배차대기' status
   const pendingOrders = orders.filter(order => 
-    order.status === 'PENDING' || order.status === '배차대기'
+    order.status === 'PENDING'
   );
   const pendingOrdersCount = pendingOrders.length;
 
@@ -345,10 +344,10 @@ const OrdersPage: React.FC = () => {
                 onChange={(e) => setStatusFilter(e.target.value)}
               >
                 <option value="ALL">전체 상태</option>
-                <option value="PENDING">대기</option>
-                <option value="DISPATCHED">배차완료</option>
-                <option value="IN_PROGRESS">진행중</option>
-                <option value="COMPLETED">완료</option>
+                <option value="PENDING">배차대기</option>
+                <option value="ASSIGNED">배차완료</option>
+                <option value="IN_TRANSIT">운송중</option>
+                <option value="DELIVERED">배송완료</option>
                 <option value="CANCELLED">취소</option>
               </select>
             </div>
