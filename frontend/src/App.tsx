@@ -14,6 +14,9 @@ const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const OrdersPage = lazy(() => import('./pages/OrdersPage'));
 const OrderCalendarPage = lazy(() => import('./pages/OrderCalendarPage'));
 const DispatchesPage = lazy(() => import('./pages/DispatchesPage'));
+const OptimizationPage = lazy(() => import('./pages/OptimizationPage'));
+const AIChatPage = lazy(() => import('./pages/AIChatPage'));
+const AICostDashboardPage = lazy(() => import('./pages/AICostDashboardPage'));
 const TrackingPage = lazy(() => import('./pages/TrackingPage'));
 const RealtimeDashboardPage = lazy(() => import('./pages/RealtimeDashboardPage'));
 const VehiclesPage = lazy(() => import('./pages/VehiclesPage'));
@@ -21,6 +24,7 @@ const ClientsPage = lazy(() => import('./pages/ClientsPage'));
 const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'));
 const ReportsPage = lazy(() => import('./pages/ReportsPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const MLTrainingPage = lazy(() => import('./pages/MLTrainingPage'));
 
 // Protected Route Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -40,11 +44,13 @@ const App: React.FC = () => {
     requestNotificationPermission();
   }, [checkAuth]);
 
-  // Setup WebSocket connection for real-time updates
+  // Setup WebSocket connection for real-time updates (OPTIONAL - only if needed)
   useEffect(() => {
     if (isAuthenticated) {
-      wsClient.connect();
-
+      // WebSocket is now optional - only connect for real-time pages
+      // Uncomment if you need global WebSocket connection:
+      // wsClient.connect('dashboard');
+      
       // Listen for order updates
       wsClient.on('order_update', (data) => {
         addNotification({
@@ -73,7 +79,10 @@ const App: React.FC = () => {
       });
 
       return () => {
-        wsClient.disconnect();
+        // Only disconnect if connected
+        if (wsClient.isConnected()) {
+          wsClient.disconnect();
+        }
       };
     }
   }, [isAuthenticated, addNotification]);
@@ -145,6 +154,30 @@ const App: React.FC = () => {
               }
             />
             <Route
+              path="/optimization"
+              element={
+                <ProtectedRoute>
+                  <OptimizationPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/ai-chat"
+              element={
+                <ProtectedRoute>
+                  <AIChatPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/ai-cost"
+              element={
+                <ProtectedRoute>
+                  <AICostDashboardPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/realtime"
               element={
                 <ProtectedRoute>
@@ -189,6 +222,14 @@ const App: React.FC = () => {
               element={
                 <ProtectedRoute>
                   <SettingsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/ml-training"
+              element={
+                <ProtectedRoute>
+                  <MLTrainingPage />
                 </ProtectedRoute>
               }
             />

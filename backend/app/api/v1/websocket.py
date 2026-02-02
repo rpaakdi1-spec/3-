@@ -4,7 +4,9 @@ WebSocket API Endpoints
 Real-time WebSocket connections for various channels
 """
 
+import asyncio
 import logging
+from datetime import datetime
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, Query
 from typing import Optional
 
@@ -51,19 +53,26 @@ async def websocket_dashboard(
     
     try:
         while True:
-            # Wait for messages from client
-            data = await websocket.receive_json()
-            
-            # Handle ping/pong
-            if data.get("type") == "pong":
-                logger.debug(f"Received pong from {connection_id}")
-                continue
-            
-            # Echo message back (for testing)
-            await manager.send_personal_message(
-                {"type": "echo", "data": data},
-                websocket
-            )
+            # Wait for messages from client with timeout
+            try:
+                data = await asyncio.wait_for(websocket.receive_json(), timeout=300.0)
+                
+                # Handle ping/pong
+                if data.get("type") == "pong":
+                    logger.debug(f"Received pong from {connection_id}")
+                    continue
+                
+                # Echo message back (for testing)
+                await manager.send_personal_message(
+                    {"type": "echo", "data": data},
+                    websocket
+                )
+            except asyncio.TimeoutError:
+                # Keep connection alive even without messages
+                await manager.send_personal_message(
+                    {"type": "keepalive", "timestamp": datetime.utcnow().isoformat()},
+                    websocket
+                )
     except WebSocketDisconnect:
         manager.disconnect(connection_id)
         logger.info(f"Dashboard WebSocket disconnected: {connection_id}")
@@ -305,15 +314,21 @@ async def websocket_alerts(
     
     try:
         while True:
-            data = await websocket.receive_json()
-            
-            if data.get("type") == "pong":
-                continue
-            
-            # Handle alert acknowledgment
-            if data.get("type") == "acknowledge":
-                alert_id = data.get("alert_id")
-                logger.info(f"Alert {alert_id} acknowledged by {connection_id}")
+            try:
+                data = await asyncio.wait_for(websocket.receive_json(), timeout=300.0)
+                
+                if data.get("type") == "pong":
+                    continue
+                
+                # Handle alert acknowledgment
+                if data.get("type") == "acknowledge":
+                    alert_id = data.get("alert_id")
+                    logger.info(f"Alert {alert_id} acknowledged by {connection_id}")
+            except asyncio.TimeoutError:
+                await manager.send_personal_message(
+                    {"type": "keepalive", "timestamp": datetime.utcnow().isoformat()},
+                    websocket
+                )
     except WebSocketDisconnect:
         manager.disconnect(connection_id)
     except Exception as e:

@@ -52,11 +52,9 @@ const SettingsPage: React.FC = () => {
 
   const loadSettings = async () => {
     try {
-      const response = await api.get('/users/settings');
-      if (response.data) {
-        setNotificationSettings(response.data.notifications || notificationSettings);
-        setSystemSettings(response.data.system || systemSettings);
-      }
+      // Settings API endpoint doesn't exist yet, use default values
+      // TODO: Implement /users/settings endpoint in backend
+      console.log('Using default settings (API endpoint not implemented yet)');
     } catch (error) {
       console.error('Failed to load settings:', error);
     }

@@ -400,24 +400,152 @@ function DispatchOptimization() {
       {result && result.dispatches && result.dispatches.length > 0 && (
         <div className="card" style={{ marginTop: '20px' }}>
           <h3>생성된 배차 목록</h3>
-          <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+          <div style={{ maxHeight: '600px', overflowY: 'auto' }}>
             {result.dispatches.map((dispatch: any, idx: number) => (
               <div key={idx} style={{ 
-                padding: '12px', 
+                padding: '16px', 
                 border: '1px solid #e0e0e0', 
-                borderRadius: '6px', 
-                marginBottom: '12px' 
+                borderRadius: '8px', 
+                marginBottom: '16px',
+                backgroundColor: '#f8f9fa'
               }}>
-                <div style={{ fontWeight: 500, marginBottom: '8px' }}>
-                  배차 #{idx + 1}: {dispatch.vehicle_code || `Vehicle ${dispatch.vehicle_id}`}
+                {/* 배차 헤더 */}
+                <div style={{ 
+                  fontWeight: 600, 
+                  fontSize: '16px',
+                  marginBottom: '12px',
+                  paddingBottom: '12px',
+                  borderBottom: '2px solid #dee2e6'
+                }}>
+                  배차 #{idx + 1}: {dispatch.vehicle_code || `차량 ${dispatch.vehicle_id}`}
                 </div>
-                <div style={{ fontSize: '14px', color: '#666' }}>
-                  주문: {dispatch.total_orders}건 | 
-                  팔레트: {dispatch.total_pallets}개 | 
-                  중량: {dispatch.total_weight_kg?.toFixed(1) || 0}kg
-                  {dispatch.distance_km && ` | 거리: ${dispatch.distance_km.toFixed(2)}km`}
-                  {dispatch.duration_min && ` | 시간: ${dispatch.duration_min}분`}
+                
+                {/* 배차 요약 */}
+                <div style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+                  gap: '12px',
+                  marginBottom: '16px',
+                  padding: '12px',
+                  backgroundColor: 'white',
+                  borderRadius: '6px'
+                }}>
+                  <div>
+                    <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>주문 수</div>
+                    <div style={{ fontSize: '18px', fontWeight: 600, color: '#2c3e50' }}>
+                      {dispatch.total_orders}건
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>팔레트</div>
+                    <div style={{ fontSize: '18px', fontWeight: 600, color: '#2c3e50' }}>
+                      {dispatch.total_pallets}개
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>중량</div>
+                    <div style={{ fontSize: '18px', fontWeight: 600, color: '#2c3e50' }}>
+                      {dispatch.total_weight_kg?.toFixed(1) || 0}kg
+                    </div>
+                  </div>
+                  {dispatch.distance_km && (
+                    <div>
+                      <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>거리</div>
+                      <div style={{ fontSize: '18px', fontWeight: 600, color: '#2c3e50' }}>
+                        {dispatch.distance_km.toFixed(2)}km
+                      </div>
+                    </div>
+                  )}
+                  {dispatch.duration_min && (
+                    <div>
+                      <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>소요시간</div>
+                      <div style={{ fontSize: '18px', fontWeight: 600, color: '#2c3e50' }}>
+                        {dispatch.duration_min}분
+                      </div>
+                    </div>
+                  )}
                 </div>
+
+                {/* 주문 상세 목록 */}
+                {dispatch.orders && dispatch.orders.length > 0 && (
+                  <div style={{ marginTop: '12px' }}>
+                    <div style={{ 
+                      fontSize: '14px', 
+                      fontWeight: 600, 
+                      marginBottom: '8px',
+                      color: '#495057'
+                    }}>
+                      📋 주문 상세 ({dispatch.orders.length}건)
+                    </div>
+                    <div style={{ 
+                      backgroundColor: 'white',
+                      borderRadius: '6px',
+                      overflow: 'hidden'
+                    }}>
+                      <table style={{ 
+                        width: '100%', 
+                        fontSize: '13px',
+                        borderCollapse: 'collapse'
+                      }}>
+                        <thead>
+                          <tr style={{ backgroundColor: '#e9ecef' }}>
+                            <th style={{ padding: '8px', textAlign: 'left', fontWeight: 600 }}>주문번호</th>
+                            <th style={{ padding: '8px', textAlign: 'left', fontWeight: 600 }}>온도대</th>
+                            <th style={{ padding: '8px', textAlign: 'center', fontWeight: 600 }}>팔레트</th>
+                            <th style={{ padding: '8px', textAlign: 'center', fontWeight: 600 }}>중량(kg)</th>
+                            <th style={{ padding: '8px', textAlign: 'left', fontWeight: 600 }}>상차지</th>
+                            <th style={{ padding: '8px', textAlign: 'left', fontWeight: 600 }}>하차지</th>
+                            <th style={{ padding: '8px', textAlign: 'center', fontWeight: 600 }}>시간</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {dispatch.orders.map((order: any, orderIdx: number) => (
+                            <tr key={orderIdx} style={{ 
+                              borderBottom: '1px solid #e9ecef',
+                              backgroundColor: orderIdx % 2 === 0 ? 'white' : '#f8f9fa'
+                            }}>
+                              <td style={{ padding: '8px' }}>{order.order_number}</td>
+                              <td style={{ padding: '8px' }}>
+                                <span style={{
+                                  padding: '2px 8px',
+                                  borderRadius: '4px',
+                                  fontSize: '11px',
+                                  fontWeight: 500,
+                                  backgroundColor: 
+                                    order.temperature_zone === '냉동' ? '#e3f2fd' :
+                                    order.temperature_zone === '냉장' ? '#e8f5e9' : '#fff3e0',
+                                  color:
+                                    order.temperature_zone === '냉동' ? '#1976d2' :
+                                    order.temperature_zone === '냉장' ? '#388e3c' : '#f57c00'
+                                }}>
+                                  {order.temperature_zone}
+                                </span>
+                              </td>
+                              <td style={{ padding: '8px', textAlign: 'center' }}>{order.pallet_count}</td>
+                              <td style={{ padding: '8px', textAlign: 'center' }}>
+                                {order.weight_kg?.toFixed(1) || '-'}
+                              </td>
+                              <td style={{ padding: '8px', fontSize: '12px' }}>
+                                {order.pickup_client_name || order.pickup_address || '-'}
+                              </td>
+                              <td style={{ padding: '8px', fontSize: '12px' }}>
+                                {order.delivery_client_name || order.delivery_address || '-'}
+                              </td>
+                              <td style={{ padding: '8px', textAlign: 'center', fontSize: '11px' }}>
+                                {order.pickup_start_time && order.delivery_start_time ? (
+                                  <div>
+                                    <div>상: {order.pickup_start_time}</div>
+                                    <div>하: {order.delivery_start_time}</div>
+                                  </div>
+                                ) : '-'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>

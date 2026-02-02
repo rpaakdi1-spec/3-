@@ -237,6 +237,70 @@ class ApiClient {
     const response = await this.client.post(`/cache/invalidate/${type}/${id}`);
     return response.data;
   }
+
+  // AI Chat
+  async processChatMessage(message: string, context?: any, model?: string) {
+    const response = await this.client.post('/ai-chat/process', {
+      message,
+      context: context || {},
+      model: model || 'auto'
+    });
+    return response.data;
+  }
+
+  async getChatHistory(params?: { 
+    limit?: number; 
+    offset?: number; 
+    intent?: string;
+    session_id?: string;
+    start_date?: string;
+    end_date?: string;
+  }) {
+    const response = await this.client.get('/ai-chat/history', { params });
+    return response.data;
+  }
+
+  async deleteChatHistory(historyId: number) {
+    const response = await this.client.delete(`/ai-chat/history/${historyId}`);
+    return response.data;
+  }
+
+  async getChatHistoryStats(params?: {
+    start_date?: string;
+    end_date?: string;
+  }) {
+    const response = await this.client.get('/ai-chat/history/stats', { params });
+    return response.data;
+  }
+
+  // AI Usage & Cost Monitoring
+  async getAIUsageStats(params?: {
+    start_date?: string;
+    end_date?: string;
+    model_name?: string;
+  }) {
+    const response = await this.client.get('/ai-usage/stats', { params });
+    return response.data;
+  }
+
+  async getAIUsageLogs(params?: {
+    limit?: number;
+    offset?: number;
+    model_name?: string;
+    status?: string;
+    start_date?: string;
+    end_date?: string;
+  }) {
+    const response = await this.client.get('/ai-usage/logs', { params });
+    return response.data;
+  }
+
+  async getAICostSummary(period: string = '7d') {
+    const response = await this.client.get('/ai-usage/cost-summary', {
+      params: { period }
+    });
+    return response.data;
+  }
 }
 
 export const apiClient = new ApiClient();
