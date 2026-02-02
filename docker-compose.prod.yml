@@ -48,6 +48,10 @@ services:
     container_name: uvis-backend
     env_file:
       - .env
+    environment:
+      - DATABASE_URL=postgresql://uvis_user:uvis_password@db:5432/uvis_db
+      - NAVER_MAP_CLIENT_ID=pkciiaux61
+      - NAVER_MAP_CLIENT_SECRET=dBi4yjpGEj7SJTYwAz00e8pab6XuumhdQH4WbFy5
     ports:
       - "8000:8000"
     depends_on:
