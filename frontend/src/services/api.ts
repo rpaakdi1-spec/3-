@@ -106,3 +106,40 @@ export const uvisAPI = {
   syncAll: (params?: { force_new_key?: boolean }) => 
     api.post('/uvis-gps/sync/all', params || { force_new_key: false }),
 }
+
+// Phase 3: ML Dispatch API
+export const mlDispatchAPI = {
+  // Phase 2: Historical Simulation
+  simulate: (targetDate: string) => 
+    api.post(`/ml-dispatch/simulate?target_date=${targetDate}`),
+  
+  getSimulateMetrics: (startDate: string, endDate: string) => 
+    api.get(`/ml-dispatch/simulate/metrics?start_date=${startDate}&end_date=${endDate}`),
+
+  // Phase 2: Real-time ML Optimization
+  optimize: (orderIds: number[], mode: 'recommend' | 'auto' = 'recommend') => 
+    api.post(`/ml-dispatch/optimize?mode=${mode}`, { order_ids: orderIds }),
+
+  getPerformance: (startDate?: string, endDate?: string) => {
+    const params = new URLSearchParams()
+    if (startDate) params.append('start_date', startDate)
+    if (endDate) params.append('end_date', endDate)
+    return api.get(`/ml-dispatch/performance?${params.toString()}`)
+  },
+
+  // Phase 3: A/B Testing
+  getABTestAssignment: () => api.get('/ml-dispatch/ab-test/assignment'),
+  
+  updateRollout: (percentage: number) => 
+    api.post(`/ml-dispatch/ab-test/rollout?percentage=${percentage}`),
+  
+  getABTestStats: () => api.get('/ml-dispatch/ab-test/stats'),
+  
+  getABTestMetrics: () => api.get('/ml-dispatch/ab-test/metrics'),
+  
+  getRolloutHistory: (limit: number = 20) => 
+    api.get(`/ml-dispatch/ab-test/history?limit=${limit}`),
+  
+  forceAssignUser: (userId: number, group: 'control' | 'treatment') => 
+    api.post(`/ml-dispatch/ab-test/force-assign?user_id=${userId}&group=${group}`)
+}

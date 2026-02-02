@@ -14,6 +14,10 @@ import {
   X,
   Radio,
   Calendar,
+  Brain,
+  Zap,
+  MessageSquare,
+  DollarSign,
 } from 'lucide-react';
 
 const Sidebar: React.FC = () => {
@@ -26,11 +30,15 @@ const Sidebar: React.FC = () => {
     { path: '/dashboard', label: '대시보드', icon: Home, roles: ['ADMIN', 'DISPATCHER'] },
     { path: '/orders', label: '주문 관리', icon: Package, roles: ['ADMIN', 'DISPATCHER'] },
     { path: '/calendar', label: '오더 캘린더', icon: Calendar, roles: ['ADMIN', 'DISPATCHER'] },
+    { path: '/ai-chat', label: 'AI 주문 어시스턴트', icon: MessageSquare, roles: ['ADMIN', 'DISPATCHER'] },
+    { path: '/optimization', label: 'AI 배차 최적화', icon: Zap, roles: ['ADMIN', 'DISPATCHER'] },
+    { path: '/ai-cost', label: 'AI 비용 모니터링', icon: DollarSign, roles: ['ADMIN'] },
     { path: '/dispatches', label: '배차 관리', icon: Truck, roles: ['ADMIN', 'DISPATCHER'] },
     { path: '/realtime', label: '실시간 모니터링', icon: Radio, roles: ['ADMIN', 'DISPATCHER'] },
     { path: '/vehicles', label: '차량 관리', icon: Truck, roles: ['ADMIN', 'DISPATCHER'] },
     { path: '/clients', label: '거래처 관리', icon: Building2, roles: ['ADMIN', 'DISPATCHER'] },
     { path: '/analytics', label: '통계/분석', icon: BarChart3, roles: ['ADMIN'] },
+    { path: '/ml-training', label: 'AI 학습', icon: Brain, roles: ['ADMIN', 'DISPATCHER'] },
     { path: '/settings', label: '설정', icon: Settings, roles: ['ADMIN'] },
   ];
 

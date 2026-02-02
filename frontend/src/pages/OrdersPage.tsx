@@ -29,10 +29,16 @@ const OrdersPage: React.FC = () => {
     try {
       setLoading(true);
       const response = await apiClient.getOrders();
-      setOrders(response.items || response);
+      // Safely extract items array
+      const items = response.items || response.data?.items || response.data || [];
+      // Ensure items is an array
+      const ordersArray = Array.isArray(items) ? items : [];
+      setOrders(ordersArray);
       setSelectedIds([]); // Reset selection
     } catch (error) {
+      console.error('Failed to fetch orders:', error);
       toast.error('주문 목록을 불러오는데 실패했습니다');
+      setOrders([]); // Set empty array on error
     } finally {
       setLoading(false);
     }
@@ -208,7 +214,7 @@ const OrdersPage: React.FC = () => {
               onClick={() => navigate('/optimization')}
               className={pendingOrdersCount > 0 ? "animate-pulse" : ""}
               disabled={pendingOrdersCount === 0}
-              title={pendingOrdersCount === 0 ? "배차대기 주문이 없습니다" : "AI 배차 페이지로 이동"}
+              title={pendingOrdersCount === 0 ? "배차대기 주문이 없습니다" : "AI 배차 최적화 페이지로 이동"}
             >
               <Zap size={20} className="mr-2" />
               AI 배차 {pendingOrdersCount > 0 ? `(${pendingOrdersCount}건)` : ''}
@@ -356,12 +362,12 @@ const OrdersPage: React.FC = () => {
                         />
                       </td>
                       <td className="py-3 px-4 font-medium text-blue-600">{order.order_number}</td>
-                      <td className="py-3 px-4">{order.client_name || '-'}</td>
-                      <td className="py-3 px-4 max-w-xs truncate">{order.pickup_address}</td>
-                      <td className="py-3 px-4 max-w-xs truncate">{order.delivery_address}</td>
+                      <td className="py-3 px-4">{order.client_name || order.pickup_client_name || order.delivery_client_name || '-'}</td>
+                      <td className="py-3 px-4 max-w-xs truncate">{order.pickup_address || order.pickup_client_name || '-'}</td>
+                      <td className="py-3 px-4 max-w-xs truncate">{order.delivery_address || order.delivery_client_name || '-'}</td>
                       <td className="py-3 px-4">
                         <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm">
-                          {order.cargo_type === 'FROZEN' ? '냉동' : order.cargo_type === 'REFRIGERATED' ? '냉장' : '혼합'}
+                          {order.temperature_zone || order.cargo_type || '-'}
                         </span>
                       </td>
                       <td className="py-3 px-4">{order.pallet_count || 0}개</td>
@@ -439,6 +445,8 @@ const OrdersPage: React.FC = () => {
           setSelectedOrder(null);
         }}
         onSuccess={() => {
+          setModalOpen(false);
+          setSelectedOrder(null);
           fetchOrders();
           toast.success(selectedOrder ? '주문이 수정되었습니다' : '주문이 등록되었습니다');
         }}

@@ -12,6 +12,8 @@ from .band_message import BandMessage, BandChatRoom, BandMessageSchedule
 from .uvis_gps import UvisAccessKey, VehicleGPSLog, VehicleTemperatureLog, UvisApiLog
 from .fcm_token import FCMToken, PushNotificationLog
 from .security import TwoFactorAuth, TwoFactorLog, AuditLog, SecurityAlert
+from .ai_chat_history import AIChatHistory
+from .ai_usage_log import AIUsageLog
 
 __all__ = [
     "Base",
@@ -39,4 +41,6 @@ __all__ = [
     "TwoFactorLog",
     "AuditLog",
     "SecurityAlert",
+    "AIChatHistory",
+    "AIUsageLog",
 ]
