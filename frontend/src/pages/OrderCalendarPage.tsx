@@ -184,21 +184,21 @@ const OrderCalendarPage: React.FC = () => {
       const order = event.resource;
       const newDate = format(start, 'yyyy-MM-dd');
       
-      // API 호출하여 날짜 업데이트
+      // API 호출하여 날짜 업데이트 (order_date를 변경해야 캘린더에 반영됨)
       await ordersAPI.update(order.id, {
-        requested_delivery_date: newDate,
+        order_date: newDate,
       });
 
-      // 로컬 상태 업데이트
+      // 로컬 상태 업데이트 (order_date 변경)
       setOrders(prevOrders =>
         prevOrders.map(o =>
           o.id === order.id
-            ? { ...o, requested_delivery_date: newDate }
+            ? { ...o, order_date: newDate }
             : o
         )
       );
 
-      toast.success(`${order.order_number}의 배송일이 ${format(start, 'M월 d일')}로 변경되었습니다`);
+      toast.success(`${order.order_number}의 주문일이 ${format(start, 'M월 d일')}로 변경되었습니다`);
     } catch (error) {
       console.error('Failed to update order date:', error);
       toast.error('날짜 변경에 실패했습니다');
