@@ -50,6 +50,7 @@ const STATUS_LABELS = {
 interface Order {
   id: number;
   order_number: string;
+  order_date: string;
   pickup_client_name?: string;
   delivery_client_name?: string;
   pickup_address?: string;
@@ -110,8 +111,8 @@ const OrderCalendarPage: React.FC = () => {
   // 오더를 캘린더 이벤트로 변환
   const events = useMemo<CalendarEvent[]>(() => {
     return orders.map(order => {
-      // 희망배송일이 있으면 사용, 없으면 생성일 사용
-      const dateStr = order.requested_delivery_date || order.created_at;
+      // 주문일자를 캘린더에 표시
+      const dateStr = order.order_date;
       const eventDate = new Date(dateStr);
       
       return {
@@ -128,7 +129,7 @@ const OrderCalendarPage: React.FC = () => {
   const handleSelectSlot = useCallback((slotInfo: { start: Date; end: Date }) => {
     const clickedDate = slotInfo.start;
     const ordersOnDate = orders.filter(order => {
-      const orderDate = new Date(order.requested_delivery_date || order.created_at);
+      const orderDate = new Date(order.order_date);
       return isSameDay(orderDate, clickedDate);
     });
 
@@ -148,7 +149,7 @@ const OrderCalendarPage: React.FC = () => {
   const handleSelectEvent = useCallback((event: CalendarEvent) => {
     const clickedDate = event.start;
     const ordersOnDate = orders.filter(order => {
-      const orderDate = new Date(order.requested_delivery_date || order.created_at);
+      const orderDate = new Date(order.order_date);
       return isSameDay(orderDate, clickedDate);
     });
 
