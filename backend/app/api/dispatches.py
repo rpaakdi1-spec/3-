@@ -11,10 +11,12 @@ import tempfile
 from app.core.database import get_db
 from app.models.dispatch import Dispatch, DispatchStatus
 from app.models.order import OrderStatus
+from app.models.vehicle import VehicleStatus
 from app.schemas.dispatch import (
     DispatchResponse, DispatchDetailResponse, DispatchListResponse,
     OptimizationRequest, OptimizationResponse, DispatchUpdate,
-    DispatchConfirmRequest, DispatchStatsResponse
+    DispatchConfirmRequest, DispatchCompleteRequest, DispatchCancelRequest,
+    DispatchStatsResponse
 )
 from app.services.dispatch_optimization_service import DispatchOptimizationService
 from app.services.cvrptw_service import AdvancedDispatchOptimizationService
@@ -198,6 +200,11 @@ def delete_dispatch(dispatch_id: int, db: Session = Depends(get_db)):
         if route.order:
             route.order.status = OrderStatus.PENDING
     
+    # Reset vehicle status to AVAILABLE if it was IN_USE
+    if dispatch.vehicle and dispatch.vehicle.status == VehicleStatus.IN_USE:
+        dispatch.vehicle.status = VehicleStatus.AVAILABLE
+        logger.info(f"Vehicle {dispatch.vehicle.code} status reset to AVAILABLE")
+    
     db.delete(dispatch)
     db.commit()
     
@@ -226,6 +233,11 @@ def confirm_dispatches(
         
         dispatch.status = DispatchStatus.CONFIRMED
         
+        # Update vehicle status to IN_USE
+        if dispatch.vehicle:
+            dispatch.vehicle.status = VehicleStatus.IN_USE
+            logger.info(f"Vehicle {dispatch.vehicle.code} status changed to IN_USE")
+        
         # Update order statuses
         for route in dispatch.routes:
             if route.order:
@@ -241,6 +253,105 @@ def confirm_dispatches(
         "confirmed": len(confirmed),
         "failed": len(errors),
         "confirmed_dispatch_numbers": confirmed,
+        "errors": errors
+    }
+
+
+@router.post("/complete")
+def complete_dispatches(
+    request: DispatchCompleteRequest,
+    db: Session = Depends(get_db)
+):
+    """배차 완료"""
+    completed = []
+    errors = []
+    
+    for dispatch_id in request.dispatch_ids:
+        dispatch = db.query(Dispatch).filter(Dispatch.id == dispatch_id).first()
+        if not dispatch:
+            errors.append({"dispatch_id": dispatch_id, "error": "배차를 찾을 수 없음"})
+            continue
+        
+        if dispatch.status != DispatchStatus.CONFIRMED and dispatch.status != DispatchStatus.IN_PROGRESS:
+            errors.append({"dispatch_id": dispatch_id, "error": "확정 또는 진행중 상태가 아님"})
+            continue
+        
+        dispatch.status = DispatchStatus.COMPLETED
+        
+        # Update vehicle status back to AVAILABLE
+        if dispatch.vehicle:
+            dispatch.vehicle.status = VehicleStatus.AVAILABLE
+            logger.info(f"Vehicle {dispatch.vehicle.code} status changed to AVAILABLE (dispatch completed)")
+        
+        # Update order statuses to DELIVERED
+        for route in dispatch.routes:
+            if route.order:
+                route.order.status = OrderStatus.DELIVERED
+        
+        completed.append(dispatch.dispatch_number)
+    
+    db.commit()
+    
+    logger.info(f"Completed {len(completed)} dispatches")
+    
+    return {
+        "completed": len(completed),
+        "failed": len(errors),
+        "completed_dispatch_numbers": completed,
+        "errors": errors
+    }
+
+
+@router.post("/cancel")
+def cancel_dispatches(
+    request: DispatchCancelRequest,
+    db: Session = Depends(get_db)
+):
+    """배차 취소"""
+    cancelled = []
+    errors = []
+    
+    for dispatch_id in request.dispatch_ids:
+        dispatch = db.query(Dispatch).filter(Dispatch.id == dispatch_id).first()
+        if not dispatch:
+            errors.append({"dispatch_id": dispatch_id, "error": "배차를 찾을 수 없음"})
+            continue
+        
+        if dispatch.status == DispatchStatus.COMPLETED:
+            errors.append({"dispatch_id": dispatch_id, "error": "완료된 배차는 취소할 수 없음"})
+            continue
+        
+        old_status = dispatch.status
+        dispatch.status = DispatchStatus.CANCELLED
+        
+        # Update vehicle status back to AVAILABLE if it was IN_USE
+        if dispatch.vehicle and dispatch.vehicle.status == VehicleStatus.IN_USE:
+            dispatch.vehicle.status = VehicleStatus.AVAILABLE
+            logger.info(f"Vehicle {dispatch.vehicle.code} status changed to AVAILABLE (dispatch cancelled)")
+        
+        # Update order statuses back to PENDING
+        for route in dispatch.routes:
+            if route.order:
+                route.order.status = OrderStatus.PENDING
+        
+        # Add cancel reason to notes
+        if request.reason:
+            if dispatch.notes:
+                dispatch.notes = f"{dispatch.notes}\n[취소 사유: {request.reason}]"
+            else:
+                dispatch.notes = f"[취소 사유: {request.reason}]"
+        
+        cancelled.append(dispatch.dispatch_number)
+        logger.info(f"Cancelled dispatch {dispatch.dispatch_number} (was {old_status.value})")
+    
+    db.commit()
+    
+    logger.info(f"Cancelled {len(cancelled)} dispatches")
+    
+    return {
+        "cancelled": len(cancelled),
+        "failed": len(errors),
+        "cancelled_dispatch_numbers": cancelled,
         "errors": errors
     }
 

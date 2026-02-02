@@ -114,6 +114,17 @@ class DispatchConfirmRequest(BaseModel):
     dispatch_ids: List[int] = Field(..., description="확정할 배차 ID 목록")
 
 
+class DispatchCompleteRequest(BaseModel):
+    """Schema for completing dispatch"""
+    dispatch_ids: List[int] = Field(..., description="완료할 배차 ID 목록")
+
+
+class DispatchCancelRequest(BaseModel):
+    """Schema for cancelling dispatch"""
+    dispatch_ids: List[int] = Field(..., description="취소할 배차 ID 목록")
+    reason: Optional[str] = Field(None, description="취소 사유")
+
+
 class DispatchStatsResponse(BaseModel):
     """Schema for dispatch statistics"""
     total_dispatches: int
