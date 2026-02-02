@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Activity, Users, TrendingUp, Settings, RefreshCw } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { mlDispatchAPI } from '../services/api';
 import Layout from '../components/common/Layout';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
@@ -30,11 +31,9 @@ const ABTestMonitorPage: React.FC = () => {
   const fetchStats = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/ml-dispatch/ab-test/stats');
-      if (!response.ok) throw new Error('Failed to fetch stats');
-      const data = await response.json();
-      setStats(data);
-      setNewRollout(data.target_rollout_percentage);
+      const response = await mlDispatchAPI.getABTestStats();
+      setStats(response.data);
+      setNewRollout(response.data.target_rollout_percentage);
     } catch (error) {
       console.error('Error fetching AB test stats:', error);
       toast.error('AB Test 통계를 불러오는데 실패했습니다');
@@ -46,15 +45,7 @@ const ABTestMonitorPage: React.FC = () => {
   // Update rollout percentage
   const updateRollout = async () => {
     try {
-      const response = await fetch('/api/ml-dispatch/ab-test/rollout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rollout_percentage: newRollout }),
-      });
-      
-      if (!response.ok) throw new Error('Failed to update rollout');
-      
-      const data = await response.json();
+      await mlDispatchAPI.updateRollout(newRollout);
       toast.success(`롤아웃 비율이 ${newRollout}%로 업데이트되었습니다`);
       fetchStats();
     } catch (error) {
