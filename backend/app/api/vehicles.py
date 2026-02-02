@@ -12,6 +12,7 @@ from app.schemas.vehicle import (
 from app.services.excel_upload_service import ExcelUploadService
 from app.services.excel_template_service import ExcelTemplateService
 from app.services.uvis_gps_service import UvisGPSService
+from app.services.naver_map_service import NaverMapService
 from loguru import logger
 
 router = APIRouter()
@@ -114,9 +115,26 @@ def get_vehicles(
                     elif latest_temp:
                         last_updated = latest_temp.created_at + timedelta(hours=9)
                     
+                    # Reverse geocoding: Convert GPS coordinates to address
+                    current_address = None
+                    if latest_gps and latest_gps.latitude and latest_gps.longitude:
+                        try:
+                            import asyncio
+                            naver_map_service = NaverMapService()
+                            # Run async function in sync context
+                            current_address = asyncio.run(
+                                naver_map_service.reverse_geocode(
+                                    latest_gps.latitude,
+                                    latest_gps.longitude
+                                )
+                            )
+                        except Exception as e:
+                            logger.warning(f"Failed to reverse geocode for vehicle {vehicle.id}: {e}")
+                    
                     vehicle_data['gps_data'] = VehicleGPSData(
                         latitude=latest_gps.latitude if latest_gps else None,
                         longitude=latest_gps.longitude if latest_gps else None,
+                        current_address=current_address,
                         is_engine_on=latest_gps.is_engine_on if latest_gps else None,
                         speed_kmh=latest_gps.speed_kmh if latest_gps else None,
                         temperature_a=latest_temp.temperature_a if latest_temp else None,

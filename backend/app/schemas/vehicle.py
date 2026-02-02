@@ -88,6 +88,7 @@ class VehicleGPSData(BaseModel):
     """Real-time GPS data from UVIS"""
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    current_address: Optional[str] = Field(None, description="현재 위치 주소 (역지오코딩)")
     is_engine_on: Optional[bool] = None
     speed_kmh: Optional[int] = None
     temperature_a: Optional[float] = None
