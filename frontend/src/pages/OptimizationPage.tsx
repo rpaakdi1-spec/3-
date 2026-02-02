@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Truck, MapPin, Package, Clock, AlertCircle, RefreshCw, Navigation, Loader2, CheckCircle } from 'lucide-react';
 import Layout from '../components/common/Layout';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import { toast } from 'react-hot-toast';
 import apiClient from '../api/client';
+import { Order } from '../types';
 
 interface Vehicle {
   id: number;
@@ -46,7 +48,9 @@ interface VehicleAssignment {
 }
 
 const OptimizationPage: React.FC = () => {
+  const [searchParams] = useSearchParams();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [optimizationResult, setOptimizationResult] = useState<OptimizationResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isOptimizing, setIsOptimizing] = useState(false);
@@ -60,13 +64,42 @@ const OptimizationPage: React.FC = () => {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      // 차량 목록 조회 (모든 차량)
+      // URL 파라미터에서 주문 ID 읽기
+      const orderIdsParam = searchParams.get('order_ids');
+      const orderIds = orderIdsParam ? orderIdsParam.split(',').map(id => parseInt(id)) : [];
+
+      // 차량 목록 조회
       const vehiclesData = await apiClient.getVehicles();
-      // 운행가능한 차량만 필터링
       const availableVehicles = (vehiclesData.items || vehiclesData || []).filter(
         (v: Vehicle) => v.status === '운행가능'
       );
       setVehicles(availableVehicles);
+
+      // 주문 목록 조회
+      if (orderIds.length > 0) {
+        const ordersData = await apiClient.getOrders();
+        const allOrders = ordersData.items || ordersData.data?.items || ordersData.data || [];
+        const selectedOrders = allOrders.filter((order: Order) => orderIds.includes(order.id));
+        setOrders(selectedOrders);
+        
+        if (selectedOrders.length === 0) {
+          toast.error('선택한 주문을 찾을 수 없습니다.');
+        } else {
+          toast.success(`${selectedOrders.length}건의 주문을 불러왔습니다.`);
+        }
+      } else {
+        // URL 파라미터가 없으면 PENDING 주문 자동 조회
+        const ordersData = await apiClient.getOrders();
+        const allOrders = ordersData.items || ordersData.data?.items || ordersData.data || [];
+        const pendingOrders = allOrders.filter((order: Order) => 
+          order.status === 'PENDING' || order.status === '배차대기'
+        );
+        setOrders(pendingOrders);
+        
+        if (pendingOrders.length > 0) {
+          toast.success(`${pendingOrders.length}건의 대기 주문을 불러왔습니다.`);
+        }
+      }
     } catch (error) {
       console.error('데이터 로드 실패:', error);
       toast.error('데이터를 불러오는데 실패했습니다.');
@@ -76,45 +109,60 @@ const OptimizationPage: React.FC = () => {
   };
 
   const handleOptimize = async () => {
+    if (orders.length === 0) {
+      toast.error('최적화할 주문이 없습니다.');
+      return;
+    }
+
     setIsOptimizing(true);
     setIsConfirmed(false);
     try {
-      // TODO: 실제 최적화 API 호출
       toast.success('배차 최적화를 시작합니다...');
       
-      // 시뮬레이션 데이터 (실제로는 백엔드 API 호출)
+      // 실제 주문 데이터를 사용하여 Mock 결과 생성
       setTimeout(() => {
-        const mockResult: OptimizationResult = {
-          total_vehicles_used: 3,
-          total_pallets: 125,
-          total_distance_km: 350,
-          estimated_total_time_minutes: 480,
-          dispatch_ids: [1001, 1002, 1003],
-          vehicle_assignments: vehicles.slice(0, 3).map((vehicle, index) => ({
+        // 주문을 차량에 배정 (간단한 알고리즘)
+        const vehicleAssignments: VehicleAssignment[] = [];
+        const ordersPerVehicle = Math.ceil(orders.length / Math.min(vehicles.length, 3));
+        
+        for (let i = 0; i < Math.min(vehicles.length, 3); i++) {
+          const startIdx = i * ordersPerVehicle;
+          const endIdx = Math.min(startIdx + ordersPerVehicle, orders.length);
+          const assignedOrders = orders.slice(startIdx, endIdx);
+          
+          if (assignedOrders.length === 0) break;
+          
+          const totalPallets = assignedOrders.reduce((sum, order) => sum + (order.pallet_count || 0), 0);
+          const vehicle = vehicles[i];
+          
+          vehicleAssignments.push({
             vehicle,
-            orders: [
-              {
-                order_number: `ORD-${1000 + index * 4}`,
-                delivery_address: '부산 해운대구',
-                pallet_count: 10,
-                temperature_zone: '냉동',
-                distance_km: 120,
-                estimated_time: 180,
-              },
-              {
-                order_number: `ORD-${1001 + index * 4}`,
-                delivery_address: '대구 수성구',
-                pallet_count: 15,
-                temperature_zone: '냉동',
-                distance_km: 90,
-                estimated_time: 150,
-              },
-            ],
-            total_pallets: 25 + index * 10,
-            utilization_percentage: 75 + index * 5,
-            route_distance_km: 210 + index * 50,
-            estimated_time_minutes: 330 + index * 60,
-          })),
+            orders: assignedOrders.map(order => ({
+              order_number: order.order_number,
+              delivery_address: order.delivery_location || '배송지 미정',
+              pallet_count: order.pallet_count || 0,
+              temperature_zone: order.temperature_zone || '상온',
+              distance_km: 50 + Math.random() * 100, // Mock distance
+              estimated_time: 60 + Math.random() * 120, // Mock time
+            })),
+            total_pallets: totalPallets,
+            utilization_percentage: Math.round((totalPallets / vehicle.max_pallets) * 100),
+            route_distance_km: 100 + Math.random() * 200,
+            estimated_time_minutes: 180 + Math.random() * 180,
+          });
+        }
+        
+        const totalPallets = orders.reduce((sum, order) => sum + (order.pallet_count || 0), 0);
+        const totalDistance = vehicleAssignments.reduce((sum, va) => sum + va.route_distance_km, 0);
+        const totalTime = vehicleAssignments.reduce((sum, va) => sum + va.estimated_time_minutes, 0);
+        
+        const mockResult: OptimizationResult = {
+          total_vehicles_used: vehicleAssignments.length,
+          total_pallets: totalPallets,
+          total_distance_km: Math.round(totalDistance),
+          estimated_total_time_minutes: Math.round(totalTime),
+          dispatch_ids: orders.map(order => order.id),
+          vehicle_assignments: vehicleAssignments,
         };
         
         setOptimizationResult(mockResult);
@@ -169,7 +217,7 @@ const OptimizationPage: React.FC = () => {
                 실시간 배차 최적화
               </h1>
               <p className="text-sm sm:text-base text-gray-600 mt-1">
-                AI 기반 최적 경로 추천 및 차량 배정
+                AI 기반 최적 경로 추천 및 차량 배정 {orders.length > 0 && `(${orders.length}건 대기)`}
               </p>
             </div>
             <div className="flex gap-2">
@@ -225,6 +273,45 @@ const OptimizationPage: React.FC = () => {
           </div>
         ) : (
           <>
+            {/* 대기 중인 주문 정보 */}
+            {orders.length > 0 && !optimizationResult && (
+              <Card className="p-4 sm:p-6 mb-6 bg-blue-50 border-blue-200">
+                <div className="flex items-start gap-3">
+                  <Package className="w-6 h-6 text-blue-600 flex-shrink-0 mt-1" />
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-blue-900 mb-2">배차 대기 주문</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-sm">
+                      <div>
+                        <span className="text-blue-700">총 주문:</span>
+                        <span className="font-semibold text-blue-900 ml-2">{orders.length}건</span>
+                      </div>
+                      <div>
+                        <span className="text-blue-700">총 팔레트:</span>
+                        <span className="font-semibold text-blue-900 ml-2">
+                          {orders.reduce((sum, o) => sum + (o.pallet_count || 0), 0)}개
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-blue-700">사용 가능 차량:</span>
+                        <span className="font-semibold text-blue-900 ml-2">{vehicles.length}대</span>
+                      </div>
+                      <div>
+                        <span className="text-blue-700">예상 소요 차량:</span>
+                        <span className="font-semibold text-blue-900 ml-2">
+                          {Math.min(Math.ceil(orders.reduce((sum, o) => sum + (o.pallet_count || 0), 0) / 30), vehicles.length)}대
+                        </span>
+                      </div>
+                    </div>
+                    <div className="mt-3 pt-3 border-t border-blue-200">
+                      <p className="text-xs text-blue-700">
+                        💡 "최적화 실행" 버튼을 클릭하여 AI 기반 배차를 시작하세요.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            )}
+
             {/* 확정 완료 알림 */}
             {isConfirmed && (
               <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
@@ -389,6 +476,20 @@ const OptimizationPage: React.FC = () => {
                   </Card>
                 ))}
               </div>
+            ) : orders.length === 0 ? (
+              <Card className="p-8 sm:p-12 text-center">
+                <AlertCircle className="w-12 h-12 sm:w-16 sm:h-16 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">
+                  배차할 주문이 없습니다
+                </h3>
+                <p className="text-sm sm:text-base text-gray-600 mb-4">
+                  주문 관리 페이지에서 "AI 배차" 버튼을 클릭하여 주문을 선택하세요.
+                </p>
+                <Button onClick={() => window.location.href = '/orders'}>
+                  <Package className="w-5 h-5 mr-2" />
+                  주문 관리로 이동
+                </Button>
+              </Card>
             ) : (
               <Card className="p-8 sm:p-12 text-center">
                 <AlertCircle className="w-12 h-12 sm:w-16 sm:h-16 text-gray-400 mx-auto mb-4" />
@@ -398,7 +499,7 @@ const OptimizationPage: React.FC = () => {
                 <p className="text-sm sm:text-base text-gray-600 mb-4">
                   "최적화 실행" 버튼을 클릭하여 AI 기반 배차 추천을 받으세요.
                 </p>
-                <Button onClick={handleOptimize} disabled={vehicles.length === 0}>
+                <Button onClick={handleOptimize} disabled={vehicles.length === 0 || orders.length === 0}>
                   <Navigation className="w-5 h-5 mr-2" />
                   최적화 실행
                 </Button>
