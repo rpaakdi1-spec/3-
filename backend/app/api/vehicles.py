@@ -72,7 +72,7 @@ async def get_vehicles(
                 'status': vehicle.status,
                 'uvis_device_id': vehicle.uvis_device_id,
                 'uvis_enabled': vehicle.uvis_enabled,
-                'has_forklift': vehicle.has_forklift,
+                'forklift_operator_available': vehicle.forklift_operator_available,
                 'garage_address': vehicle.garage_address,
                 'garage_latitude': vehicle.garage_latitude,
                 'garage_longitude': vehicle.garage_longitude,
