@@ -25,6 +25,7 @@ const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'));
 const ReportsPage = lazy(() => import('./pages/ReportsPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const MLTrainingPage = lazy(() => import('./pages/MLTrainingPage'));
+const ABTestMonitorPage = lazy(() => import('./pages/ABTestMonitorPage'));
 
 // Protected Route Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -230,6 +231,14 @@ const App: React.FC = () => {
               element={
                 <ProtectedRoute>
                   <MLTrainingPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/ab-test"
+              element={
+                <ProtectedRoute>
+                  <ABTestMonitorPage />
                 </ProtectedRoute>
               }
             />

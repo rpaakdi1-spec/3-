@@ -18,6 +18,7 @@ import {
   Zap,
   MessageSquare,
   DollarSign,
+  Activity,
 } from 'lucide-react';
 
 const Sidebar: React.FC = () => {
@@ -33,6 +34,7 @@ const Sidebar: React.FC = () => {
     { path: '/ai-chat', label: 'AI 주문 어시스턴트', icon: MessageSquare, roles: ['ADMIN', 'DISPATCHER'] },
     { path: '/optimization', label: 'AI 배차 최적화', icon: Zap, roles: ['ADMIN', 'DISPATCHER'] },
     { path: '/ai-cost', label: 'AI 비용 모니터링', icon: DollarSign, roles: ['ADMIN'] },
+    { path: '/ab-test', label: 'AB Test 모니터링', icon: Activity, roles: ['ADMIN'] },
     { path: '/dispatches', label: '배차 관리', icon: Truck, roles: ['ADMIN', 'DISPATCHER'] },
     { path: '/realtime', label: '실시간 모니터링', icon: Radio, roles: ['ADMIN', 'DISPATCHER'] },
     { path: '/vehicles', label: '차량 관리', icon: Truck, roles: ['ADMIN', 'DISPATCHER'] },
