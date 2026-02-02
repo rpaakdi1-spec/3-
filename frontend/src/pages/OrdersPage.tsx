@@ -181,7 +181,7 @@ const OrdersPage: React.FC = () => {
 
   const isPastOrder = (order: Order): boolean => {
     const now = new Date();
-    const pickupTime = new Date(`${order.order_date}T${order.pickup_time_start || '00:00:00'}`);
+    const pickupTime = new Date(`${order.order_date}T${order.pickup_start_time || '00:00:00'}`);
     return pickupTime < now && order.status === 'PENDING';
   };
 
@@ -461,11 +461,11 @@ const OrdersPage: React.FC = () => {
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-1 text-sm">
                             <Clock size={14} className="text-gray-400" />
-                            <span>{formatDateTime(order.order_date, order.pickup_time_start)}</span>
+                            <span>{formatDateTime(order.order_date, order.pickup_start_time)}</span>
                           </div>
-                          {order.pickup_time_start && order.pickup_time_end && (
+                          {order.pickup_start_time && order.pickup_end_time && (
                             <div className="text-xs text-gray-500 mt-1">
-                              {order.pickup_time_start.substring(0, 5)} ~ {order.pickup_time_end.substring(0, 5)}
+                              {order.pickup_start_time.substring(0, 5)} ~ {order.pickup_end_time.substring(0, 5)}
                             </div>
                           )}
                         </td>
