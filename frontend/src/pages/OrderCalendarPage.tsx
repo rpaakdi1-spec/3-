@@ -300,7 +300,8 @@ const OrderCalendarPage: React.FC = () => {
   // 날짜별 오더 개수 표시를 위한 커스텀 DayCell
   const CustomDateHeader = ({ label, date }: { label: string; date: Date }) => {
     const ordersCount = orders.filter(order => {
-      const orderDate = new Date(order.requested_delivery_date || order.created_at);
+      // order_date 기준으로 필터링 (requested_delivery_date 아님!)
+      const orderDate = new Date(order.order_date);
       return isSameDay(orderDate, date);
     }).length;
 
