@@ -98,6 +98,11 @@ class OrderResponse(OrderBase):
     
     model_config = ConfigDict(from_attributes=True)
     
+    @field_serializer('status')
+    def serialize_status(self, value: OrderStatus, _info) -> str:
+        """Serialize OrderStatus enum as name (PENDING) instead of value (배차대기)"""
+        return value.name if isinstance(value, OrderStatus) else value
+    
     @field_serializer('pickup_start_time', 'pickup_end_time', 'delivery_start_time', 'delivery_end_time')
     def serialize_time(self, value: Optional[time], _info) -> Optional[str]:
         """Convert time objects to HH:MM string format (handles both time objects and strings)"""

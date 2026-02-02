@@ -25,6 +25,13 @@ const OrdersPage: React.FC = () => {
 
   useEffect(() => {
     fetchOrders();
+    // 기본 날짜 필터: 오늘 ~ 내일
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    setStartDate(today.toISOString().split('T')[0]);
+    setEndDate(tomorrow.toISOString().split('T')[0]);
   }, []);
 
   const fetchOrders = async () => {
@@ -180,9 +187,20 @@ const OrdersPage: React.FC = () => {
   };
 
   const isPastOrder = (order: Order): boolean => {
+    if (order.status !== 'PENDING') return false;
+    
     const now = new Date();
-    const pickupTime = new Date(`${order.order_date}T${order.pickup_start_time || '00:00:00'}`);
-    return pickupTime < now && order.status === 'PENDING';
+    // order.pickup_start_time은 "HH:MM:SS" 형식의 문자열
+    if (order.pickup_start_time) {
+      const pickupDateTime = new Date(`${order.order_date}T${order.pickup_start_time}`);
+      return pickupDateTime < now;
+    }
+    
+    // 시간 정보가 없으면 날짜만 비교
+    const orderDate = new Date(order.order_date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return orderDate < today;
   };
 
   const formatDateTime = (date: string, time?: string): string => {
@@ -199,6 +217,8 @@ const OrdersPage: React.FC = () => {
     const matchesSearch =
       order.order_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (order.client_name?.toLowerCase() || '').includes(searchTerm.toLowerCase());
+    
+    // 상태 필터링 - 백엔드가 Enum 키값을 반환
     const matchesStatus = statusFilter === 'ALL' || order.status === statusFilter;
     
     // 날짜 필터링
