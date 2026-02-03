@@ -136,7 +136,7 @@ class OrderResponse(OrderBase):
     model_config = ConfigDict(
         from_attributes=True,
         # Exclude SQLAlchemy relationships to prevent serialization issues
-        exclude={'pickup_client', 'delivery_client', 'dispatch_routes'}
+        ignored_types=(type,)  # This won't work for relationships
     )
     
     @field_serializer('status')
