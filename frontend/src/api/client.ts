@@ -115,6 +115,25 @@ class ApiClient {
     return response.data;
   }
 
+  async optimizeDispatchCVRPTW(
+    orderIds: number[],
+    vehicleIds?: number[],
+    dispatchDate?: string,
+    timeLimit: number = 60,
+    useTimeWindows: boolean = true,
+    useRealRouting: boolean = true
+  ) {
+    const response = await this.client.post(
+      `/dispatches/optimize-cvrptw?time_limit=${timeLimit}&use_time_windows=${useTimeWindows}&use_real_routing=${useRealRouting}`,
+      {
+        order_ids: orderIds,
+        vehicle_ids: vehicleIds,
+        dispatch_date: dispatchDate
+      }
+    );
+    return response.data;
+  }
+
   async updateDispatchStatus(id: number, data: any) {
     const response = await this.client.patch(`/dispatches/${id}/status`, data);
     return response.data;
