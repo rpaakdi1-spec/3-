@@ -130,6 +130,13 @@ def get_dispatches(
                 item.driver_name = item.vehicle.driver_name
         if item.driver:
             item.driver_name = item.driver.name
+        
+        # Add order numbers (comma-separated)
+        order_numbers = []
+        for route in item.routes:
+            if route.order_id and route.order:
+                order_numbers.append(route.order.order_number)
+        item.order_numbers = ", ".join(order_numbers) if order_numbers else None
     
     return DispatchListResponse(total=total, items=items)
 
