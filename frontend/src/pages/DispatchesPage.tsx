@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import Layout from '../components/common/Layout';
 import Card from '../components/common/Card';
 import Loading from '../components/common/Loading';
@@ -10,6 +11,7 @@ import 'leaflet/dist/leaflet.css';
 import toast from 'react-hot-toast';
 
 const DispatchesPage: React.FC = () => {
+  const [searchParams] = useSearchParams();
   const [dispatches, setDispatches] = useState<Dispatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDispatch, setSelectedDispatch] = useState<Dispatch | null>(null);
@@ -22,14 +24,41 @@ const DispatchesPage: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // URL에 refresh 파라미터가 있으면 즉시 새로고침
+  useEffect(() => {
+    const refreshParam = searchParams.get('refresh');
+    if (refreshParam) {
+      console.log('🔄 배차 확정 후 리다이렉트 감지 - 즉시 새로고침');
+      toast.success('배차 목록을 업데이트합니다...');
+      fetchDispatches();
+      
+      // URL에서 refresh 파라미터 제거 (깨끗한 URL 유지)
+      window.history.replaceState({}, '', '/dispatches');
+    }
+  }, [searchParams]);
+
   const fetchDispatches = async () => {
     try {
       // Fetch all dispatches (no status filter to show drafts too)
+      console.log('📊 배차 목록 조회 시작...');
       const response = await apiClient.getDispatches({});
-      setDispatches(response.items || response);
+      console.log('📊 배차 목록 응답:', response);
+      console.log('📊 배차 개수:', response.items?.length || response.length || 0);
+      
+      const items = response.items || response;
+      setDispatches(items);
       setSelectedIds([]);
+      
+      // 상태별 통계 로깅
+      const stats = items.reduce((acc: any, d: any) => {
+        acc[d.status] = (acc[d.status] || 0) + 1;
+        return acc;
+      }, {});
+      console.log('📊 상태별 배차:', stats);
+      
       if (loading) setLoading(false);
     } catch (error) {
+      console.error('❌ 배차 목록 조회 실패:', error);
       toast.error('배차 목록을 불러오는데 실패했습니다');
       if (loading) setLoading(false);
     }
@@ -113,8 +142,11 @@ const DispatchesPage: React.FC = () => {
           toast.error(`${response.failed}건 확정 실패`);
         }
         
-        fetchDispatches();
-        setSelectedIds([]);
+        // DB 커밋 대기 후 새로고침
+        setTimeout(() => {
+          fetchDispatches();
+          setSelectedIds([]);
+        }, 500);
       } else {
         toast.error('배차 확정에 실패했습니다');
       }
