@@ -269,7 +269,7 @@ const DispatchesPage: React.FC = () => {
                       <td className="py-3 px-4">{dispatch.order_number || '-'}</td>
                       <td className="py-3 px-4">{dispatch.vehicle_plate || '-'}</td>
                       <td className="py-3 px-4">{dispatch.driver_name || '-'}</td>
-                      <td className="py-3 px-4">{dispatch.distance_km.toFixed(1)}</td>
+                      <td className="py-3 px-4">{dispatch.distance_km != null ? dispatch.distance_km.toFixed(1) : '-'}</td>
                       <td className="py-3 px-4">
                         {dispatch.estimated_arrival
                           ? new Date(dispatch.estimated_arrival).toLocaleString('ko-KR', {
