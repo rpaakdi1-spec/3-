@@ -1,7 +1,7 @@
 from __future__ import annotations
 from datetime import datetime, date, time
 from typing import Optional, Union
-from pydantic import BaseModel, Field, ConfigDict, field_serializer
+from pydantic import BaseModel, Field, ConfigDict, field_serializer, field_validator
 from app.models.order import TemperatureZone, OrderStatus
 
 
@@ -54,7 +54,23 @@ class OrderBase(BaseModel):
 
 class OrderCreate(OrderBase):
     """Schema for creating an order"""
-    pass
+    
+    @field_validator('pickup_start_time', 'pickup_end_time', 'delivery_start_time', 'delivery_end_time', mode='before')
+    @classmethod
+    def parse_time(cls, value):
+        """Convert string time to time object"""
+        if value is None:
+            return None
+        if isinstance(value, time):
+            return value
+        if isinstance(value, str):
+            try:
+                # Parse HH:MM format
+                hour, minute = map(int, value.split(':'))
+                return time(hour=hour, minute=minute)
+            except (ValueError, AttributeError):
+                raise ValueError(f"Invalid time format: {value}. Expected HH:MM")
+        return value
 
 
 class OrderUpdate(BaseModel):
@@ -81,6 +97,23 @@ class OrderUpdate(BaseModel):
     recurring_type: Optional[str] = Field(None, max_length=20)
     recurring_end_date: Optional[date] = None
     notes: Optional[str] = None
+    
+    @field_validator('pickup_start_time', 'pickup_end_time', 'delivery_start_time', 'delivery_end_time', mode='before')
+    @classmethod
+    def parse_time(cls, value):
+        """Convert string time to time object"""
+        if value is None:
+            return None
+        if isinstance(value, time):
+            return value
+        if isinstance(value, str):
+            try:
+                # Parse HH:MM format
+                hour, minute = map(int, value.split(':'))
+                return time(hour=hour, minute=minute)
+            except (ValueError, AttributeError):
+                raise ValueError(f"Invalid time format: {value}. Expected HH:MM")
+        return value
 
 
 class OrderResponse(OrderBase):
