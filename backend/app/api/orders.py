@@ -171,12 +171,51 @@ def update_order(
             value = getattr(order, field)
             logger.info(f"✅ After commit {field}: {value} (type: {type(value)})")
     
-    # Add client info (Pydantic's field_serializer will handle time conversion)
-    order.pickup_client_name = order.pickup_client.name if order.pickup_client else None
-    order.delivery_client_name = order.delivery_client.name if order.delivery_client else None
+    # Convert to dict to avoid SQLAlchemy relationship serialization issues
+    order_dict = {
+        'id': order.id,
+        'order_number': order.order_number,
+        'order_date': order.order_date,
+        'temperature_zone': order.temperature_zone,
+        'pickup_client_id': order.pickup_client_id,
+        'delivery_client_id': order.delivery_client_id,
+        'pickup_address': order.pickup_address,
+        'pickup_address_detail': order.pickup_address_detail,
+        'delivery_address': order.delivery_address,
+        'delivery_address_detail': order.delivery_address_detail,
+        'pallet_count': order.pallet_count,
+        'weight_kg': order.weight_kg,
+        'volume_cbm': order.volume_cbm,
+        'product_name': order.product_name,
+        'product_code': order.product_code,
+        'pickup_start_time': order.pickup_start_time,
+        'pickup_end_time': order.pickup_end_time,
+        'delivery_start_time': order.delivery_start_time,
+        'delivery_end_time': order.delivery_end_time,
+        'requested_delivery_date': order.requested_delivery_date,
+        'priority': order.priority,
+        'is_reserved': order.is_reserved,
+        'reserved_at': order.reserved_at,
+        'confirmed_at': order.confirmed_at,
+        'recurring_type': order.recurring_type,
+        'recurring_end_date': order.recurring_end_date,
+        'requires_forklift': order.requires_forklift,
+        'is_stackable': order.is_stackable,
+        'notes': order.notes,
+        'status': order.status,
+        'created_at': order.created_at,
+        'updated_at': order.updated_at,
+        'pickup_latitude': order.pickup_latitude,
+        'pickup_longitude': order.pickup_longitude,
+        'delivery_latitude': order.delivery_latitude,
+        'delivery_longitude': order.delivery_longitude,
+        # Add client names
+        'pickup_client_name': order.pickup_client.name if order.pickup_client else None,
+        'delivery_client_name': order.delivery_client.name if order.delivery_client else None,
+    }
     
     logger.info(f"Updated order: {order.order_number}")
-    return order
+    return order_dict
 
 
 @router.delete("/{order_id}")
