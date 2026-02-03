@@ -74,6 +74,7 @@ export const vehiclesAPI = {
 export const ordersAPI = {
   list: (status?: string) => api.get('/orders/', { params: { status } }),
   pendingCount: () => api.get('/orders/pending/count'),
+  parseNLP: (text: string) => api.post('/orders/parse-nlp', { text }),
   upload: (file: File) => {
     const formData = new FormData()
     formData.append('file', file)

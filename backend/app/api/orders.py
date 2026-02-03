@@ -12,6 +12,7 @@ from app.schemas.order import (
 )
 from app.services.excel_upload_service import ExcelUploadService
 from app.services.excel_template_service import ExcelTemplateService
+from app.services.order_nlp_service import parse_order_text
 from loguru import logger
 
 router = APIRouter()
@@ -346,6 +347,46 @@ def get_pending_orders_count(db: Session = Depends(get_db)):
     count = db.query(Order).filter(Order.status == OrderStatus.PENDING).count()
     return {"pending_count": count}
 
+
+@router.post("/parse-nlp")
+def parse_order_nlp(
+    request: dict,
+    db: Session = Depends(get_db)
+):
+    """
+    자연어 주문 파싱 (NLP)
+    
+    거래처의 자연어 요청을 구조화된 주문으로 변환합니다.
+    
+    Example:
+        {
+            "text": "[02/03] 추가 배차요청\\n백암 _ 저온 → 경산 16판 1대\\n동이천센터 → 양산 16판 1대"
+        }
+    
+    Returns:
+        {
+            "success": true,
+            "orders": [...],
+            "count": 2,
+            "valid_count": 2,
+            "review_count": 0
+        }
+    """
+    text = request.get('text', '')
+    
+    if not text:
+        raise HTTPException(status_code=400, detail="텍스트가 필요합니다")
+    
+    logger.info(f"📝 NLP 주문 파싱 요청: {len(text)} characters")
+    
+    result = parse_order_text(db, text)
+    
+    if not result['success']:
+        raise HTTPException(status_code=500, detail=result['message'])
+    
+    logger.info(f"✅ NLP 파싱 완료: {result['count']}건 (유효: {result['valid_count']}, 검토 필요: {result['review_count']})")
+    
+    return result
 
 
 @router.get("/template/download")
