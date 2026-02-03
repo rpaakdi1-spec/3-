@@ -563,7 +563,7 @@ function DispatchDetailView({ dispatchId }: { dispatchId: number }) {
 
       {/* Routes */}
       <div style={{ marginBottom: '20px' }}>
-        <h3>배차 경로</h3>
+        <h3>배차 경로 (상차/하차)</h3>
         {dispatch.routes && dispatch.routes.length > 0 ? (
           <div style={{ overflowX: 'auto' }}>
             <table className="data-table" style={{ fontSize: '14px' }}>
@@ -580,14 +580,14 @@ function DispatchDetailView({ dispatchId }: { dispatchId: number }) {
                 </tr>
               </thead>
               <tbody>
-                {dispatch.routes.map((route: any) => (
+                {dispatch.routes
+                  .filter((route: any) => route.route_type === 'PICKUP' || route.route_type === 'DELIVERY')
+                  .map((route: any, index: number) => (
                   <tr key={route.id}>
-                    <td>{route.sequence}</td>
+                    <td>{index + 1}</td>
                     <td>
-                      {route.route_type === 'GARAGE_START' ? '🏠 차고지출발' :
-                       route.route_type === 'PICKUP' ? '📦 상차' :
+                      {route.route_type === 'PICKUP' ? '📦 상차' :
                        route.route_type === 'DELIVERY' ? '📍 하차' :
-                       route.route_type === 'GARAGE_END' ? '🏠 차고지복귀' :
                        route.route_type}
                     </td>
                     <td>{route.location_name}</td>
