@@ -15,6 +15,7 @@ interface Dispatch {
   estimated_duration_minutes?: number
   status: string
   created_at: string
+  order_numbers?: string
 }
 
 function DispatchList() {
@@ -24,6 +25,7 @@ function DispatchList() {
   const [downloading, setDownloading] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [selectedDispatches, setSelectedDispatches] = useState<number[]>([])
+  const [selectedDispatchForDetail, setSelectedDispatchForDetail] = useState<number | null>(null)
   
   // Filters
   const [startDate, setStartDate] = useState<string>('')
@@ -345,13 +347,14 @@ function DispatchList() {
                   <th>차량번호</th>
                   <th>기사명</th>
                   <th>주문수</th>
+                  <th>주문번호</th>
                   <th>팔레트</th>
                   <th>중량(kg)</th>
                   <th>거리(km)</th>
                   <th>예상시간(분)</th>
                   <th>상태</th>
                   <th>생성일시</th>
-                  <th style={{ width: '80px' }}>관리</th>
+                  <th style={{ width: '150px' }}>관리</th>
                 </tr>
               </thead>
               <tbody>
@@ -385,6 +388,9 @@ function DispatchList() {
                     <td>{dispatch.vehicle_plate || '-'}</td>
                     <td>{dispatch.driver_name || '-'}</td>
                     <td>{dispatch.total_orders}건</td>
+                    <td style={{ fontSize: '12px', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {dispatch.order_numbers || '-'}
+                    </td>
                     <td>{dispatch.total_pallets}개</td>
                     <td>{dispatch.total_weight_kg?.toLocaleString() || 0}</td>
                     <td>{dispatch.total_distance_km ? dispatch.total_distance_km.toFixed(2) : '-'}</td>
@@ -394,23 +400,46 @@ function DispatchList() {
                       {new Date(dispatch.created_at).toLocaleString('ko-KR')}
                     </td>
                     <td>
-                      <button
-                        onClick={() => handleDeleteDispatch(dispatch.id, dispatch.dispatch_number)}
-                        disabled={dispatch.status === '확정' || dispatch.status === '진행중'}
-                        style={{
-                          padding: '4px 8px',
-                          fontSize: '12px',
-                          backgroundColor: dispatch.status === '확정' || dispatch.status === '진행중' ? '#ccc' : '#dc3545',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '4px',
-                          cursor: dispatch.status === '확정' || dispatch.status === '진행중' ? 'not-allowed' : 'pointer',
-                          opacity: dispatch.status === '확정' || dispatch.status === '진행중' ? 0.5 : 1
-                        }}
-                        title={dispatch.status === '확정' || dispatch.status === '진행중' ? '확정/진행중 배차는 삭제 불가' : '배차 삭제'}
-                      >
-                        🗑️ 삭제
-                      </button>
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setSelectedDispatchForDetail(dispatch.id)
+                          }}
+                          style={{
+                            padding: '4px 8px',
+                            fontSize: '12px',
+                            backgroundColor: '#007bff',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer'
+                          }}
+                          title="배차 상세"
+                        >
+                          📋 상세
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleDeleteDispatch(dispatch.id, dispatch.dispatch_number)
+                          }}
+                          disabled={dispatch.status === '확정' || dispatch.status === '진행중'}
+                          style={{
+                            padding: '4px 8px',
+                            fontSize: '12px',
+                            backgroundColor: dispatch.status === '확정' || dispatch.status === '진행중' ? '#ccc' : '#dc3545',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: dispatch.status === '확정' || dispatch.status === '진행중' ? 'not-allowed' : 'pointer',
+                            opacity: dispatch.status === '확정' || dispatch.status === '진행중' ? 0.5 : 1
+                          }}
+                          title={dispatch.status === '확정' || dispatch.status === '진행중' ? '확정/진행중 배차는 삭제 불가' : '배차 삭제'}
+                        >
+                          🗑️
+                        </button>
+                      </div>
                     </td>
                   </tr>
                   )
@@ -421,16 +450,160 @@ function DispatchList() {
         )}
       </div>
 
+      {/* Detail Modal */}
+      {selectedDispatchForDetail && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000
+        }}
+        onClick={() => setSelectedDispatchForDetail(null)}
+        >
+          <div style={{
+            backgroundColor: 'white',
+            padding: '24px',
+            borderRadius: '8px',
+            maxWidth: '800px',
+            maxHeight: '80vh',
+            overflow: 'auto',
+            width: '90%'
+          }}
+          onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2 style={{ margin: 0 }}>📋 배차 상세</h2>
+              <button
+                onClick={() => setSelectedDispatchForDetail(null)}
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+              >
+                ✕ 닫기
+              </button>
+            </div>
+            <DispatchDetailView dispatchId={selectedDispatchForDetail} />
+          </div>
+        </div>
+      )}
+
       <div className="card" style={{ marginTop: '20px' }}>
         <h3>💡 사용 가이드</h3>
         <ul style={{ marginLeft: '20px', color: '#666', lineHeight: '1.8' }}>
           <li>AI 배차 최적화로 생성된 모든 배차 내역을 확인할 수 있습니다</li>
+          <li><strong>상세</strong> 버튼을 클릭하면 배차 경로와 주문 상세 정보를 확인할 수 있습니다</li>
           <li><strong>임시저장</strong> 상태의 배차를 선택하여 일괄 확정할 수 있습니다</li>
           <li><strong>확정</strong> 버튼 클릭 시 선택한 배차들이 확정되며, 이후 수정/삭제가 불가능합니다</li>
           <li><strong>엑셀 다운로드</strong> 버튼을 클릭하면 상세 정보가 포함된 엑셀 파일을 받을 수 있습니다</li>
           <li>다운로드된 엑셀에는 <strong>배차일자, 차량번호, 기사명, 상차지주소, 하차지주소</strong> 등이 포함됩니다</li>
           <li>날짜 범위와 상태로 필터링하여 원하는 내역만 조회/다운로드할 수 있습니다</li>
         </ul>
+      </div>
+    </div>
+  )
+}
+
+// Simple Dispatch Detail View Component
+function DispatchDetailView({ dispatchId }: { dispatchId: number }) {
+  const [dispatch, setDispatch] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    loadDispatchDetail()
+  }, [dispatchId])
+
+  const loadDispatchDetail = async () => {
+    setLoading(true)
+    try {
+      const response = await dispatchesAPI.get(dispatchId)
+      console.log('배차 상세:', response.data)
+      setDispatch(response.data)
+    } catch (err) {
+      console.error('Failed to load dispatch detail:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (loading) {
+    return <div style={{ textAlign: 'center', padding: '40px' }}>로딩 중...</div>
+  }
+
+  if (!dispatch) {
+    return <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>배차 정보를 불러올 수 없습니다</div>
+  }
+
+  return (
+    <div>
+      {/* Basic Info */}
+      <div style={{ marginBottom: '20px', padding: '16px', backgroundColor: '#f8f9fa', borderRadius: '8px' }}>
+        <h3 style={{ marginTop: 0 }}>기본 정보</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
+          <div><strong>배차번호:</strong> {dispatch.dispatch_number}</div>
+          <div><strong>배차일자:</strong> {dispatch.dispatch_date}</div>
+          <div><strong>차량번호:</strong> {dispatch.vehicle_plate || '-'}</div>
+          <div><strong>기사명:</strong> {dispatch.driver_name || '-'}</div>
+          <div><strong>주문수:</strong> {dispatch.total_orders}건</div>
+          <div><strong>팔레트:</strong> {dispatch.total_pallets}개</div>
+          <div><strong>중량:</strong> {dispatch.total_weight_kg?.toLocaleString()}kg</div>
+          <div><strong>거리:</strong> {dispatch.total_distance_km?.toFixed(2)}km</div>
+        </div>
+      </div>
+
+      {/* Routes */}
+      <div style={{ marginBottom: '20px' }}>
+        <h3>배차 경로</h3>
+        {dispatch.routes && dispatch.routes.length > 0 ? (
+          <div style={{ overflowX: 'auto' }}>
+            <table className="data-table" style={{ fontSize: '14px' }}>
+              <thead>
+                <tr>
+                  <th>순서</th>
+                  <th>구분</th>
+                  <th>장소</th>
+                  <th>주소</th>
+                  <th>거리(km)</th>
+                  <th>도착예정</th>
+                  <th>출발예정</th>
+                  <th>팔레트</th>
+                </tr>
+              </thead>
+              <tbody>
+                {dispatch.routes.map((route: any) => (
+                  <tr key={route.id}>
+                    <td>{route.sequence}</td>
+                    <td>
+                      {route.route_type === 'GARAGE_START' ? '🏠 차고지출발' :
+                       route.route_type === 'PICKUP' ? '📦 상차' :
+                       route.route_type === 'DELIVERY' ? '📍 하차' :
+                       route.route_type === 'GARAGE_END' ? '🏠 차고지복귀' :
+                       route.route_type}
+                    </td>
+                    <td>{route.location_name}</td>
+                    <td style={{ fontSize: '12px' }}>{route.address}</td>
+                    <td>{route.distance_from_previous_km?.toFixed(2) || '-'}</td>
+                    <td>{route.estimated_arrival_time || '-'}</td>
+                    <td>{route.estimated_departure_time || '-'}</td>
+                    <td>{route.current_pallets}개</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div style={{ textAlign: 'center', padding: '20px', color: '#999' }}>경로 정보가 없습니다</div>
+        )}
       </div>
     </div>
   )

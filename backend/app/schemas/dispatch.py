@@ -78,6 +78,9 @@ class DispatchResponse(BaseModel):
     # Driver info
     driver_name: Optional[str] = None
     
+    # Order info (comma-separated order numbers)
+    order_numbers: Optional[str] = None
+    
     model_config = ConfigDict(from_attributes=True)
 
 
