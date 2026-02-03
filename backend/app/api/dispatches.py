@@ -10,7 +10,7 @@ import tempfile
 
 from app.core.database import get_db
 from app.models.dispatch import Dispatch, DispatchStatus
-from app.models.order import OrderStatus
+from app.models.order import Order, OrderStatus
 from app.models.vehicle import VehicleStatus
 from app.schemas.dispatch import (
     DispatchResponse, DispatchDetailResponse, DispatchListResponse,
@@ -239,10 +239,21 @@ def confirm_dispatches(
             logger.info(f"Vehicle {dispatch.vehicle.code} status changed to IN_USE")
         
         # Update order statuses
+        updated_orders = 0
         for route in dispatch.routes:
-            if route.order:
-                route.order.status = OrderStatus.ASSIGNED
+            if route.order_id:
+                # Fetch order explicitly if relationship is not loaded
+                order = route.order if route.order else db.query(Order).filter(Order.id == route.order_id).first()
+                if order:
+                    logger.info(f"🔄 Updating order {order.order_number} status: {order.status} → ASSIGNED")
+                    order.status = OrderStatus.ASSIGNED
+                    updated_orders += 1
+                else:
+                    logger.warning(f"⚠️  Route has order_id={route.order_id} but order not found!")
+            else:
+                logger.debug(f"Route sequence {route.sequence} has no order_id (type: {route.route_type})")
         
+        logger.info(f"✅ Confirmed dispatch {dispatch.dispatch_number}: updated {updated_orders} orders")
         confirmed.append(dispatch.dispatch_number)
     
     db.commit()
