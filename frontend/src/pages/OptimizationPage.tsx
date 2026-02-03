@@ -254,22 +254,33 @@ const OptimizationPage: React.FC = () => {
 
     setIsConfirming(true);
     try {
-      // TODO: 실제 배차 확정 API 호출
-      // await apiClient.confirmDispatches(optimizationResult.dispatch_ids);
+      // 실제 배차 확정 API 호출
+      const response = await apiClient.confirmDispatches(optimizationResult.dispatch_ids);
       
-      // 시뮬레이션 (실제로는 위 API 호출)
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      setIsConfirmed(true);
-      toast.success(`${optimizationResult.dispatch_ids.length}건의 배차가 확정되었습니다!`);
-      
-      // 3초 후 배차 관리 페이지로 이동
-      setTimeout(() => {
-        window.location.href = '/dispatches';
-      }, 3000);
-    } catch (error) {
+      if (response.confirmed > 0) {
+        setIsConfirmed(true);
+        toast.success(
+          `✅ ${response.confirmed}건의 배차가 확정되었습니다!\n` +
+          `주문 상태가 '배차완료'로 변경되었습니다.\n` +
+          `배차 관리 페이지로 이동합니다...`
+        );
+        
+        // 에러가 있으면 표시
+        if (response.failed > 0 && response.errors) {
+          console.warn('일부 배차 확정 실패:', response.errors);
+          toast.error(`${response.failed}건 확정 실패`);
+        }
+        
+        // 2초 후 배차 관리 페이지로 이동
+        setTimeout(() => {
+          window.location.href = '/dispatches';
+        }, 2000);
+      } else {
+        toast.error('배차 확정에 실패했습니다.');
+      }
+    } catch (error: any) {
       console.error('배차 확정 실패:', error);
-      toast.error('배차 확정에 실패했습니다.');
+      toast.error(error.response?.data?.detail || '배차 확정에 실패했습니다.');
     } finally {
       setIsConfirming(false);
     }
