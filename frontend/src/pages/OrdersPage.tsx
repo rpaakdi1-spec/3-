@@ -7,8 +7,9 @@ import Loading from '../components/common/Loading';
 import OrderModal from '../components/orders/OrderModal';
 import apiClient from '../api/client';
 import { Order } from '../types';
-import { Package, Plus, Search, Filter, Upload, Download, Trash2, Edit2, FileSpreadsheet, Zap, Calendar, Clock } from 'lucide-react';
+import { Package, Plus, Search, Filter, Upload, Download, Trash2, Edit2, FileSpreadsheet, Zap, Calendar, Clock, MessageSquare } from 'lucide-react';
 import toast from 'react-hot-toast';
+import OrderNLPParser from '../components/OrderNLPParser';
 
 const OrdersPage: React.FC = () => {
   const navigate = useNavigate();
@@ -22,6 +23,7 @@ const OrdersPage: React.FC = () => {
   const [uploading, setUploading] = useState(false);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [nlpModalOpen, setNlpModalOpen] = useState(false);
 
   useEffect(() => {
     fetchOrders();
@@ -304,6 +306,14 @@ const OrdersPage: React.FC = () => {
               전체 다운로드
             </Button>
             <Button 
+              variant="secondary"
+              onClick={() => setNlpModalOpen(true)}
+              className="bg-purple-100 text-purple-700 hover:bg-purple-200"
+            >
+              <MessageSquare size={20} className="mr-2" />
+              자연어 입력
+            </Button>
+            <Button 
               variant="primary"
               onClick={() => {
                 setSelectedOrder(null);
@@ -578,6 +588,26 @@ const OrdersPage: React.FC = () => {
         }}
         order={selectedOrder}
       />
+
+      {/* NLP Parser Modal */}
+      {nlpModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
+              <h2 className="text-2xl font-bold">📝 자연어 주문 입력</h2>
+              <button
+                onClick={() => setNlpModalOpen(false)}
+                className="text-gray-500 hover:text-gray-700 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+            <div className="p-6">
+              <OrderNLPParser />
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   );
 };
