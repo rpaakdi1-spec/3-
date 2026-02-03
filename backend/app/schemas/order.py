@@ -68,6 +68,10 @@ class OrderUpdate(BaseModel):
     volume_cbm: Optional[float] = Field(None, ge=0)
     product_name: Optional[str] = Field(None, max_length=200)
     product_code: Optional[str] = Field(None, max_length=100)
+    pickup_start_time: Optional[Union[str, time]] = Field(None, description="상차 시작시간(HH:MM)")
+    pickup_end_time: Optional[Union[str, time]] = Field(None, description="상차 종료시간(HH:MM)")
+    delivery_start_time: Optional[Union[str, time]] = Field(None, description="하차 시작시간(HH:MM)")
+    delivery_end_time: Optional[Union[str, time]] = Field(None, description="하차 종료시간(HH:MM)")
     requested_delivery_date: Optional[date] = None
     status: Optional[OrderStatus] = None
     priority: Optional[int] = Field(None, ge=1, le=10)
