@@ -17,7 +17,7 @@ class OrderStatus(str, Enum):
     """주문 상태"""
     PENDING = "배차대기"
     ASSIGNED = "배차완료"
-    IN_TRANSIT = "운송중"
+    IN_TRANSIT = "배송중"
     DELIVERED = "배송완료"
     CANCELLED = "취소"
 
