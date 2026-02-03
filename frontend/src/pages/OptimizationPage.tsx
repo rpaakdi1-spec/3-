@@ -127,64 +127,91 @@ const OptimizationPage: React.FC = () => {
     setIsOptimizing(true);
     setIsConfirmed(false);
     try {
-      toast.success('배차 최적화를 시작합니다...');
+      toast.success('배차 최적화를 시작합니다... (GPS 및 네이버 경로 사용)');
       
-      // 실제 주문 데이터를 사용하여 Mock 결과 생성
-      setTimeout(() => {
-        // 주문을 차량에 배정 (간단한 알고리즘)
-        const vehicleAssignments: VehicleAssignment[] = [];
-        const ordersPerVehicle = Math.ceil(orders.length / Math.min(vehicles.length, 3));
-        
-        for (let i = 0; i < Math.min(vehicles.length, 3); i++) {
-          const startIdx = i * ordersPerVehicle;
-          const endIdx = Math.min(startIdx + ordersPerVehicle, orders.length);
-          const assignedOrders = orders.slice(startIdx, endIdx);
-          
-          if (assignedOrders.length === 0) break;
-          
-          const totalPallets = assignedOrders.reduce((sum, order) => sum + (order.pallet_count || 0), 0);
-          const vehicle = vehicles[i];
-          
-          vehicleAssignments.push({
-            vehicle,
-            orders: assignedOrders.map(order => ({
-              order_number: order.order_number,
-              pickup_address: order.pickup_address || order.pickup_location || order.pickup_client_name || '상차지 미정',
-              delivery_address: order.delivery_address || order.delivery_location || order.delivery_client_name || '하차지 미정',
-              pallet_count: order.pallet_count || 0,
-              temperature_zone: order.temperature_zone || '상온',
-              distance_km: 50 + Math.random() * 100, // Mock distance
-              estimated_time: 60 + Math.random() * 120, // Mock time
-            })),
-            total_pallets: totalPallets,
-            utilization_percentage: Math.round((totalPallets / vehicle.max_pallets) * 100),
-            route_distance_km: 100 + Math.random() * 200,
-            estimated_time_minutes: 180 + Math.random() * 180,
-            dispatch_id: 1000 + i,
-            confirmed: false,
-          });
-        }
-        
-        const totalPallets = orders.reduce((sum, order) => sum + (order.pallet_count || 0), 0);
-        const totalDistance = vehicleAssignments.reduce((sum, va) => sum + va.route_distance_km, 0);
-        const totalTime = vehicleAssignments.reduce((sum, va) => sum + va.estimated_time_minutes, 0);
-        
-        const mockResult: OptimizationResult = {
-          total_vehicles_used: vehicleAssignments.length,
-          total_pallets: totalPallets,
-          total_distance_km: Math.round(totalDistance),
-          estimated_total_time_minutes: Math.round(totalTime),
-          dispatch_ids: orders.map(order => order.id),
-          vehicle_assignments: vehicleAssignments,
-        };
-        
-        setOptimizationResult(mockResult);
-        toast.success('배차 최적화가 완료되었습니다!');
+      // 실제 API 호출: CVRPTW 최적화 (GPS + 네이버 지도 사용)
+      const orderIds = orders.map(o => o.id);
+      const vehicleIds = vehicles.filter(v => v.status === 'AVAILABLE').map(v => v.id);
+      
+      // API 호출
+      const response = await apiClient.optimizeDispatchCVRPTW(
+        orderIds,
+        vehicleIds,
+        new Date().toISOString().split('T')[0],  // 오늘 날짜
+        60,     // time_limit: 60초
+        true,   // use_time_windows: 시간 제약 사용
+        true    // use_real_routing: 네이버 API 실제 경로 사용 ⭐
+      );
+      
+      if (!response.success || !response.dispatches || response.dispatches.length === 0) {
+        toast.error(response.message || '배차 최적화에 실패했습니다.');
         setIsOptimizing(false);
-      }, 2000);
-    } catch (error) {
+        return;
+      }
+      
+      // API 응답을 VehicleAssignment 형식으로 변환
+      const vehicleAssignments: VehicleAssignment[] = response.dispatches.map((dispatch: any) => {
+      // API 응답을 VehicleAssignment 형식으로 변환
+      const vehicleAssignments: VehicleAssignment[] = response.dispatches.map((dispatch: any) => {
+        const vehicle = vehicles.find(v => v.id === dispatch.vehicle_id);
+        if (!vehicle) return null;
+        
+        // 경로에서 주문 정보 추출
+        const assignedOrders = dispatch.routes
+          .filter((route: any) => route.route_type === 'PICKUP' || route.route_type === 'DELIVERY')
+          .map((route: any) => {
+            const order = orders.find(o => o.id === route.order_id);
+            return {
+              order_number: order?.order_number || route.location_name,
+              pickup_address: order?.pickup_address || route.address,
+              delivery_address: order?.delivery_address || route.address,
+              pallet_count: route.current_pallets || order?.pallet_count || 0,
+              temperature_zone: order?.temperature_zone || '상온',
+              distance_km: route.distance_from_previous_km || 0,
+              estimated_time: route.duration_from_previous_minutes || 0,
+            };
+          });
+        
+        const totalPallets = dispatch.total_pallets || assignedOrders.reduce((sum: number, o: any) => sum + o.pallet_count, 0);
+        
+        return {
+          vehicle,
+          orders: assignedOrders,
+          total_pallets: totalPallets,
+          utilization_percentage: vehicle.max_pallets ? Math.round((totalPallets / vehicle.max_pallets) * 100) : 0,
+          route_distance_km: dispatch.total_distance_km || 0,
+          estimated_time_minutes: dispatch.estimated_duration_minutes || 0,
+          dispatch_id: dispatch.id,
+          confirmed: false,
+        };
+      }).filter(Boolean); // null 제거
+      
+      if (vehicleAssignments.length === 0) {
+        toast.error('배차 결과가 없습니다. 차량이나 주문을 확인해주세요.');
+        setIsOptimizing(false);
+        return;
+      }
+      
+      const totalPallets = vehicleAssignments.reduce((sum, va) => sum + va.total_pallets, 0);
+      const totalDistance = vehicleAssignments.reduce((sum, va) => sum + va.route_distance_km, 0);
+      const totalTime = vehicleAssignments.reduce((sum, va) => sum + va.estimated_time_minutes, 0);
+        
+      const result: OptimizationResult = {
+        total_vehicles_used: vehicleAssignments.length,
+        total_pallets: totalPallets,
+        total_distance_km: Math.round(totalDistance),
+        estimated_total_time_minutes: Math.round(totalTime),
+        dispatch_ids: response.dispatches.map((d: any) => d.id),
+        vehicle_assignments: vehicleAssignments,
+      };
+        
+      setOptimizationResult(result);
+      toast.success(`✅ 배차 최적화 완료! (GPS 위치 및 네이버 실제 경로 반영)`);
+      setIsOptimizing(false);
+      
+    } catch (error: any) {
       console.error('최적화 실패:', error);
-      toast.error('배차 최적화에 실패했습니다.');
+      toast.error(error.response?.data?.detail || '배차 최적화에 실패했습니다.');
       setIsOptimizing(false);
     }
   };
