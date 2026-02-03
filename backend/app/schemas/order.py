@@ -133,7 +133,11 @@ class OrderResponse(OrderBase):
     delivery_latitude: Optional[float] = None
     delivery_longitude: Optional[float] = None
     
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True,
+        # Exclude SQLAlchemy relationships to prevent serialization issues
+        exclude={'pickup_client', 'delivery_client', 'dispatch_routes'}
+    )
     
     @field_serializer('status')
     def serialize_status(self, value: OrderStatus, _info) -> str:
