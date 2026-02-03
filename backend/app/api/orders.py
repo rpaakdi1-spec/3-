@@ -171,16 +171,9 @@ def update_order(
             value = getattr(order, field)
             logger.info(f"✅ After commit {field}: {value} (type: {type(value)})")
     
-    # Get client names before expunge
-    pickup_client_name = order.pickup_client.name if order.pickup_client else None
-    delivery_client_name = order.delivery_client.name if order.delivery_client else None
-    
-    # Expunge to prevent lazy loading issues
-    db.expunge(order)
-    
-    # Add client info after expunge
-    order.pickup_client_name = pickup_client_name
-    order.delivery_client_name = delivery_client_name
+    # Add client info (Pydantic's field_serializer will handle time conversion)
+    order.pickup_client_name = order.pickup_client.name if order.pickup_client else None
+    order.delivery_client_name = order.delivery_client.name if order.delivery_client else None
     
     logger.info(f"Updated order: {order.order_number}")
     return order
