@@ -5,7 +5,7 @@ import Loading from '../components/common/Loading';
 import apiClient from '../api/client';
 import { Dispatch } from '../types';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import { Truck, Navigation, Clock, CheckCircle, Trash2, Edit2 } from 'lucide-react';
+import { Truck, Navigation, Clock, CheckCircle, Trash2, Edit2, X, Package, MapPin, AlertCircle } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 import toast from 'react-hot-toast';
 
@@ -14,6 +14,7 @@ const DispatchesPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [selectedDispatch, setSelectedDispatch] = useState<Dispatch | null>(null);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
     fetchDispatches();
@@ -242,8 +243,47 @@ const DispatchesPage: React.FC = () => {
           </div>
         </Card>
 
-        {/* Bulk Actions */}
-        {selectedIds.length > 0 && (
+        {/* Action Buttons - Always Visible */}
+        <Card>
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-gray-600">
+              {selectedIds.length > 0 ? (
+                <span className="font-semibold">{selectedIds.length}개 항목 선택됨</span>
+              ) : (
+                <span>배차를 선택하여 일괄 작업을 수행하세요</span>
+              )}
+            </div>
+            <div className="flex space-x-3">
+              <button 
+                className={`px-4 py-2 rounded-lg flex items-center text-sm font-medium ${
+                  selectedIds.length > 0 && dispatches.filter(d => selectedIds.includes(d.id) && d.status === '임시저장').length > 0
+                    ? 'bg-green-600 hover:bg-green-700 text-white'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
+                onClick={handleConfirmSelected}
+                disabled={selectedIds.length === 0 || dispatches.filter(d => selectedIds.includes(d.id) && d.status === '임시저장').length === 0}
+              >
+                <CheckCircle size={16} className="mr-2" />
+                선택 배차 확정 ({dispatches.filter(d => selectedIds.includes(d.id) && d.status === '임시저장').length}건)
+              </button>
+              <button 
+                className={`px-4 py-2 rounded-lg flex items-center text-sm ${
+                  selectedIds.length > 0
+                    ? 'bg-red-600 hover:bg-red-700 text-white'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
+                onClick={handleBulkDelete}
+                disabled={selectedIds.length === 0}
+              >
+                <Trash2 size={16} className="mr-2" />
+                선택 항목 삭제
+              </button>
+            </div>
+          </div>
+        </Card>
+
+        {/* Legacy Bulk Actions - Keep for compatibility */}
+        {false && selectedIds.length > 0 && (
           <Card>
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-600">
@@ -338,7 +378,11 @@ const DispatchesPage: React.FC = () => {
                         <div className="flex space-x-2">
                           <button 
                             className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center"
-                            onClick={() => setSelectedDispatch(dispatch)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedDispatch(dispatch);
+                              setShowModal(true);
+                            }}
                           >
                             <Edit2 size={14} className="mr-1" />
                             상세
@@ -359,6 +403,150 @@ const DispatchesPage: React.FC = () => {
             </table>
           </div>
         </Card>
+
+        {/* Dispatch Detail Modal */}
+        {showModal && selectedDispatch && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowModal(false)}>
+            <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+              {/* Modal Header */}
+              <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">배차 상세 정보</h2>
+                  <p className="text-sm text-gray-600 mt-1">{selectedDispatch.dispatch_number}</p>
+                </div>
+                <button
+                  onClick={() => setShowModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-6 space-y-6">
+                {/* 기본 정보 */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">배차 상태</label>
+                    <div className="mt-1">{getStatusBadge(selectedDispatch.status)}</div>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">배차 일자</label>
+                    <p className="mt-1 text-gray-900">
+                      {selectedDispatch.dispatch_date
+                        ? new Date(selectedDispatch.dispatch_date).toLocaleDateString('ko-KR')
+                        : '-'}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">차량 번호</label>
+                    <p className="mt-1 text-gray-900">{selectedDispatch.vehicle_plate || '-'}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">기사명</label>
+                    <p className="mt-1 text-gray-900">{selectedDispatch.driver_name || '-'}</p>
+                  </div>
+                </div>
+
+                {/* 배송 정보 */}
+                <div className="border-t border-gray-200 pt-4">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <Package size={20} className="mr-2" />
+                    배송 정보
+                  </h3>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <label className="text-sm font-medium text-gray-700">총 거리</label>
+                      <p className="mt-1 text-gray-900">
+                        {selectedDispatch.distance_km != null
+                          ? `${selectedDispatch.distance_km.toFixed(1)} km`
+                          : '-'}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-700">예상 도착</label>
+                      <p className="mt-1 text-gray-900">
+                        {selectedDispatch.estimated_arrival
+                          ? new Date(selectedDispatch.estimated_arrival).toLocaleString('ko-KR')
+                          : '-'}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-700">주문 번호</label>
+                      <p className="mt-1 text-gray-900">{selectedDispatch.order_number || '-'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 위치 정보 */}
+                {selectedDispatch.current_location_lat && selectedDispatch.current_location_lon && (
+                  <div className="border-t border-gray-200 pt-4">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                      <MapPin size={20} className="mr-2" />
+                      현재 위치
+                    </h3>
+                    <div className="h-64 rounded-lg overflow-hidden">
+                      <MapContainer
+                        center={[selectedDispatch.current_location_lat, selectedDispatch.current_location_lon]}
+                        zoom={13}
+                        style={{ height: '100%', width: '100%' }}
+                      >
+                        <TileLayer
+                          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                        />
+                        <Marker position={[selectedDispatch.current_location_lat, selectedDispatch.current_location_lon]}>
+                          <Popup>
+                            <div className="p-2">
+                              <p className="font-semibold">{selectedDispatch.dispatch_number}</p>
+                              <p className="text-sm text-gray-600">{selectedDispatch.vehicle_plate}</p>
+                            </div>
+                          </Popup>
+                        </Marker>
+                      </MapContainer>
+                    </div>
+                  </div>
+                )}
+
+                {/* 상태별 안내 */}
+                {selectedDispatch.status === '임시저장' && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-start">
+                    <AlertCircle className="text-yellow-600 mr-3 flex-shrink-0" size={20} />
+                    <div>
+                      <p className="text-sm font-medium text-yellow-800">임시저장 상태</p>
+                      <p className="text-sm text-yellow-700 mt-1">
+                        이 배차는 아직 확정되지 않았습니다. 확정하려면 체크박스를 선택하고 '선택 배차 확정' 버튼을 클릭하세요.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200">
+                <button
+                  onClick={() => setShowModal(false)}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg"
+                >
+                  닫기
+                </button>
+                {selectedDispatch.status === '임시저장' && (
+                  <button
+                    onClick={() => {
+                      setSelectedIds([selectedDispatch.id]);
+                      setShowModal(false);
+                      setTimeout(() => handleConfirmSelected(), 100);
+                    }}
+                    className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg flex items-center"
+                  >
+                    <CheckCircle size={16} className="mr-2" />
+                    이 배차 확정
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </Layout>
   );
