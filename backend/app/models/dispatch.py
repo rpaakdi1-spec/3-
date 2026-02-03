@@ -11,7 +11,7 @@ class DispatchStatus(str, Enum):
     DRAFT = "임시저장"
     CONFIRMED = "확정"
     IN_PROGRESS = "진행중"
-    COMPLETED = "완료"
+    COMPLETED = "배차완료"
     CANCELLED = "취소"
 
 
