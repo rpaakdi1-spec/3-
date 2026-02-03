@@ -271,10 +271,11 @@ const OptimizationPage: React.FC = () => {
           toast.error(`${response.failed}건 확정 실패`);
         }
         
-        // 2초 후 배차 관리 페이지로 이동
+        // 3초 후 배차 관리 페이지로 이동 (DB 커밋 대기)
         setTimeout(() => {
-          window.location.href = '/dispatches';
-        }, 2000);
+          // 타임스탬프를 추가하여 캐시 방지 및 강제 새로고침
+          window.location.href = `/dispatches?refresh=${Date.now()}`;
+        }, 3000);
       } else {
         toast.error('배차 확정에 실패했습니다.');
       }
