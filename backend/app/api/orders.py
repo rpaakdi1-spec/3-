@@ -152,11 +152,24 @@ def update_order(
     
     # Update fields
     update_data = order_data.model_dump(exclude_unset=True)
+    
+    # Debug logging for time fields
+    time_fields = ['pickup_start_time', 'pickup_end_time', 'delivery_start_time', 'delivery_end_time']
+    for field in time_fields:
+        if field in update_data:
+            logger.info(f"🕐 Updating {field}: {update_data[field]} (type: {type(update_data[field])})")
+    
     for field, value in update_data.items():
         setattr(order, field, value)
     
     db.commit()
     db.refresh(order)
+    
+    # Verify time fields after commit
+    for field in time_fields:
+        if hasattr(order, field):
+            value = getattr(order, field)
+            logger.info(f"✅ After commit {field}: {value} (type: {type(value)})")
     
     # Add client info (Pydantic's field_serializer will handle time conversion)
     order.pickup_client_name = order.pickup_client.name if order.pickup_client else None
