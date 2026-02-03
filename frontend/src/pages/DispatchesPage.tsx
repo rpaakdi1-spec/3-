@@ -23,8 +23,8 @@ const DispatchesPage: React.FC = () => {
 
   const fetchDispatches = async () => {
     try {
-      // Backend expects Korean enum values
-      const response = await apiClient.getDispatches({ status: '진행중' });
+      // Fetch all dispatches (no status filter to show drafts too)
+      const response = await apiClient.getDispatches({});
       setDispatches(response.items || response);
       setSelectedIds([]);
       if (loading) setLoading(false);
@@ -76,6 +76,50 @@ const DispatchesPage: React.FC = () => {
       fetchDispatches();
     } catch (error) {
       toast.error('일괄 삭제에 실패했습니다');
+    }
+  };
+
+  const handleConfirmSelected = async () => {
+    if (selectedIds.length === 0) {
+      toast.error('확정할 배차를 선택해주세요');
+      return;
+    }
+
+    // Filter only DRAFT dispatches
+    const draftDispatches = dispatches.filter(d => 
+      selectedIds.includes(d.id) && d.status === '임시저장'
+    );
+
+    if (draftDispatches.length === 0) {
+      toast.error('임시저장 상태의 배차만 확정할 수 있습니다');
+      return;
+    }
+
+    if (!window.confirm(`선택한 ${draftDispatches.length}개의 배차를 확정하시겠습니까?\n\n확정 후에는 수정/삭제가 불가능합니다.`)) {
+      return;
+    }
+
+    try {
+      const response = await apiClient.confirmDispatches(draftDispatches.map(d => d.id));
+      
+      if (response.confirmed > 0) {
+        toast.success(
+          `✅ ${response.confirmed}건의 배차가 확정되었습니다!\n` +
+          `주문 상태가 '배차완료'로 변경되었습니다.`
+        );
+        
+        if (response.failed > 0) {
+          toast.error(`${response.failed}건 확정 실패`);
+        }
+        
+        fetchDispatches();
+        setSelectedIds([]);
+      } else {
+        toast.error('배차 확정에 실패했습니다');
+      }
+    } catch (error: any) {
+      console.error('배차 확정 실패:', error);
+      toast.error(error.response?.data?.detail || '배차 확정에 실패했습니다');
     }
   };
 
@@ -205,13 +249,22 @@ const DispatchesPage: React.FC = () => {
               <span className="text-sm text-gray-600">
                 {selectedIds.length}개 항목 선택됨
               </span>
-              <button 
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg flex items-center text-sm"
-                onClick={handleBulkDelete}
-              >
-                <Trash2 size={16} className="mr-2" />
-                선택 항목 삭제
-              </button>
+              <div className="flex space-x-3">
+                <button 
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg flex items-center text-sm font-medium"
+                  onClick={handleConfirmSelected}
+                >
+                  <CheckCircle size={16} className="mr-2" />
+                  선택 배차 확정 ({dispatches.filter(d => selectedIds.includes(d.id) && d.status === '임시저장').length}건)
+                </button>
+                <button 
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg flex items-center text-sm"
+                  onClick={handleBulkDelete}
+                >
+                  <Trash2 size={16} className="mr-2" />
+                  선택 항목 삭제
+                </button>
+              </div>
             </div>
           </Card>
         )}
