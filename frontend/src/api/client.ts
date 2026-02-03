@@ -139,6 +139,11 @@ class ApiClient {
     return response.data;
   }
 
+  async confirmDispatches(dispatchIds: number[]) {
+    const response = await this.client.post('/dispatches/confirm', { dispatch_ids: dispatchIds });
+    return response.data;
+  }
+
   // Vehicles
   async getVehicles(params?: any) {
     const response = await this.client.get('/vehicles', { params });
