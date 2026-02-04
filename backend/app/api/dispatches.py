@@ -131,12 +131,23 @@ def get_dispatches(
         if item.driver:
             item.driver_name = item.driver.name
         
-        # Add order numbers (comma-separated)
+        # Add order numbers and addresses (comma-separated)
         order_numbers = []
+        pickup_addresses = []
+        delivery_addresses = []
+        
         for route in item.routes:
             if route.order_id and route.order:
                 order_numbers.append(route.order.order_number)
+                if route.route_type == 'PICKUP' and route.order.pickup_address:
+                    pickup_addresses.append(route.order.pickup_address)
+                elif route.route_type == 'DELIVERY' and route.order.delivery_address:
+                    delivery_addresses.append(route.order.delivery_address)
+        
         item.order_numbers = ", ".join(order_numbers) if order_numbers else None
+        # Add pickup/delivery addresses as dynamic attributes
+        item.pickup_address = ", ".join(set(pickup_addresses)) if pickup_addresses else None
+        item.delivery_address = ", ".join(set(delivery_addresses)) if delivery_addresses else None
     
     return DispatchListResponse(total=total, items=items)
 
@@ -202,21 +213,38 @@ def delete_dispatch(dispatch_id: int, db: Session = Depends(get_db)):
             detail="확정되었거나 진행 중인 배차는 삭제할 수 없습니다"
         )
     
-    # Reset order statuses
-    for route in dispatch.routes:
-        if route.order:
-            route.order.status = OrderStatus.PENDING
-    
-    # Reset vehicle status to AVAILABLE if it was IN_USE
-    if dispatch.vehicle and dispatch.vehicle.status == VehicleStatus.IN_USE:
-        dispatch.vehicle.status = VehicleStatus.AVAILABLE
-        logger.info(f"Vehicle {dispatch.vehicle.code} status reset to AVAILABLE")
-    
-    db.delete(dispatch)
-    db.commit()
-    
-    logger.info(f"Deleted dispatch: {dispatch.dispatch_number}")
-    return {"message": "배차가 삭제되었습니다"}
+    try:
+        # Reset order statuses - load orders explicitly
+        for route in dispatch.routes:
+            if route.order_id:
+                order = db.query(Order).filter(Order.id == route.order_id).first()
+                if order:
+                    order.status = OrderStatus.PENDING
+                    logger.info(f"Reset order {order.order_number} status to PENDING")
+        
+        # Reset vehicle status to AVAILABLE if it was IN_USE
+        if dispatch.vehicle and dispatch.vehicle.status == VehicleStatus.IN_USE:
+            dispatch.vehicle.status = VehicleStatus.AVAILABLE
+            logger.info(f"Vehicle {dispatch.vehicle.code} status reset to AVAILABLE")
+        
+        # Delete all routes first (cascade)
+        for route in list(dispatch.routes):
+            db.delete(route)
+        
+        # Then delete the dispatch
+        db.delete(dispatch)
+        db.commit()
+        
+        logger.info(f"Deleted dispatch: {dispatch.dispatch_number}")
+        return {"message": "배차가 삭제되었습니다"}
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to delete dispatch {dispatch_id}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"배차 삭제 중 오류가 발생했습니다: {str(e)}"
+        )
 
 
 @router.post("/confirm")
