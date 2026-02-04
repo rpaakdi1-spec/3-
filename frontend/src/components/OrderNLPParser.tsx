@@ -87,7 +87,19 @@ const OrderNLPParser: React.FC = () => {
       return;
     }
 
-    const ordersToCreate = parseResult.orders.filter((_, idx) => selectedOrders.has(idx));
+    const ordersToCreate = parseResult.orders
+      .filter((_, idx) => selectedOrders.has(idx))
+      .map((order, idx) => ({
+        ...order,
+        // Generate unique order number if missing
+        order_number: order.order_number || `NLP-${Date.now()}-${idx + 1}`,
+        // Ensure all required fields are present
+        pallet_count: order.pallet_count || 1,
+        temperature_zone: order.temperature_zone || 'AMBIENT',
+        // Set default values for optional fields that may be missing
+        weight_kg: order.weight_kg || 0,
+        volume_cbm: order.volume_cbm || 0,
+      }));
     
     try {
       setIsLoading(true);
@@ -101,7 +113,8 @@ const OrderNLPParser: React.FC = () => {
       window.location.href = '/orders';
     } catch (error: any) {
       console.error('주문 생성 실패:', error);
-      alert('주문 생성 중 오류가 발생했습니다.');
+      const errorMessage = error.response?.data?.detail || error.message || '주문 생성 중 오류가 발생했습니다.';
+      alert(`주문 생성 실패: ${errorMessage}`);
     } finally {
       setIsLoading(false);
     }
