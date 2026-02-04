@@ -174,17 +174,25 @@ async def create_order(order_data: OrderCreate, db: Session = Depends(get_db)):
             raise HTTPException(status_code=404, detail="상차 거래처를 찾을 수 없습니다")
     elif order_data.pickup_address:
         # 주소로 입력한 경우 - Naver 지오코딩
-        naver_service = NaverMapService()
-        full_address = f"{order_data.pickup_address} {order_data.pickup_address_detail or ''}".strip()
-        latitude, longitude, error = await naver_service.geocode_address(full_address)
-        
-        if latitude and longitude:
-            # 위경도 저장
-            order_dict['pickup_latitude'] = latitude
-            order_dict['pickup_longitude'] = longitude
-            logger.info(f"Geocoded pickup address: {full_address} -> ({latitude}, {longitude})")
-        else:
-            logger.warning(f"Failed to geocode pickup address: {full_address}, error: {error}")
+        try:
+            naver_service = NaverMapService()
+            full_address = f"{order_data.pickup_address} {order_data.pickup_address_detail or ''}".strip()
+            result = await naver_service.geocode_address(full_address)
+            
+            if result and len(result) == 3:
+                latitude, longitude, error = result
+                if latitude and longitude:
+                    # 위경도 저장
+                    order_dict['pickup_latitude'] = latitude
+                    order_dict['pickup_longitude'] = longitude
+                    logger.info(f"Geocoded pickup address: {full_address} -> ({latitude}, {longitude})")
+                else:
+                    logger.warning(f"Failed to geocode pickup address: {full_address}, error: {error}")
+            else:
+                logger.warning(f"Geocoding returned None for pickup address: {full_address}")
+        except Exception as e:
+            logger.error(f"Error during pickup geocoding: {str(e)}")
+            # Continue without geocoding
     else:
         raise HTTPException(status_code=400, detail="상차 거래처 ID 또는 주소를 입력해주세요")
     
@@ -194,15 +202,25 @@ async def create_order(order_data: OrderCreate, db: Session = Depends(get_db)):
             raise HTTPException(status_code=404, detail="하차 거래처를 찾을 수 없습니다")
     elif order_data.delivery_address:
         # 주소로 입력한 경우 - Naver 지오코딩
-        naver_service = NaverMapService()
-        full_address = f"{order_data.delivery_address} {order_data.delivery_address_detail or ''}".strip()
-        latitude, longitude, error = await naver_service.geocode_address(full_address)
-        
-        if latitude and longitude:
-            # 위경도 저장
-            order_dict['delivery_latitude'] = latitude
-            order_dict['delivery_longitude'] = longitude
-            logger.info(f"Geocoded delivery address: {full_address} -> ({latitude}, {longitude})")
+        try:
+            naver_service = NaverMapService()
+            full_address = f"{order_data.delivery_address} {order_data.delivery_address_detail or ''}".strip()
+            result = await naver_service.geocode_address(full_address)
+            
+            if result and len(result) == 3:
+                latitude, longitude, error = result
+                if latitude and longitude:
+                    # 위경도 저장
+                    order_dict['delivery_latitude'] = latitude
+                    order_dict['delivery_longitude'] = longitude
+                    logger.info(f"Geocoded delivery address: {full_address} -> ({latitude}, {longitude})")
+                else:
+                    logger.warning(f"Failed to geocode delivery address: {full_address}, error: {error}")
+            else:
+                logger.warning(f"Geocoding returned None for delivery address: {full_address}")
+        except Exception as e:
+            logger.error(f"Error during delivery geocoding: {str(e)}")
+            # Continue without geocoding
         else:
             logger.warning(f"Failed to geocode delivery address: {full_address}, error: {error}")
     else:
