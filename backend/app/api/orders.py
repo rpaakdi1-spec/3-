@@ -221,8 +221,6 @@ async def create_order(order_data: OrderCreate, db: Session = Depends(get_db)):
         except Exception as e:
             logger.error(f"Error during delivery geocoding: {str(e)}")
             # Continue without geocoding
-        else:
-            logger.warning(f"Failed to geocode delivery address: {full_address}, error: {error}")
     else:
         raise HTTPException(status_code=400, detail="하차 거래처 ID 또는 주소를 입력해주세요")
     
