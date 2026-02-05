@@ -14,6 +14,7 @@ from .fcm_token import FCMToken, PushNotificationLog
 from .security import TwoFactorAuth, TwoFactorLog, AuditLog, SecurityAlert
 from .ai_chat_history import AIChatHistory
 from .ai_usage_log import AIUsageLog
+from .recurring_order import RecurringOrder
 
 __all__ = [
     "Base",
@@ -43,4 +44,5 @@ __all__ = [
     "SecurityAlert",
     "AIChatHistory",
     "AIUsageLog",
+    "RecurringOrder",
 ]
