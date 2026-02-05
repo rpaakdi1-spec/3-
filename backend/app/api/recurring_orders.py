@@ -2,7 +2,7 @@
 Recurring Orders API
 정기 주문 API 엔드포인트
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from typing import Optional
 from datetime import date
@@ -16,6 +16,7 @@ from app.schemas.recurring_order import (
     RecurringOrderResponse,
     RecurringOrderListResponse
 )
+from app.services.recurring_order_generator import RecurringOrderGeneratorService
 
 router = APIRouter(prefix="/recurring-orders", tags=["Recurring Orders"])
 
@@ -179,3 +180,64 @@ def toggle_recurring_order(
         logger.error(f"Error toggling recurring order: {e}")
         db.rollback()
         raise HTTPException(status_code=500, detail="정기 주문 상태 변경 중 오류가 발생했습니다")
+
+
+@router.post("/generate", status_code=status.HTTP_200_OK)
+def generate_orders_from_recurring(
+    target_date: Optional[str] = Query(None, description="생성할 날짜 (YYYY-MM-DD, 기본값: 오늘)"),
+    db: Session = Depends(get_db)
+):
+    """정기 주문에서 실제 주문 생성 (수동 실행)
+    
+    오늘 또는 특정 날짜에 생성되어야 할 정기 주문들을 실제 주문으로 생성합니다.
+    스케줄러가 자동 실행하는 것과 동일한 작업을 수동으로 실행할 수 있습니다.
+    """
+    try:
+        # 날짜 파싱
+        generation_date = None
+        if target_date:
+            try:
+                generation_date = date.fromisoformat(target_date)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="잘못된 날짜 형식입니다 (YYYY-MM-DD)")
+        
+        # 주문 생성
+        result = RecurringOrderGeneratorService.generate_orders_for_date(db, generation_date)
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error generating orders from recurring: {e}")
+        raise HTTPException(status_code=500, detail="정기 주문 생성 중 오류가 발생했습니다")
+
+
+@router.get("/preview", status_code=status.HTTP_200_OK)
+def preview_recurring_order_generation(
+    target_date: Optional[str] = Query(None, description="확인할 날짜 (YYYY-MM-DD, 기본값: 오늘)"),
+    db: Session = Depends(get_db)
+):
+    """정기 주문 생성 미리보기
+    
+    특정 날짜에 생성될 정기 주문 목록을 미리 확인합니다 (실제 생성하지 않음).
+    """
+    try:
+        # 날짜 파싱
+        check_date = None
+        if target_date:
+            try:
+                check_date = date.fromisoformat(target_date)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="잘못된 날짜 형식입니다 (YYYY-MM-DD)")
+        
+        # 미리보기
+        result = RecurringOrderGeneratorService.preview_generation(db, check_date)
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error previewing recurring order generation: {e}")
+        raise HTTPException(status_code=500, detail="미리보기 중 오류가 발생했습니다")

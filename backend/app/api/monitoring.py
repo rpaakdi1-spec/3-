@@ -331,3 +331,25 @@ async def test_alert(
         "results": results,
         "message": "테스트 알림이 전송되었습니다"
     }
+
+
+@router.get(
+    "/scheduler/status",
+    summary="스케줄러 상태 조회",
+    description="백그라운드 스케줄러 작업 상태를 확인합니다"
+)
+async def get_scheduler_status():
+    """
+    스케줄러 상태 조회
+    
+    실행 중인 스케줄 작업 목록과 다음 실행 시간을 확인합니다.
+    """
+    from app.services.scheduler_service import scheduler_service
+    
+    jobs = scheduler_service.get_jobs()
+    
+    return {
+        "status": "running" if scheduler_service.scheduler.running else "stopped",
+        "jobs": jobs,
+        "total_jobs": len(jobs)
+    }

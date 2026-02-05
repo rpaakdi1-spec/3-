@@ -56,12 +56,19 @@ async def lifespan(app: FastAPI):
     await manager.initialize()
     await metrics_service.start()
     
+    # Start scheduler service
+    logger.info("Starting scheduler service...")
+    from app.services.scheduler_service import scheduler_service
+    await scheduler_service.start()
+    
     logger.info("Application startup complete!")
     
     yield
     
     # Shutdown
     logger.info("Shutting down application...")
+    from app.services.scheduler_service import scheduler_service
+    await scheduler_service.stop()
     await metrics_service.stop()
     await manager.shutdown()
 
