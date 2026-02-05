@@ -9,6 +9,8 @@ import apiClient from '../api/client';
 import { Client } from '../types';
 import { Building2, Plus, Edit, Upload, Download, Trash2, FileSpreadsheet } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useResponsive } from '../hooks/useResponsive';
+import { MobileClientCard } from '../components/mobile/MobileClientCard';
 
 const ClientsPage: React.FC = () => {
   const [clients, setClients] = useState<Client[]>([]);
@@ -34,6 +36,7 @@ const ClientsPage: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [uploading, setUploading] = useState(false);
+  const { isMobile } = useResponsive();
 
   const fetchClients = useCallback(async () => {
     try {
@@ -315,39 +318,78 @@ const ClientsPage: React.FC = () => {
           </Card>
         )}
 
-        {/* Clients Table */}
-        <Card>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="w-12 py-3 px-4">
-                    <input
-                      type="checkbox"
-                      checked={clients.length > 0 && selectedIds.length === clients.length}
-                      onChange={handleSelectAll}
-                      className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-                    />
-                  </th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">거래처명</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">사업자번호</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">담당자</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">연락처</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">이메일</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">상태</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">작업</th>
-                </tr>
-              </thead>
-              <tbody>
-                {clients.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="text-center py-8 text-gray-500">
-                      <Building2 size={48} className="mx-auto mb-4 text-gray-300" />
-                      <p>등록된 거래처가 없습니다</p>
-                    </td>
+        {/* Clients Table/Cards */}
+        {isMobile ? (
+          /* Mobile View */
+          <div className="px-4 space-y-3">
+            {clients.length === 0 ? (
+              <div className="text-center py-12">
+                <Building2 size={48} className="mx-auto mb-4 text-gray-300" />
+                <p className="text-gray-600">등록된 거래처가 없습니다</p>
+              </div>
+            ) : (
+              clients.map((client) => (
+                <MobileClientCard
+                  key={client.id}
+                  client={{
+                    id: client.id,
+                    name: client.name,
+                    business_number: client.business_number,
+                    contact_person: client.contact_person,
+                    phone: client.phone,
+                    email: client.email,
+                    address: client.address,
+                    is_active: client.is_active,
+                  }}
+                  onEdit={() => openEditModal(client)}
+                  onCall={() => window.location.href = `tel:${client.phone}`}
+                  onEmail={() => {
+                    if (client.email) {
+                      window.location.href = `mailto:${client.email}`;
+                    }
+                  }}
+                  onViewMap={() => {
+                    const query = encodeURIComponent(client.address);
+                    window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank');
+                  }}
+                />
+              ))
+            )}
+          </div>
+        ) : (
+          /* Desktop Table View */
+          <Card>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    <th className="w-12 py-3 px-4">
+                      <input
+                        type="checkbox"
+                        checked={clients.length > 0 && selectedIds.length === clients.length}
+                        onChange={handleSelectAll}
+                        className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                      />
+                    </th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">거래처명</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">사업자번호</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">담당자</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">연락처</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">이메일</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">상태</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">작업</th>
                   </tr>
-                ) : (
-                  clients.map((client) => (
+                </thead>
+                <tbody>
+                  {clients.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="text-center py-8 text-gray-500">
+                        <Building2 size={48} className="mx-auto mb-4 text-gray-300" />
+                        <p>등록된 거래처가 없습니다</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    clients.map((client) => (
                     <tr key={client.id} className="border-b border-gray-100 hover:bg-gray-50">
                       <td className="py-3 px-4">
                         <input
@@ -394,6 +436,7 @@ const ClientsPage: React.FC = () => {
             </table>
           </div>
         </Card>
+        )}
 
         {/* Client Modal */}
         <Modal

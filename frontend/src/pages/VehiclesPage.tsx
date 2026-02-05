@@ -7,6 +7,8 @@ import Button from '../components/common/Button';
 import Input from '../components/common/Input';
 import Loading from '../components/common/Loading';
 import { vehiclesAPI } from '../services/api';
+import { useResponsive } from '../hooks/useResponsive';
+import { MobileVehicleCard } from '../components/mobile/MobileVehicleCard';
 
 interface Vehicle {
   id: number;
@@ -50,6 +52,7 @@ const VehiclesPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [uploading, setUploading] = useState(false);
+  const { isMobile } = useResponsive();
   
   const [formData, setFormData] = useState({
     code: '',
@@ -426,8 +429,49 @@ const VehiclesPage: React.FC = () => {
         </Card>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredVehicles.map((vehicle) => (
+      {/* Vehicle Cards - Mobile/Desktop Views */}
+      {isMobile ? (
+        /* Mobile View */
+        <div className="px-4 space-y-3">
+          {filteredVehicles.length === 0 ? (
+            <div className="text-center py-12">
+              <Truck size={48} className="mx-auto text-gray-400 mb-4" />
+              <p className="text-gray-600">등록된 차량이 없습니다</p>
+            </div>
+          ) : (
+            filteredVehicles.map((vehicle) => (
+              <MobileVehicleCard
+                key={vehicle.id}
+                vehicle={{
+                  id: vehicle.id,
+                  license_plate: vehicle.plate_number,
+                  vehicle_type: vehicle.vehicle_type,
+                  capacity_ton: vehicle.tonnage,
+                  temp_min: vehicle.min_temp_celsius,
+                  temp_max: vehicle.max_temp_celsius,
+                  status: vehicle.status,
+                  current_location_lat: vehicle.gps_data?.latitude,
+                  current_location_lon: vehicle.gps_data?.longitude,
+                  last_location_update: vehicle.gps_data?.last_updated,
+                }}
+                onEdit={() => openModal(vehicle)}
+                onViewLocation={() => {
+                  if (vehicle.gps_data?.latitude && vehicle.gps_data?.longitude) {
+                    window.open(
+                      `https://www.google.com/maps/search/?api=1&query=${vehicle.gps_data.latitude},${vehicle.gps_data.longitude}`,
+                      '_blank'
+                    );
+                  }
+                }}
+              />
+            ))
+          )}
+        </div>
+      ) : (
+        /* Desktop View */
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredVehicles.map((vehicle) => (
           <Card 
             key={vehicle.id} 
             className={`hover:shadow-lg transition-shadow relative ${
@@ -624,6 +668,8 @@ const VehiclesPage: React.FC = () => {
           <Truck size={48} className="mx-auto text-gray-400 mb-4" />
           <p className="text-gray-600">등록된 차량이 없습니다</p>
         </div>
+      )}
+        </>
       )}
 
       {/* Modal */}
