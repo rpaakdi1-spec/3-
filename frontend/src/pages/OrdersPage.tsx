@@ -11,6 +11,8 @@ import { Package, Plus, Search, Filter, Upload, Download, Trash2, Edit2, FileSpr
 import toast from 'react-hot-toast';
 import OrderNLPParser from '../components/OrderNLPParser';
 import VoiceOrderInput from '../components/orders/VoiceOrderInput';
+import { useResponsive } from '../hooks/useResponsive';
+import { MobileOrderCard } from '../components/mobile/MobileOrderCard';
 
 const OrdersPage: React.FC = () => {
   const navigate = useNavigate();
@@ -26,6 +28,7 @@ const OrdersPage: React.FC = () => {
   const [endDate, setEndDate] = useState('');
   const [nlpModalOpen, setNlpModalOpen] = useState(false);
   const [voiceModalOpen, setVoiceModalOpen] = useState(false);
+  const { isMobile } = useResponsive();
 
   useEffect(() => {
     fetchOrders();
@@ -438,116 +441,141 @@ const OrdersPage: React.FC = () => {
         )}
 
         {/* Orders Table */}
-        <Card>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="w-12 py-3 px-4">
-                    <input
-                      type="checkbox"
-                      checked={filteredOrders.length > 0 && selectedIds.length === filteredOrders.length}
-                      onChange={handleSelectAll}
-                      className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-                    />
-                  </th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">주문번호</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">상차 날짜/시간</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">거래처</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">상차지</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">하차지</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">화물유형</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">팔레트</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">상태</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">작업</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredOrders.length === 0 ? (
-                  <tr>
-                    <td colSpan={10} className="text-center py-8 text-gray-500">
-                      <Package size={48} className="mx-auto mb-4 text-gray-300" />
-                      <p>주문이 없습니다</p>
-                    </td>
-                  </tr>
-                ) : (
-                  filteredOrders.map((order) => {
-                    const isPast = isPastOrder(order);
-                    return (
-                      <tr 
-                        key={order.id} 
-                        className={`border-b border-gray-100 hover:bg-gray-50 ${isPast ? 'bg-red-50' : ''}`}
-                      >
-                        <td className="py-3 px-4">
-                          <input
-                            type="checkbox"
-                            checked={selectedIds.includes(order.id)}
-                            onChange={() => handleSelectOne(order.id)}
-                            className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-                          />
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-blue-600">{order.order_number}</span>
-                            {isPast && (
-                              <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded text-xs font-medium">
-                                지난 오더
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="flex items-center gap-1 text-sm">
-                            <Clock size={14} className="text-gray-400" />
-                            <span>{formatDateTime(order.order_date, order.pickup_start_time)}</span>
-                          </div>
-                          {order.pickup_start_time && order.pickup_end_time && (
-                            <div className="text-xs text-gray-500 mt-1">
-                              {order.pickup_start_time.substring(0, 5)} ~ {order.pickup_end_time.substring(0, 5)}
-                            </div>
-                          )}
-                        </td>
-                        <td className="py-3 px-4">{order.client_name || order.pickup_client_name || order.delivery_client_name || '-'}</td>
-                        <td className="py-3 px-4 max-w-xs truncate">{order.pickup_address || order.pickup_client_name || '-'}</td>
-                        <td className="py-3 px-4 max-w-xs truncate">{order.delivery_address || order.delivery_client_name || '-'}</td>
-                        <td className="py-3 px-4">
-                          <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm">
-                            {order.temperature_zone || order.cargo_type || '-'}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4">{order.pallet_count || 0}개</td>
-                        <td className="py-3 px-4">{getStatusBadge(order.status)}</td>
-                        <td className="py-3 px-4">
-                          <div className="flex space-x-2">
-                            <Button 
-                              size="sm" 
-                              variant="secondary"
-                              onClick={() => {
-                                setSelectedOrder(order);
-                                setModalOpen(true);
-                              }}
-                            >
-                              <Edit2 size={14} className="mr-1" />
-                              수정
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              variant="danger"
-                              onClick={() => handleDelete(order.id)}
-                            >
-                              <Trash2 size={14} className="mr-1" />
-                              삭제
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
+        {isMobile ? (
+          /* Mobile Card View */
+          <div className="px-4 space-y-3">
+            {filteredOrders.length === 0 ? (
+              <div className="text-center py-12">
+                <Package size={48} className="mx-auto mb-4 text-gray-300" />
+                <p className="text-gray-500">주문이 없습니다</p>
+              </div>
+            ) : (
+              filteredOrders.map((order) => (
+                <MobileOrderCard
+                  key={order.id}
+                  order={order}
+                  onEdit={() => {
+                    setSelectedOrder(order);
+                    setModalOpen(true);
+                  }}
+                  onDelete={() => handleDelete(order.id)}
+                />
+              ))
+            )}
           </div>
-        </Card>
+        ) : (
+          /* Desktop Table View */
+          <Card>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    <th className="w-12 py-3 px-4">
+                      <input
+                        type="checkbox"
+                        checked={filteredOrders.length > 0 && selectedIds.length === filteredOrders.length}
+                        onChange={handleSelectAll}
+                        className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                      />
+                    </th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">주문번호</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">상차 날짜/시간</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">거래처</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">상차지</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">하차지</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">화물유형</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">팔레트</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">상태</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">작업</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredOrders.length === 0 ? (
+                    <tr>
+                      <td colSpan={10} className="text-center py-8 text-gray-500">
+                        <Package size={48} className="mx-auto mb-4 text-gray-300" />
+                        <p>주문이 없습니다</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredOrders.map((order) => {
+                      const isPast = isPastOrder(order);
+                      return (
+                        <tr 
+                          key={order.id} 
+                          className={`border-b border-gray-100 hover:bg-gray-50 ${isPast ? 'bg-red-50' : ''}`}
+                        >
+                          <td className="py-3 px-4">
+                            <input
+                              type="checkbox"
+                              checked={selectedIds.includes(order.id)}
+                              onChange={() => handleSelectOne(order.id)}
+                              className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                            />
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-blue-600">{order.order_number}</span>
+                              {isPast && (
+                                <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded text-xs font-medium">
+                                  지난 오더
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-1 text-sm">
+                              <Clock size={14} className="text-gray-400" />
+                              <span>{formatDateTime(order.order_date, order.pickup_start_time)}</span>
+                            </div>
+                            {order.pickup_start_time && order.pickup_end_time && (
+                              <div className="text-xs text-gray-500 mt-1">
+                                {order.pickup_start_time.substring(0, 5)} ~ {order.pickup_end_time.substring(0, 5)}
+                              </div>
+                            )}
+                          </td>
+                          <td className="py-3 px-4">{order.client_name || order.pickup_client_name || order.delivery_client_name || '-'}</td>
+                          <td className="py-3 px-4 max-w-xs truncate">{order.pickup_address || order.pickup_client_name || '-'}</td>
+                          <td className="py-3 px-4 max-w-xs truncate">{order.delivery_address || order.delivery_client_name || '-'}</td>
+                          <td className="py-3 px-4">
+                            <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm">
+                              {order.temperature_zone || order.cargo_type || '-'}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4">{order.pallet_count || 0}개</td>
+                          <td className="py-3 px-4">{getStatusBadge(order.status)}</td>
+                          <td className="py-3 px-4">
+                            <div className="flex space-x-2">
+                              <Button 
+                                size="sm" 
+                                variant="secondary"
+                                onClick={() => {
+                                  setSelectedOrder(order);
+                                  setModalOpen(true);
+                                }}
+                              >
+                                <Edit2 size={14} className="mr-1" />
+                                수정
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="danger"
+                                onClick={() => handleDelete(order.id)}
+                              >
+                                <Trash2 size={14} className="mr-1" />
+                                삭제
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        )}
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
