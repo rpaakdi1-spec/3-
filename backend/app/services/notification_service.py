@@ -15,6 +15,7 @@ from app.schemas.notification import (
     TemplateNotificationRequest
 )
 from app.services.sms_service import sms_service
+from app.services.fcm_service import fcm_service
 
 
 class NotificationService:
@@ -183,11 +184,46 @@ class NotificationService:
         self.db.commit()
     
     async def _send_push(self, notification: Notification):
-        """푸시 알림 발송 (구현 예정)"""
-        logger.warning("⚠️ Push notification not implemented yet")
-        notification.status = NotificationStatus.FAILED
-        notification.error_message = "푸시 알림 기능 준비 중"
-        self.db.commit()
+        """푸시 알림 발송"""
+        if not notification.recipient_device_token:
+            notification.status = NotificationStatus.FAILED
+            notification.error_message = "기기 토큰이 없습니다"
+            self.db.commit()
+            return
+        
+        try:
+            # FCM 푸시 발송
+            result = fcm_service.send_push(
+                token=notification.recipient_device_token,
+                title=notification.title,
+                body=notification.message,
+                data={
+                    "notification_id": str(notification.id),
+                    "notification_type": notification.notification_type.value,
+                    "order_id": str(notification.order_id) if notification.order_id else "",
+                    "dispatch_id": str(notification.dispatch_id) if notification.dispatch_id else "",
+                }
+            )
+            
+            if result["success"]:
+                notification.status = NotificationStatus.SENT
+                notification.sent_at = datetime.utcnow()
+                notification.external_id = result.get("message_id")
+                notification.external_response = result
+                logger.info(f"✅ Push sent: Notification ID={notification.id}, FCM ID={result.get('message_id')}")
+            else:
+                notification.status = NotificationStatus.FAILED
+                notification.error_message = result.get("error")
+                notification.external_response = result
+                logger.error(f"❌ Push failed: Notification ID={notification.id}, Error={result.get('error')}")
+            
+            self.db.commit()
+            
+        except Exception as e:
+            logger.error(f"❌ Push send error: {str(e)}")
+            notification.status = NotificationStatus.FAILED
+            notification.error_message = str(e)
+            self.db.commit()
     
     async def _send_email(self, notification: Notification):
         """이메일 발송 (구현 예정)"""
