@@ -40,6 +40,7 @@ const Sidebar: React.FC = () => {
     { path: '/realtime', label: '실시간 모니터링', icon: Radio, roles: ['ADMIN', 'DISPATCHER'] },
     { path: '/temperature-monitoring', label: '온도 모니터링', icon: Thermometer, roles: ['ADMIN', 'DISPATCHER'] },
     { path: '/temperature-analytics', label: '온도 분석', icon: BarChart3, roles: ['ADMIN', 'DISPATCHER'] },
+    { path: '/billing', label: '청구/정산', icon: DollarSign, roles: ['ADMIN', 'DISPATCHER'] },
     { path: '/vehicles', label: '차량 관리', icon: Truck, roles: ['ADMIN', 'DISPATCHER'] },
     { path: '/clients', label: '거래처 관리', icon: Building2, roles: ['ADMIN', 'DISPATCHER'] },
     { path: '/analytics', label: '통계/분석', icon: BarChart3, roles: ['ADMIN'] },

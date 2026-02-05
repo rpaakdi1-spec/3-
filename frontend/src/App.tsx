@@ -29,6 +29,7 @@ const ABTestMonitorPage = lazy(() => import('./pages/ABTestMonitorPage'));
 const RecurringOrdersPage = lazy(() => import('./pages/RecurringOrdersPage'));
 const TemperatureMonitoringPage = lazy(() => import('./pages/TemperatureMonitoringPage'));
 const TemperatureAnalyticsPage = lazy(() => import('./pages/TemperatureAnalyticsPage'));
+const BillingPage = lazy(() => import('./pages/BillingPage'));
 
 // Protected Route Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -266,6 +267,14 @@ const App: React.FC = () => {
               element={
                 <ProtectedRoute>
                   <TemperatureAnalyticsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/billing"
+              element={
+                <ProtectedRoute>
+                  <BillingPage />
                 </ProtectedRoute>
               }
             />
