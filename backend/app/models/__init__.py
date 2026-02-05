@@ -1,10 +1,10 @@
 from .base import Base
 from .user import User
 from .client import Client
-from .vehicle import Vehicle
+from .vehicle import Vehicle, VehicleType, VehicleStatus
 from .driver import Driver
-from .order import Order
-from .dispatch import Dispatch, DispatchRoute
+from .order import Order, OrderStatus
+from .dispatch import Dispatch, DispatchRoute, DispatchStatus
 from .vehicle_location import VehicleLocation, TemperatureAlert
 from .notice import Notice
 from .purchase_order import PurchaseOrder
@@ -34,10 +34,14 @@ __all__ = [
     "User",
     "Client",
     "Vehicle",
+    "VehicleType",
+    "VehicleStatus",
     "Driver",
     "Order",
+    "OrderStatus",
     "Dispatch",
     "DispatchRoute",
+    "DispatchStatus",
     "VehicleLocation",
     "TemperatureAlert",
     "Notice",

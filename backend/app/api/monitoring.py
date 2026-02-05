@@ -14,7 +14,7 @@ from typing import List, Optional
 
 from app.core.database import get_db
 from app.services.monitoring_service import MonitoringService
-from app.services.notification_service import NotificationService, NotificationLevel
+from app.services.notification_service import NotificationService
 from pydantic import BaseModel, Field
 
 router = APIRouter()
@@ -24,7 +24,7 @@ class AlertRequest(BaseModel):
     """알림 전송 요청"""
     title: str = Field(..., description="알림 제목")
     message: str = Field(..., description="알림 내용")
-    level: str = Field(NotificationLevel.INFO, description="알림 레벨")
+    level: str = Field("INFO", description="알림 레벨")
     channels: List[str] = Field(default=["slack"], description="전송 채널")
     email_recipients: Optional[List[str]] = Field(None, description="이메일 수신자")
     sms_recipients: Optional[List[str]] = Field(None, description="SMS 수신자")
