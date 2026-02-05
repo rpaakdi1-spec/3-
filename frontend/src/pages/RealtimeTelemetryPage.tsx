@@ -284,7 +284,7 @@ const RealtimeTelemetryPage: React.FC = () => {
               <PlayCircle className="w-5 h-5 text-green-500" />
             </div>
             <p className="text-2xl font-bold text-green-600">{summary.moving}</p>
-            <p className="text-xs text-gray-500 mt-1">속도 > 5 km/h</p>
+            <p className="text-xs text-gray-500 mt-1">속도 &gt; 5 km/h</p>
           </div>
 
           <div className="bg-white rounded-lg shadow p-6">
@@ -293,7 +293,7 @@ const RealtimeTelemetryPage: React.FC = () => {
               <StopCircle className="w-5 h-5 text-yellow-500" />
             </div>
             <p className="text-2xl font-bold text-yellow-600">{summary.idle}</p>
-            <p className="text-xs text-gray-500 mt-1">속도 ≤ 5 km/h</p>
+            <p className="text-xs text-gray-500 mt-1">속도 &le; 5 km/h</p>
           </div>
 
           <div className="bg-white rounded-lg shadow p-6">
