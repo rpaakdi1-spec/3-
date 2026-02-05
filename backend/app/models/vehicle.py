@@ -113,6 +113,9 @@ class Vehicle(Base, IDMixin, TimestampMixin):
     temperature_alerts = relationship("TemperatureAlert", back_populates="vehicle", cascade="all, delete-orphan")
     gps_logs = relationship("VehicleGPSLog", back_populates="vehicle", cascade="all, delete-orphan")
     temperature_logs = relationship("VehicleTemperatureLog", back_populates="vehicle", cascade="all, delete-orphan")
+    maintenance_records = relationship("VehicleMaintenanceRecord", back_populates="vehicle", cascade="all, delete-orphan", order_by="desc(VehicleMaintenanceRecord.scheduled_date)")
+    maintenance_schedules = relationship("MaintenanceSchedule", back_populates="vehicle", cascade="all, delete-orphan", order_by="MaintenanceSchedule.next_maintenance_date")
+    inspections = relationship("VehicleInspection", back_populates="vehicle", cascade="all, delete-orphan")
     
     def __repr__(self):
         return f"<Vehicle(code={self.code}, plate={self.plate_number}, type={self.vehicle_type})>"
