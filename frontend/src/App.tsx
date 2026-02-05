@@ -26,6 +26,7 @@ const ReportsPage = lazy(() => import('./pages/ReportsPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const MLTrainingPage = lazy(() => import('./pages/MLTrainingPage'));
 const ABTestMonitorPage = lazy(() => import('./pages/ABTestMonitorPage'));
+const RecurringOrdersPage = lazy(() => import('./pages/RecurringOrdersPage'));
 
 // Protected Route Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -143,6 +144,14 @@ const App: React.FC = () => {
               element={
                 <ProtectedRoute>
                   <OrderCalendarPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/recurring-orders"
+              element={
+                <ProtectedRoute>
+                  <RecurringOrdersPage />
                 </ProtectedRoute>
               }
             />
