@@ -48,6 +48,19 @@ class Dispatch(Base, IDMixin, TimestampMixin):
         comment="배차 상태"
     )
     
+    # 스케줄링 (Phase 3-C Part D)
+    is_scheduled: Mapped[bool] = mapped_column(default=False, index=True, comment="예약 배차 여부")
+    scheduled_for_date: Mapped[Optional[date]] = mapped_column(Date, index=True, comment="예약된 배차일 (미래)")
+    auto_confirm_at: Mapped[Optional[str]] = mapped_column(String(5), comment="자동 확정 시간 (HH:MM)")
+    is_recurring: Mapped[bool] = mapped_column(default=False, comment="정기 배차 여부")
+    recurring_pattern: Mapped[Optional[str]] = mapped_column(String(50), comment="반복 패턴 (WEEKLY, MONTHLY)")
+    recurring_days: Mapped[Optional[str]] = mapped_column(String(100), comment="반복 요일/날짜 (JSON)")
+    
+    # 긴급 배차 (Phase 3-C Part D)
+    is_urgent: Mapped[bool] = mapped_column(default=False, index=True, comment="긴급 배차 여부")
+    urgency_level: Mapped[Optional[int]] = mapped_column(Integer, comment="긴급도 (1-5)")
+    urgent_reason: Mapped[Optional[str]] = mapped_column(Text, comment="긴급 사유")
+    
     # AI 최적화 정보
     optimization_score: Mapped[Optional[float]] = mapped_column(Float, comment="최적화 점수")
     ai_metadata: Mapped[Optional[dict]] = mapped_column(JSON, comment="AI 배차 메타데이터")

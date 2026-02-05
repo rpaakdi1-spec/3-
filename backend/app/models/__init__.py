@@ -16,6 +16,7 @@ from .ai_chat_history import AIChatHistory
 from .ai_usage_log import AIUsageLog
 from .recurring_order import RecurringOrder
 from .order_template import OrderTemplate
+from .driver_schedule import DriverSchedule, ScheduleType
 
 __all__ = [
     "Base",
@@ -47,4 +48,6 @@ __all__ = [
     "AIUsageLog",
     "RecurringOrder",
     "OrderTemplate",
+    "DriverSchedule",
+    "ScheduleType",
 ]
