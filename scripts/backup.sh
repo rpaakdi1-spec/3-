@@ -1,115 +1,201 @@
 #!/bin/bash
-# Automated Backup Script for Cold Chain Delivery System
-# Backs up PostgreSQL database and Redis data
+
+###############################################################################
+# UVIS 시스템 자동 백업 스크립트
+# 용도: 데이터베이스, 파일, 설정 백업
+# 실행: ./backup.sh
+###############################################################################
 
 set -e
 
-# Configuration
-BACKUP_DIR="${BACKUP_DIR:-/backups}"
-RETENTION_DAYS="${BACKUP_RETENTION_DAYS:-30}"
-TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-DATE=$(date +%Y-%m-%d)
+# ===== 설정 =====
+BACKUP_DIR="/backups"
+DATE=$(date +%Y%m%d_%H%M%S)
+DATE_SHORT=$(date +%Y%m%d)
+RETENTION_DAYS=30
 
-# Database credentials from environment
-POSTGRES_HOST="${POSTGRES_HOST:-postgres}"
-POSTGRES_PORT="${POSTGRES_PORT:-5432}"
-POSTGRES_USER="${POSTGRES_USER:-coldchain_user}"
-POSTGRES_DB="${POSTGRES_DB:-coldchain_prod}"
+# 데이터베이스 설정
+DB_NAME="${DB_NAME:-uvis_db}"
+DB_USER="${DB_USER:-uvis_user}"
+DB_HOST="${DB_HOST:-localhost}"
+DB_PORT="${DB_PORT:-5432}"
 
-# Create backup directories
-mkdir -p "$BACKUP_DIR/database"
-mkdir -p "$BACKUP_DIR/redis"
-mkdir -p "$BACKUP_DIR/uploads"
-mkdir -p "$BACKUP_DIR/logs"
+# S3 설정 (선택사항)
+S3_ENABLED="${S3_ENABLED:-false}"
+S3_BUCKET="${S3_BUCKET:-uvis-backups}"
+S3_REGION="${S3_REGION:-ap-northeast-2}"
 
-echo "=========================================="
-echo "Cold Chain Backup - $TIMESTAMP"
-echo "=========================================="
+# Slack 알림 설정 (선택사항)
+SLACK_ENABLED="${SLACK_ENABLED:-false}"
+SLACK_WEBHOOK="${SLACK_WEBHOOK:-}"
 
-# ==================== PostgreSQL Backup ====================
-echo "Backing up PostgreSQL database..."
-PGPASSWORD="${POSTGRES_PASSWORD}" pg_dump \
-    -h "$POSTGRES_HOST" \
-    -p "$POSTGRES_PORT" \
-    -U "$POSTGRES_USER" \
-    -d "$POSTGRES_DB" \
-    -F c \
-    -f "$BACKUP_DIR/database/postgres_${TIMESTAMP}.dump"
+# ===== 로그 함수 =====
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
+}
 
-# Compress the dump
-gzip "$BACKUP_DIR/database/postgres_${TIMESTAMP}.dump"
-echo "✓ PostgreSQL backup completed: postgres_${TIMESTAMP}.dump.gz"
+error() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] ERROR: $1" >&2
+}
 
-# ==================== Redis Backup ====================
-echo "Backing up Redis data..."
-docker exec coldchain-redis-prod redis-cli --raw SAVE
-docker cp coldchain-redis-prod:/data/dump.rdb "$BACKUP_DIR/redis/redis_${TIMESTAMP}.rdb"
-gzip "$BACKUP_DIR/redis/redis_${TIMESTAMP}.rdb"
-echo "✓ Redis backup completed: redis_${TIMESTAMP}.rdb.gz"
+send_slack_notification() {
+    if [ "$SLACK_ENABLED" = "true" ] && [ -n "$SLACK_WEBHOOK" ]; then
+        local message="$1"
+        local color="${2:-good}"
+        
+        curl -X POST "$SLACK_WEBHOOK" \
+            -H 'Content-Type: application/json' \
+            -d "{
+                \"attachments\": [{
+                    \"color\": \"$color\",
+                    \"text\": \"$message\",
+                    \"footer\": \"UVIS Backup System\",
+                    \"ts\": $(date +%s)
+                }]
+            }" > /dev/null 2>&1
+    fi
+}
 
-# ==================== Upload Files Backup ====================
-echo "Backing up upload files..."
-if [ -d "/app/data/uploads" ]; then
-    tar -czf "$BACKUP_DIR/uploads/uploads_${TIMESTAMP}.tar.gz" -C /app/data uploads
-    echo "✓ Upload files backup completed: uploads_${TIMESTAMP}.tar.gz"
+# ===== 백업 디렉토리 생성 =====
+mkdir -p "$BACKUP_DIR"/{database,files,config,logs}
+
+# ===== 시작 =====
+log "===== 백업 시작 ====="
+START_TIME=$(date +%s)
+
+# ===== 1. 데이터베이스 백업 =====
+log "데이터베이스 백업 시작..."
+DB_BACKUP_FILE="$BACKUP_DIR/database/db_${DATE}.sql.gz"
+
+if PGPASSWORD="$DB_PASSWORD" pg_dump \
+    -h "$DB_HOST" \
+    -p "$DB_PORT" \
+    -U "$DB_USER" \
+    -d "$DB_NAME" \
+    --format=custom \
+    --compress=9 \
+    | gzip > "$DB_BACKUP_FILE"; then
+    
+    DB_SIZE=$(du -h "$DB_BACKUP_FILE" | cut -f1)
+    log "✓ 데이터베이스 백업 완료: $DB_BACKUP_FILE ($DB_SIZE)"
 else
-    echo "⚠ Upload directory not found, skipping"
+    error "✗ 데이터베이스 백업 실패"
+    send_slack_notification "❌ Database backup failed" "danger"
+    exit 1
 fi
 
-# ==================== Application Logs Backup ====================
-echo "Backing up application logs..."
-if [ -d "/app/logs" ]; then
-    tar -czf "$BACKUP_DIR/logs/logs_${DATE}.tar.gz" -C /app logs
-    echo "✓ Logs backup completed: logs_${DATE}.tar.gz"
-else
-    echo "⚠ Logs directory not found, skipping"
-fi
+# ===== 2. 파일 백업 (uploads) =====
+log "파일 백업 시작..."
+FILES_BACKUP="$BACKUP_DIR/files/files_${DATE}.tar.gz"
 
-# ==================== Backup Summary ====================
-echo ""
-echo "Backup Summary:"
-echo "----------------------------------------"
-du -sh "$BACKUP_DIR/database/postgres_${TIMESTAMP}.dump.gz"
-du -sh "$BACKUP_DIR/redis/redis_${TIMESTAMP}.rdb.gz"
-[ -f "$BACKUP_DIR/uploads/uploads_${TIMESTAMP}.tar.gz" ] && du -sh "$BACKUP_DIR/uploads/uploads_${TIMESTAMP}.tar.gz"
-[ -f "$BACKUP_DIR/logs/logs_${DATE}.tar.gz" ] && du -sh "$BACKUP_DIR/logs/logs_${DATE}.tar.gz"
-
-# ==================== Cleanup Old Backups ====================
-echo ""
-echo "Cleaning up backups older than $RETENTION_DAYS days..."
-find "$BACKUP_DIR/database" -name "*.gz" -mtime +"$RETENTION_DAYS" -delete
-find "$BACKUP_DIR/redis" -name "*.gz" -mtime +"$RETENTION_DAYS" -delete
-find "$BACKUP_DIR/uploads" -name "*.tar.gz" -mtime +"$RETENTION_DAYS" -delete
-find "$BACKUP_DIR/logs" -name "*.tar.gz" -mtime +"$RETENTION_DAYS" -delete
-echo "✓ Cleanup completed"
-
-# ==================== Upload to S3 (Optional) ====================
-if [ -n "$BACKUP_S3_BUCKET" ] && command -v aws &> /dev/null; then
-    echo ""
-    echo "Uploading backups to S3..."
-    aws s3 sync "$BACKUP_DIR" "s3://$BACKUP_S3_BUCKET/coldchain-backups/" \
-        --exclude "*" \
-        --include "database/postgres_${TIMESTAMP}.dump.gz" \
-        --include "redis/redis_${TIMESTAMP}.rdb.gz" \
-        --storage-class STANDARD_IA
-    echo "✓ S3 upload completed"
-fi
-
-# ==================== Backup Verification ====================
-echo ""
-echo "Verifying backups..."
-if [ -f "$BACKUP_DIR/database/postgres_${TIMESTAMP}.dump.gz" ]; then
-    SIZE=$(stat -f%z "$BACKUP_DIR/database/postgres_${TIMESTAMP}.dump.gz" 2>/dev/null || stat -c%s "$BACKUP_DIR/database/postgres_${TIMESTAMP}.dump.gz")
-    if [ "$SIZE" -gt 1024 ]; then
-        echo "✓ Database backup verified (size: $SIZE bytes)"
+if [ -d "/app/uploads" ]; then
+    if tar -czf "$FILES_BACKUP" -C /app uploads 2>/dev/null; then
+        FILES_SIZE=$(du -h "$FILES_BACKUP" | cut -f1)
+        log "✓ 파일 백업 완료: $FILES_BACKUP ($FILES_SIZE)"
     else
-        echo "✗ Database backup too small, may be corrupted"
-        exit 1
+        error "✗ 파일 백업 실패"
+    fi
+else
+    log "⚠ /app/uploads 디렉토리가 없습니다. 파일 백업 건너뜀."
+fi
+
+# ===== 3. 설정 파일 백업 =====
+log "설정 파일 백업 시작..."
+CONFIG_BACKUP="$BACKUP_DIR/config/config_${DATE}.tar.gz"
+
+tar -czf "$CONFIG_BACKUP" \
+    -C /opt/uvis \
+    .env \
+    docker-compose.yml \
+    nginx/nginx.conf \
+    monitoring/ \
+    2>/dev/null || true
+
+CONFIG_SIZE=$(du -h "$CONFIG_BACKUP" | cut -f1)
+log "✓ 설정 파일 백업 완료: $CONFIG_BACKUP ($CONFIG_SIZE)"
+
+# ===== 4. S3 업로드 (선택사항) =====
+if [ "$S3_ENABLED" = "true" ]; then
+    log "S3 업로드 시작..."
+    
+    # AWS CLI 확인
+    if ! command -v aws &> /dev/null; then
+        error "AWS CLI가 설치되어 있지 않습니다."
+    else
+        # 데이터베이스 백업 업로드
+        if aws s3 cp "$DB_BACKUP_FILE" \
+            "s3://$S3_BUCKET/database/" \
+            --region "$S3_REGION" \
+            --storage-class STANDARD_IA; then
+            log "✓ 데이터베이스 백업 S3 업로드 완료"
+        else
+            error "✗ 데이터베이스 백업 S3 업로드 실패"
+        fi
+        
+        # 파일 백업 업로드
+        if [ -f "$FILES_BACKUP" ]; then
+            if aws s3 cp "$FILES_BACKUP" \
+                "s3://$S3_BUCKET/files/" \
+                --region "$S3_REGION" \
+                --storage-class STANDARD_IA; then
+                log "✓ 파일 백업 S3 업로드 완료"
+            else
+                error "✗ 파일 백업 S3 업로드 실패"
+            fi
+        fi
+        
+        # 설정 백업 업로드
+        if aws s3 cp "$CONFIG_BACKUP" \
+            "s3://$S3_BUCKET/config/" \
+            --region "$S3_REGION"; then
+            log "✓ 설정 백업 S3 업로드 완료"
+        else
+            error "✗ 설정 백업 S3 업로드 실패"
+        fi
     fi
 fi
 
-echo ""
-echo "=========================================="
-echo "Backup completed successfully!"
-echo "Timestamp: $TIMESTAMP"
-echo "=========================================="
+# ===== 5. 오래된 백업 삭제 =====
+log "오래된 백업 정리 중..."
+
+find "$BACKUP_DIR/database" -name "*.sql.gz" -mtime +$RETENTION_DAYS -delete
+find "$BACKUP_DIR/files" -name "*.tar.gz" -mtime +$RETENTION_DAYS -delete
+find "$BACKUP_DIR/config" -name "*.tar.gz" -mtime +$RETENTION_DAYS -delete
+
+DELETED_COUNT=$(find "$BACKUP_DIR" -type f -mtime +$RETENTION_DAYS 2>/dev/null | wc -l)
+log "✓ $DELETED_COUNT개의 오래된 백업 파일 삭제 완료"
+
+# ===== 6. 백업 검증 =====
+log "백업 검증 중..."
+
+if [ -f "$DB_BACKUP_FILE" ] && [ -s "$DB_BACKUP_FILE" ]; then
+    log "✓ 데이터베이스 백업 검증 완료"
+else
+    error "✗ 데이터베이스 백업 파일이 비어있거나 존재하지 않습니다!"
+    send_slack_notification "❌ Database backup verification failed" "danger"
+    exit 1
+fi
+
+# ===== 완료 =====
+END_TIME=$(date +%s)
+DURATION=$((END_TIME - START_TIME))
+
+log "===== 백업 완료 ====="
+log "소요 시간: ${DURATION}초"
+log "백업 위치: $BACKUP_DIR"
+
+# Slack 알림
+BACKUP_SUMMARY="✅ Backup completed successfully
+• Database: $DB_SIZE
+• Files: $FILES_SIZE
+• Config: $CONFIG_SIZE
+• Duration: ${DURATION}s
+• Retention: ${RETENTION_DAYS} days"
+
+send_slack_notification "$BACKUP_SUMMARY" "good"
+
+# 로그 저장
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] Backup completed - Duration: ${DURATION}s" \
+    >> "$BACKUP_DIR/logs/backup_${DATE_SHORT}.log"
+
+exit 0

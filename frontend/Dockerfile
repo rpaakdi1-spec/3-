@@ -1,39 +1,34 @@
-# Frontend Dockerfile for Cold Chain Dispatch System
-# Multi-stage build for optimized production image
-
-# Stage 1: Build
+# Build stage
 FROM node:18-alpine AS builder
 
-# Set working directory
 WORKDIR /app
 
-# Copy package files
+# 의존성 설치
 COPY package*.json ./
+RUN npm ci --only=production
 
-# Install dependencies
-RUN npm ci
-
-# Copy source code
+# 소스 복사 및 빌드
 COPY . .
-
-# Build the application
 RUN npm run build
 
-# Stage 2: Production
+# Production stage
 FROM nginx:alpine
 
-# Copy built assets from builder stage
+LABEL maintainer="UVIS Team"
+LABEL description="UVIS Logistics Frontend"
+
+# 빌드 결과물 복사
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Copy nginx configuration
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Nginx 설정 복사
+COPY nginx.conf /etc/nginx/nginx.conf
 
-# Expose port
+# 포트 노출
 EXPOSE 80
 
-# Health check
+# 헬스체크
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD wget --quiet --tries=1 --spider http://localhost:80 || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://localhost/health || exit 1
 
-# Start nginx
+# Nginx 실행
 CMD ["nginx", "-g", "daemon off;"]
