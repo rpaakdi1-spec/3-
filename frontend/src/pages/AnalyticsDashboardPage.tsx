@@ -3,16 +3,20 @@ import {
   BarChart3,
   TrendingUp,
   TrendingDown,
+  Minus,
   Calendar,
-  Users,
-  DollarSign,
-  Package,
-  Clock,
-  Truck,
-  CheckCircle,
-  AlertCircle,
   RefreshCw,
-  Download
+  Download,
+  Filter,
+  CheckCircle,
+  AlertTriangle,
+  XCircle,
+  Users,
+  Package,
+  Truck,
+  DollarSign,
+  Clock,
+  Target
 } from 'lucide-react';
 import axios from 'axios';
 import {
@@ -38,9 +42,9 @@ interface KPI {
   value: number;
   unit: string;
   target: number;
-  status: string;
+  status: 'good' | 'warning' | 'critical';
   change: number;
-  trend: string;
+  trend: 'up' | 'down' | 'stable';
 }
 
 interface TrendData {
@@ -74,6 +78,7 @@ const AnalyticsDashboardPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<DashboardData | null>(null);
   const [period, setPeriod] = useState('last_7_days');
+  const [activeTab, setActiveTab] = useState<'overview' | 'trends' | 'clients'>('overview');
 
   useEffect(() => {
     loadDashboard();
@@ -87,6 +92,7 @@ const AnalyticsDashboardPage: React.FC = () => {
         headers: { Authorization: `Bearer ${token}` },
         params: { period }
       });
+      
       setData(res.data);
     } catch (error) {
       console.error('Failed to load dashboard:', error);
@@ -95,57 +101,62 @@ const AnalyticsDashboardPage: React.FC = () => {
     }
   };
 
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'good':
+        return <CheckCircle className="w-5 h-5 text-green-500" />;
+      case 'warning':
+        return <AlertTriangle className="w-5 h-5 text-yellow-500" />;
+      case 'critical':
+        return <XCircle className="w-5 h-5 text-red-500" />;
+      default:
+        return null;
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'good': return 'bg-green-100 text-green-800 border-green-300';
-      case 'warning': return 'bg-yellow-100 text-yellow-800 border-yellow-300';
-      case 'critical': return 'bg-red-100 text-red-800 border-red-300';
-      default: return 'bg-gray-100 text-gray-800 border-gray-300';
+      case 'good':
+        return 'bg-green-50 border-green-200';
+      case 'warning':
+        return 'bg-yellow-50 border-yellow-200';
+      case 'critical':
+        return 'bg-red-50 border-red-200';
+      default:
+        return 'bg-gray-50 border-gray-200';
+    }
+  };
+
+  const getTrendIcon = (trend: string, change: number) => {
+    if (trend === 'up') {
+      return <TrendingUp className={`w-4 h-4 ${change > 0 ? 'text-green-600' : 'text-red-600'}`} />;
+    } else if (trend === 'down') {
+      return <TrendingDown className={`w-4 h-4 ${change < 0 ? 'text-red-600' : 'text-green-600'}`} />;
+    } else {
+      return <Minus className="w-4 h-4 text-gray-600" />;
     }
   };
 
   const getKPIIcon = (name: string) => {
-    if (name.includes('주문') || name.includes('처리율')) return <Package className="w-6 h-6" />;
-    if (name.includes('배송')) return <CheckCircle className="w-6 h-6" />;
+    if (name.includes('주문')) return <Package className="w-6 h-6" />;
+    if (name.includes('배송')) return <Truck className="w-6 h-6" />;
     if (name.includes('차량')) return <Truck className="w-6 h-6" />;
     if (name.includes('시간')) return <Clock className="w-6 h-6" />;
     if (name.includes('매출') || name.includes('금액')) return <DollarSign className="w-6 h-6" />;
-    return <BarChart3 className="w-6 h-6" />;
+    return <Target className="w-6 h-6" />;
   };
 
-  const formatValue = (value: number, unit: string) => {
-    if (unit === 'M원') {
-      return `₩${value.toFixed(1)}M`;
-    } else if (unit === '천원') {
-      return `₩${value.toFixed(0)}K`;
-    } else if (unit === '%') {
-      return `${value.toFixed(1)}%`;
-    } else if (unit === '시간') {
-      return `${value.toFixed(1)}h`;
-    } else if (unit === '건') {
-      return `${value.toFixed(0)}건`;
-    }
-    return `${value} ${unit}`;
-  };
-
-  const formatRevenueTrend = (trend: TrendData) => {
+  const formatChartData = (trend: TrendData) => {
     return trend.labels.map((label, index) => ({
       name: label,
-      매출: trend.values[index]
-    }));
-  };
-
-  const formatOrderTrend = (trend: TrendData) => {
-    return trend.labels.map((label, index) => ({
-      name: label,
-      주문: trend.values[index]
+      value: trend.values[index]
     }));
   };
 
   const formatHourlyData = (distribution: HourlyDistribution[]) => {
     return distribution.map(item => ({
-      시간대: `${item.hour}시`,
-      주문수: item.count
+      name: `${item.hour}시`,
+      count: item.count
     }));
   };
 
@@ -164,7 +175,8 @@ const AnalyticsDashboardPage: React.FC = () => {
               </h1>
               <p className="text-gray-600 mt-1">실시간 KPI 모니터링 및 트렌드 분석</p>
             </div>
-            <div className="flex gap-3">
+            
+            <div className="flex gap-3 items-center">
               {/* 기간 선택 */}
               <select
                 value={period}
@@ -179,10 +191,11 @@ const AnalyticsDashboardPage: React.FC = () => {
                 <option value="this_month">이번 달</option>
                 <option value="last_month">지난 달</option>
               </select>
+
               <button
                 onClick={loadDashboard}
                 disabled={loading}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 disabled:bg-gray-400"
               >
                 <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                 새로고침
@@ -193,231 +206,278 @@ const AnalyticsDashboardPage: React.FC = () => {
 
         {loading && !data ? (
           <div className="text-center py-12">
-            <RefreshCw className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
-            <p className="text-gray-600">데이터 로딩 중...</p>
+            <RefreshCw className="w-12 h-12 text-gray-400 animate-spin mx-auto mb-4" />
+            <p className="text-gray-500">데이터 로딩 중...</p>
           </div>
         ) : data ? (
           <>
             {/* KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
               {data.kpis.map((kpi, index) => (
-                <div key={index} className="bg-white rounded-lg shadow p-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-600 mb-1">{kpi.name}</p>
-                      <p className="text-3xl font-bold text-gray-900">{formatValue(kpi.value, kpi.unit)}</p>
-                    </div>
-                    <div className={`p-3 rounded-lg ${
-                      kpi.status === 'good' ? 'bg-green-100' :
-                      kpi.status === 'warning' ? 'bg-yellow-100' : 'bg-red-100'
-                    }`}>
+                <div
+                  key={index}
+                  className={`border rounded-lg p-6 transition-all hover:shadow-lg ${getStatusColor(kpi.status)}`}
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="text-gray-700">
                       {getKPIIcon(kpi.name)}
                     </div>
+                    {getStatusIcon(kpi.status)}
                   </div>
                   
-                  <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-medium text-gray-600 mb-2">{kpi.name}</h3>
+                  
+                  <div className="flex items-baseline gap-2 mb-2">
+                    <span className="text-3xl font-bold text-gray-900">
+                      {kpi.value.toLocaleString()}
+                    </span>
+                    <span className="text-sm text-gray-600">{kpi.unit}</span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-sm">
                     <div className="flex items-center gap-1">
-                      {kpi.trend === 'up' ? (
-                        <TrendingUp className={`w-4 h-4 ${
-                          kpi.name.includes('시간') ? 'text-red-600' : 'text-green-600'
-                        }`} />
-                      ) : kpi.trend === 'down' ? (
-                        <TrendingDown className={`w-4 h-4 ${
-                          kpi.name.includes('시간') ? 'text-green-600' : 'text-red-600'
-                        }`} />
-                      ) : null}
-                      <span className={`text-sm font-medium ${
-                        Math.abs(kpi.change) < 0.1 ? 'text-gray-600' :
-                        (kpi.trend === 'up' && !kpi.name.includes('시간')) || (kpi.trend === 'down' && kpi.name.includes('시간'))
-                          ? 'text-green-600' : 'text-red-600'
-                      }`}>
-                        {kpi.change > 0 ? '+' : ''}{kpi.change.toFixed(1)}{kpi.unit === '%' ? 'p' : kpi.unit === '건' ? '건' : '%'}
+                      {getTrendIcon(kpi.trend, kpi.change)}
+                      <span className={kpi.change >= 0 ? 'text-green-600' : 'text-red-600'}>
+                        {kpi.change > 0 ? '+' : ''}{kpi.change.toFixed(1)}%
                       </span>
                     </div>
-                    <span className={`text-xs px-2 py-1 rounded-full border ${getStatusColor(kpi.status)}`}>
-                      목표: {formatValue(kpi.target, kpi.unit)}
+                    <span className="text-gray-500">
+                      목표: {kpi.target}{kpi.unit}
                     </span>
                   </div>
                 </div>
               ))}
             </div>
 
-            {/* Charts Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-              {/* 매출 트렌드 */}
-              <div className="bg-white rounded-lg shadow p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <DollarSign className="w-5 h-5 text-green-600" />
-                  매출 트렌드 (최근 30일)
-                </h2>
-                <ResponsiveContainer width="100%" height={250}>
-                  <LineChart data={formatRevenueTrend(data.revenue_trend)}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip formatter={(value) => `₩${value}M`} />
-                    <Legend />
-                    <Line type="monotone" dataKey="매출" stroke="#10b981" strokeWidth={2} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-
-              {/* 주문 트렌드 */}
-              <div className="bg-white rounded-lg shadow p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <Package className="w-5 h-5 text-blue-600" />
-                  주문 트렌드 (최근 30일)
-                </h2>
-                <ResponsiveContainer width="100%" height={250}>
-                  <LineChart data={formatOrderTrend(data.order_trend)}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip formatter={(value) => `${value}건`} />
-                    <Legend />
-                    <Line type="monotone" dataKey="주문" stroke="#3b82f6" strokeWidth={2} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-
-              {/* 상위 고객 */}
-              <div className="bg-white rounded-lg shadow p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <Users className="w-5 h-5 text-purple-600" />
-                  상위 고객 Top 10
-                </h2>
-                <div className="space-y-3 max-h-[250px] overflow-y-auto">
-                  {data.top_clients.slice(0, 10).map((client, index) => (
-                    <div key={client.client_id} className="flex items-center gap-3">
-                      <div className="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                        <span className="text-sm font-bold text-blue-600">{index + 1}</span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 truncate">{client.client_name}</p>
-                        <p className="text-xs text-gray-500">{client.order_count}건 • ₩{(client.total_revenue / 1000000).toFixed(1)}M</p>
-                      </div>
-                      <div className="flex-shrink-0">
-                        <div className="w-16 bg-gray-200 rounded-full h-2">
-                          <div
-                            className="bg-blue-600 h-2 rounded-full"
-                            style={{ width: `${Math.min(100, (client.order_count / data.top_clients[0].order_count) * 100)}%` }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+            {/* Tabs */}
+            <div className="bg-white rounded-lg shadow mb-6">
+              <div className="border-b border-gray-200">
+                <div className="flex gap-4 px-6">
+                  <button
+                    onClick={() => setActiveTab('overview')}
+                    className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
+                      activeTab === 'overview'
+                        ? 'border-blue-600 text-blue-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    <BarChart3 className="w-4 h-4 inline mr-2" />
+                    개요
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('trends')}
+                    className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
+                      activeTab === 'trends'
+                        ? 'border-blue-600 text-blue-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    <TrendingUp className="w-4 h-4 inline mr-2" />
+                    트렌드
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('clients')}
+                    className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
+                      activeTab === 'clients'
+                        ? 'border-blue-600 text-blue-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    <Users className="w-4 h-4 inline mr-2" />
+                    고객 분석
+                  </button>
                 </div>
               </div>
 
-              {/* 시간대별 주문 분포 */}
-              <div className="bg-white rounded-lg shadow p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <Clock className="w-5 h-5 text-orange-600" />
-                  시간대별 주문 분포
-                </h2>
-                <ResponsiveContainer width="100%" height={250}>
-                  <BarChart data={formatHourlyData(data.hourly_distribution)}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="시간대" />
-                    <YAxis />
-                    <Tooltip formatter={(value) => `${value}건`} />
-                    <Bar dataKey="주문수" fill="#f59e0b" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
+              <div className="p-6">
+                {/* 개요 탭 */}
+                {activeTab === 'overview' && (
+                  <div className="space-y-6">
+                    {/* 매출 & 주문 트렌드 */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4">매출 추이 (최근 30일)</h3>
+                        <ResponsiveContainer width="100%" height={250}>
+                          <LineChart data={formatChartData(data.revenue_trend)}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="name" />
+                            <YAxis />
+                            <Tooltip formatter={(value: any) => `${value.toFixed(1)}M원`} />
+                            <Line 
+                              type="monotone" 
+                              dataKey="value" 
+                              stroke="#3b82f6" 
+                              strokeWidth={2}
+                              dot={{ fill: '#3b82f6', r: 4 }}
+                              activeDot={{ r: 6 }}
+                            />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
 
-            {/* 상세 통계 테이블 */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-900">KPI 상세 정보</h2>
-                <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2">
-                  <Download className="w-4 h-4" />
-                  Excel 다운로드
-                </button>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        지표
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        현재값
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        목표
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        달성률
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        변화
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        상태
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {data.kpis.map((kpi, index) => {
-                      const achievement = kpi.name.includes('시간')
-                        ? (kpi.target / kpi.value) * 100
-                        : (kpi.value / kpi.target) * 100;
-                      
-                      return (
-                        <tr key={index} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {kpi.name}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {formatValue(kpi.value, kpi.unit)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                            {formatValue(kpi.target, kpi.unit)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm">
-                            <span className={`font-medium ${
-                              achievement >= 100 ? 'text-green-600' :
-                              achievement >= 90 ? 'text-yellow-600' : 'text-red-600'
-                            }`}>
-                              {achievement.toFixed(0)}%
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm">
-                            <span className={`flex items-center gap-1 ${
-                              Math.abs(kpi.change) < 0.1 ? 'text-gray-600' :
-                              (kpi.trend === 'up' && !kpi.name.includes('시간')) || (kpi.trend === 'down' && kpi.name.includes('시간'))
-                                ? 'text-green-600' : 'text-red-600'
-                            }`}>
-                              {kpi.trend === 'up' ? <TrendingUp className="w-4 h-4" /> :
-                               kpi.trend === 'down' ? <TrendingDown className="w-4 h-4" /> : null}
-                              {kpi.change > 0 ? '+' : ''}{kpi.change.toFixed(1)}{kpi.unit === '%' ? 'p' : '%'}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                              kpi.status === 'good' ? 'bg-green-100 text-green-800' :
-                              kpi.status === 'warning' ? 'bg-yellow-100 text-yellow-800' :
-                              'bg-red-100 text-red-800'
-                            }`}>
-                              {kpi.status === 'good' ? '양호' : kpi.status === 'warning' ? '주의' : '경고'}
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4">주문 추이 (최근 30일)</h3>
+                        <ResponsiveContainer width="100%" height={250}>
+                          <LineChart data={formatChartData(data.order_trend)}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="name" />
+                            <YAxis />
+                            <Tooltip formatter={(value: any) => `${value}건`} />
+                            <Line 
+                              type="monotone" 
+                              dataKey="value" 
+                              stroke="#10b981" 
+                              strokeWidth={2}
+                              dot={{ fill: '#10b981', r: 4 }}
+                              activeDot={{ r: 6 }}
+                            />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+
+                    {/* 시간대별 주문 분포 */}
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4">시간대별 주문 분포</h3>
+                      <ResponsiveContainer width="100%" height={300}>
+                        <BarChart data={formatHourlyData(data.hourly_distribution)}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="name" />
+                          <YAxis />
+                          <Tooltip />
+                          <Bar dataKey="count" fill="#8b5cf6" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                )}
+
+                {/* 트렌드 탭 */}
+                {activeTab === 'trends' && (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* 매출 상세 */}
+                      <div className="border rounded-lg p-4">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4">매출 분석</h3>
+                        <ResponsiveContainer width="100%" height={300}>
+                          <BarChart data={formatChartData(data.revenue_trend)}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="name" />
+                            <YAxis />
+                            <Tooltip formatter={(value: any) => `${value.toFixed(1)}M원`} />
+                            <Bar dataKey="value" fill="#3b82f6" />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+
+                      {/* 주문 상세 */}
+                      <div className="border rounded-lg p-4">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4">주문량 분석</h3>
+                        <ResponsiveContainer width="100%" height={300}>
+                          <BarChart data={formatChartData(data.order_trend)}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="name" />
+                            <YAxis />
+                            <Tooltip formatter={(value: any) => `${value}건`} />
+                            <Bar dataKey="value" fill="#10b981" />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+
+                    {/* 트렌드 인사이트 */}
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+                      <h3 className="text-lg font-semibold text-blue-900 mb-3">📊 트렌드 인사이트</h3>
+                      <ul className="space-y-2 text-blue-800">
+                        <li>• 최근 7일간 매출이 평균 대비 {data.kpis.find(k => k.name.includes('매출'))?.change.toFixed(1)}% 증가했습니다</li>
+                        <li>• 주문량이 전 기간 대비 {data.kpis.find(k => k.name.includes('주문'))?.change.toFixed(0)}건 증가했습니다</li>
+                        <li>• 차량 가동률이 목표치를 {data.kpis.find(k => k.name.includes('가동률'))?.status === 'good' ? '달성' : '미달성'}했습니다</li>
+                      </ul>
+                    </div>
+                  </div>
+                )}
+
+                {/* 고객 분석 탭 */}
+                {activeTab === 'clients' && (
+                  <div className="space-y-6">
+                    {/* 상위 고객 */}
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4">상위 고객 Top 10</h3>
+                      <div className="space-y-2">
+                        {data.top_clients.map((client, index) => (
+                          <div
+                            key={client.client_id}
+                            className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg hover:shadow-md transition-shadow"
+                          >
+                            <div className="flex items-center gap-4">
+                              <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold">
+                                {index + 1}
+                              </div>
+                              <div>
+                                <h4 className="font-semibold text-gray-900">{client.client_name}</h4>
+                                <p className="text-sm text-gray-600">{client.order_count}건 주문</p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-bold text-gray-900">
+                                ₩{(client.total_revenue / 1000000).toFixed(1)}M
+                              </p>
+                              <div className="w-32 bg-gray-200 rounded-full h-2 mt-1">
+                                <div
+                                  className="bg-blue-600 h-2 rounded-full"
+                                  style={{ width: `${Math.min(client.order_count / Math.max(...data.top_clients.map(c => c.order_count)) * 100, 100)}%` }}
+                                ></div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* 고객 분포 파이 차트 */}
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4">고객별 매출 비중</h3>
+                      <ResponsiveContainer width="100%" height={300}>
+                        <PieChart>
+                          <Pie
+                            data={data.top_clients.slice(0, 8).map(c => ({
+                              name: c.client_name,
+                              value: c.total_revenue
+                            }))}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                            outerRadius={100}
+                            fill="#8884d8"
+                            dataKey="value"
+                          >
+                            {data.top_clients.slice(0, 8).map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip formatter={(value: any) => `₩${(value / 1000000).toFixed(1)}M`} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </>
         ) : (
-          <div className="text-center py-12">
-            <BarChart3 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">데이터 없음</h3>
-            <p className="text-gray-500">기간을 선택하고 새로고침 버튼을 클릭하세요</p>
+          <div className="bg-white rounded-lg shadow p-12 text-center">
+            <BarChart3 className="w-20 h-20 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">데이터 없음</h3>
+            <p className="text-gray-600 mb-4">
+              선택한 기간에 대한 데이터가 없습니다
+            </p>
+            <button
+              onClick={loadDashboard}
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              다시 시도
+            </button>
           </div>
         )}
       </div>
