@@ -2,8 +2,15 @@ import os
 import json
 from typing import Optional, Dict, Any, List
 from loguru import logger
-import firebase_admin
-from firebase_admin import credentials, messaging
+
+# Firebase Admin을 optional import로 처리
+try:
+    import firebase_admin
+    from firebase_admin import credentials, messaging
+    FIREBASE_AVAILABLE = True
+except ImportError:
+    FIREBASE_AVAILABLE = False
+    logger.warning("⚠️ Firebase Admin SDK not installed. Push notifications will be disabled.")
 
 
 class FCMService:
@@ -11,6 +18,10 @@ class FCMService:
     
     def __init__(self):
         self.enabled = False
+        
+        if not FIREBASE_AVAILABLE:
+            logger.warning("⚠️ Firebase Admin SDK not available. Push notifications disabled.")
+            return
         
         try:
             # Firebase 서비스 계정 키 파일 경로

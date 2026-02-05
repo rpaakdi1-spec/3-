@@ -56,6 +56,14 @@ class Settings(BaseSettings):
     SENTRY_DSN: str = ""  # Sentry DSN (선택사항)
     ALIGO_SENDER: str = ""
     
+    # Twilio SMS (Optional)
+    TWILIO_ACCOUNT_SID: str = ""
+    TWILIO_AUTH_TOKEN: str = ""
+    TWILIO_PHONE_NUMBER: str = ""
+    
+    # Firebase Cloud Messaging (Optional)
+    FIREBASE_CREDENTIALS: str = ""  # JSON string or path
+    
     @property
     def cors_origins_list(self) -> List[str]:
         """Convert CORS_ORIGINS string to list"""
