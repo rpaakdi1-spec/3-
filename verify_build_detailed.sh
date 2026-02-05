@@ -1,0 +1,17 @@
+#!/bin/bash
+echo "=== Detailed Build Verification ==="
+echo ""
+echo "1. Checking all JS files for API-related strings..."
+docker-compose exec frontend sh -c "grep -h 'api/v1\|/api\|baseURL' /usr/share/nginx/html/assets/*.js 2>/dev/null | head -20"
+echo ""
+echo "2. Checking environment variable usage in built files..."
+docker-compose exec frontend sh -c "grep -h 'VITE_API_URL\|import.meta.env' /usr/share/nginx/html/assets/*.js 2>/dev/null | head -10"
+echo ""
+echo "3. Listing all JS asset files..."
+docker-compose exec frontend ls -lh /usr/share/nginx/html/assets/*.js
+echo ""
+echo "4. Checking index.html for any hardcoded URLs..."
+docker-compose exec frontend grep -i 'localhost\|8000\|8001' /usr/share/nginx/html/index.html || echo "✅ No hardcoded localhost URLs in index.html"
+echo ""
+echo "5. Verifying .env.production was used (checking for relative paths)..."
+docker-compose exec frontend sh -c "strings /usr/share/nginx/html/assets/*.js | grep -E '^/api/v1$' | head -5"
