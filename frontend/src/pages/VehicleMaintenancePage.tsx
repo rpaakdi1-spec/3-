@@ -17,7 +17,8 @@ import {
   Tool,
   Truck,
   PlayCircle,
-  StopCircle
+  StopCircle,
+  Bell
 } from 'lucide-react';
 import axios from 'axios';
 
@@ -91,8 +92,23 @@ interface VehicleInspection {
   inspection_center?: string;
 }
 
+interface MaintenanceAlert {
+  vehicle_id: number;
+  vehicle_plate: string;
+  alert_type: 'overdue' | 'upcoming' | 'expiring_inspection' | 'low_stock';
+  message: string;
+  severity: 'high' | 'medium' | 'low';
+  scheduled_date?: string;
+  expiry_date?: string;
+  days_until?: number;
+  maintenance_type?: string;
+  part_name?: string;
+  current_stock?: number;
+  minimum_stock?: number;
+}
+
 const VehicleMaintenancePage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'records' | 'parts' | 'schedules' | 'inspections'>('records');
+  const [activeTab, setActiveTab] = useState<'records' | 'parts' | 'schedules' | 'inspections' | 'alerts'>('records');
   const [records, setRecords] = useState<MaintenanceRecord[]>([]);
   const [parts, setParts] = useState<VehiclePart[]>([]);
   const [schedules, setSchedules] = useState<MaintenanceSchedule[]>([]);
@@ -102,6 +118,19 @@ const VehicleMaintenancePage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showLowStock, setShowLowStock] = useState(false);
   const [showOverdue, setShowOverdue] = useState(false);
+  const [alerts, setAlerts] = useState<{
+    overdue: MaintenanceAlert[];
+    upcoming: MaintenanceAlert[];
+    expiring: MaintenanceAlert[];
+    low_stock: MaintenanceAlert[];
+    total_count: number;
+  }>({
+    overdue: [],
+    upcoming: [],
+    expiring: [],
+    low_stock: [],
+    total_count: 0
+  });
 
   useEffect(() => {
     loadData();
@@ -146,6 +175,17 @@ const VehicleMaintenancePage: React.FC = () => {
           params: { limit: 100 }
         });
         setInspections(res.data);
+      } else if (activeTab === 'alerts') {
+        const res = await axios.get(`${API_URL}/api/v1/maintenance/alerts/dashboard`, {
+          headers
+        });
+        setAlerts({
+          overdue: res.data.overdue_alerts || [],
+          upcoming: res.data.upcoming_alerts || [],
+          expiring: res.data.expiring_alerts || [],
+          low_stock: res.data.low_stock_alerts || [],
+          total_count: res.data.total_alerts || 0
+        });
       }
     } catch (error) {
       console.error('Failed to load data:', error);
@@ -330,13 +370,13 @@ const VehicleMaintenancePage: React.FC = () => {
 
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-gray-600">연체 스케줄</span>
-              <Calendar className="w-5 h-5 text-orange-500" />
+              <span className="text-sm font-medium text-gray-600">총 알림</span>
+              <Bell className="w-5 h-5 text-purple-500" />
             </div>
-            <p className="text-2xl font-bold text-orange-600">
-              {schedules.filter(s => s.is_overdue).length}
+            <p className="text-2xl font-bold text-purple-600">
+              {alerts.total_count}
             </p>
-            <p className="text-xs text-gray-500 mt-1">정비 필요</p>
+            <p className="text-xs text-gray-500 mt-1">확인 필요</p>
           </div>
         </div>
 
@@ -394,6 +434,24 @@ const VehicleMaintenancePage: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <ClipboardCheck className="w-4 h-4" />
                   차량 검사
+                </div>
+              </button>
+              <button
+                onClick={() => setActiveTab('alerts')}
+                className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === 'alerts'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Bell className="w-4 h-4" />
+                  알림
+                  {alerts.total_count > 0 && (
+                    <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
+                      {alerts.total_count}
+                    </span>
+                  )}
                 </div>
               </button>
             </nav>
@@ -788,6 +846,133 @@ const VehicleMaintenancePage: React.FC = () => {
                       </div>
                     </div>
                   ))
+                )}
+              </div>
+            )}
+
+            {activeTab === 'alerts' && (
+              <div className="space-y-6">
+                {/* Overdue Maintenance */}
+                {alerts.overdue.length > 0 && (
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                      <AlertTriangle className="w-5 h-5 text-red-500" />
+                      연체된 정비 ({alerts.overdue.length})
+                    </h3>
+                    <div className="space-y-3">
+                      {alerts.overdue.map((alert, idx) => (
+                        <div key={idx} className="border-l-4 border-red-500 bg-red-50 p-4 rounded">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <h4 className="font-semibold text-gray-900">{alert.vehicle_plate}</h4>
+                              <p className="text-sm text-gray-700 mt-1">{alert.message}</p>
+                              {alert.scheduled_date && (
+                                <p className="text-xs text-gray-500 mt-1">예정일: {alert.scheduled_date}</p>
+                              )}
+                            </div>
+                            <span className="bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded">
+                              긴급
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Upcoming Maintenance */}
+                {alerts.upcoming.length > 0 && (
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                      <Clock className="w-5 h-5 text-yellow-500" />
+                      다가오는 정비 ({alerts.upcoming.length})
+                    </h3>
+                    <div className="space-y-3">
+                      {alerts.upcoming.map((alert, idx) => (
+                        <div key={idx} className="border-l-4 border-yellow-500 bg-yellow-50 p-4 rounded">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <h4 className="font-semibold text-gray-900">{alert.vehicle_plate}</h4>
+                              <p className="text-sm text-gray-700 mt-1">{alert.message}</p>
+                              {alert.scheduled_date && (
+                                <p className="text-xs text-gray-500 mt-1">예정일: {alert.scheduled_date}</p>
+                              )}
+                            </div>
+                            <span className="bg-yellow-100 text-yellow-800 text-xs font-medium px-2.5 py-0.5 rounded">
+                              주의
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Expiring Inspections */}
+                {alerts.expiring.length > 0 && (
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                      <ClipboardCheck className="w-5 h-5 text-orange-500" />
+                      만료 예정 검사 ({alerts.expiring.length})
+                    </h3>
+                    <div className="space-y-3">
+                      {alerts.expiring.map((alert, idx) => (
+                        <div key={idx} className="border-l-4 border-orange-500 bg-orange-50 p-4 rounded">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <h4 className="font-semibold text-gray-900">{alert.vehicle_plate}</h4>
+                              <p className="text-sm text-gray-700 mt-1">{alert.message}</p>
+                              {alert.expiry_date && (
+                                <p className="text-xs text-gray-500 mt-1">만료일: {alert.expiry_date}</p>
+                              )}
+                            </div>
+                            <span className="bg-orange-100 text-orange-800 text-xs font-medium px-2.5 py-0.5 rounded">
+                              경고
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Low Stock Parts */}
+                {alerts.low_stock.length > 0 && (
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                      <Package className="w-5 h-5 text-blue-500" />
+                      부품 재고 부족 ({alerts.low_stock.length})
+                    </h3>
+                    <div className="space-y-3">
+                      {alerts.low_stock.map((alert, idx) => (
+                        <div key={idx} className="border-l-4 border-blue-500 bg-blue-50 p-4 rounded">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <h4 className="font-semibold text-gray-900">{alert.part_name}</h4>
+                              <p className="text-sm text-gray-700 mt-1">{alert.message}</p>
+                              {alert.current_stock !== undefined && alert.minimum_stock !== undefined && (
+                                <p className="text-xs text-gray-500 mt-1">
+                                  현재 재고: {alert.current_stock} / 최소 재고: {alert.minimum_stock}
+                                </p>
+                              )}
+                            </div>
+                            <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">
+                              재고 부족
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* No Alerts */}
+                {alerts.total_count === 0 && (
+                  <div className="text-center py-12">
+                    <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">알림 없음</h3>
+                    <p className="text-gray-500">모든 정비와 검사가 정상입니다.</p>
+                  </div>
                 )}
               </div>
             )}
