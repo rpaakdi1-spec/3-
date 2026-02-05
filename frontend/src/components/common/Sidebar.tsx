@@ -19,6 +19,7 @@ import {
   MessageSquare,
   DollarSign,
   Activity,
+  Thermometer,
 } from 'lucide-react';
 
 const Sidebar: React.FC = () => {
@@ -37,6 +38,7 @@ const Sidebar: React.FC = () => {
     { path: '/ab-test', label: 'AB Test 모니터링', icon: Activity, roles: ['ADMIN'] },
     { path: '/dispatches', label: '배차 관리', icon: Truck, roles: ['ADMIN', 'DISPATCHER'] },
     { path: '/realtime', label: '실시간 모니터링', icon: Radio, roles: ['ADMIN', 'DISPATCHER'] },
+    { path: '/temperature-monitoring', label: '온도 모니터링', icon: Thermometer, roles: ['ADMIN', 'DISPATCHER'] },
     { path: '/vehicles', label: '차량 관리', icon: Truck, roles: ['ADMIN', 'DISPATCHER'] },
     { path: '/clients', label: '거래처 관리', icon: Building2, roles: ['ADMIN', 'DISPATCHER'] },
     { path: '/analytics', label: '통계/분석', icon: BarChart3, roles: ['ADMIN'] },
