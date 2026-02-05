@@ -155,7 +155,7 @@ async def internal_error_handler(request, exc):
 
 # Import and include routers
 # from app.api import auth, clients, vehicles, orders, dispatches, tracking, uvis, redispatch, notices, purchase_orders, band_messages, uvis_gps, analytics, delivery_tracking, traffic, monitoring, cache
-from app.api import auth, clients, vehicles, orders, dispatches, tracking, uvis, redispatch, notices, purchase_orders, band_messages, uvis_gps, delivery_tracking, traffic, monitoring, cache, emergency, ml_training, ai_chat, ai_usage, ml_dispatch, ab_test, recurring_orders, order_templates, driver_schedules
+from app.api import auth, clients, vehicles, orders, dispatches, tracking, uvis, redispatch, notices, purchase_orders, band_messages, uvis_gps, delivery_tracking, traffic, monitoring, cache, emergency, ml_training, ai_chat, ai_usage, ml_dispatch, ab_test, recurring_orders, order_templates, driver_schedules, urgent_dispatches
 from app.api.v1 import reports, realtime_monitoring, ml_models, fcm_notifications, performance, security, websocket
 app.include_router(auth.router, prefix=f"{settings.API_PREFIX}/auth", tags=["Authentication"])
 app.include_router(clients.router, prefix=f"{settings.API_PREFIX}/clients", tags=["Clients"])
@@ -168,6 +168,7 @@ app.include_router(ai_usage.router, prefix=f"{settings.API_PREFIX}/ai-usage", ta
 app.include_router(ab_test.router, tags=["AB Test"])
 app.include_router(dispatches.router, prefix=f"{settings.API_PREFIX}/dispatches", tags=["Dispatches"])
 app.include_router(driver_schedules.router, prefix=f"{settings.API_PREFIX}/driver-schedules", tags=["Driver Schedules"])
+app.include_router(urgent_dispatches.router, prefix=f"{settings.API_PREFIX}/urgent-dispatches", tags=["Urgent Dispatches"])
 app.include_router(tracking.router, prefix=f"{settings.API_PREFIX}/tracking", tags=["Tracking"])
 app.include_router(delivery_tracking.router, prefix=f"{settings.API_PREFIX}/delivery-tracking", tags=["Delivery Tracking"])
 app.include_router(traffic.router, prefix=f"{settings.API_PREFIX}/traffic", tags=["Traffic Information"])
