@@ -23,6 +23,11 @@ from .billing import (
     DriverSettlement, DriverSettlementItem,
     BillingCycleType, BillingStatus, PaymentMethod
 )
+from .vehicle_maintenance import (
+    VehicleMaintenanceRecord, VehiclePart, MaintenancePartUsage,
+    MaintenanceSchedule, VehicleInspection,
+    MaintenanceType, MaintenanceStatus, MaintenancePriority, PartCategory
+)
 
 __all__ = [
     "Base",
@@ -70,4 +75,13 @@ __all__ = [
     "BillingCycleType",
     "BillingStatus",
     "PaymentMethod",
+    "VehicleMaintenanceRecord",
+    "VehiclePart",
+    "MaintenancePartUsage",
+    "MaintenanceSchedule",
+    "VehicleInspection",
+    "MaintenanceType",
+    "MaintenanceStatus",
+    "MaintenancePriority",
+    "PartCategory",
 ]
