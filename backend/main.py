@@ -155,7 +155,7 @@ async def internal_error_handler(request, exc):
 
 # Import and include routers
 # from app.api import auth, clients, vehicles, orders, dispatches, tracking, uvis, redispatch, notices, purchase_orders, band_messages, uvis_gps, analytics, delivery_tracking, traffic, monitoring, cache
-from app.api import auth, clients, vehicles, orders, dispatches, tracking, uvis, redispatch, notices, purchase_orders, band_messages, uvis_gps, delivery_tracking, traffic, monitoring, cache, emergency, ml_training, ai_chat, ai_usage, ml_dispatch, ab_test, recurring_orders, order_templates, driver_schedules, urgent_dispatches
+from app.api import auth, clients, vehicles, orders, dispatches, tracking, uvis, redispatch, notices, purchase_orders, band_messages, uvis_gps, delivery_tracking, traffic, monitoring, cache, emergency, ml_training, ai_chat, ai_usage, ml_dispatch, ab_test, recurring_orders, order_templates, driver_schedules, urgent_dispatches, notifications
 from app.api.v1 import reports, realtime_monitoring, ml_models, fcm_notifications, performance, security, websocket
 app.include_router(auth.router, prefix=f"{settings.API_PREFIX}/auth", tags=["Authentication"])
 app.include_router(clients.router, prefix=f"{settings.API_PREFIX}/clients", tags=["Clients"])
@@ -191,6 +191,7 @@ app.include_router(fcm_notifications.router, prefix=f"{settings.API_PREFIX}/noti
 app.include_router(performance.router, prefix=f"{settings.API_PREFIX}/performance", tags=["Performance Monitoring"])
 app.include_router(security.router, prefix=f"{settings.API_PREFIX}/security", tags=["Security"])
 app.include_router(websocket.router, tags=["WebSocket"])  # WebSocket endpoints
+app.include_router(notifications.router, prefix=f"{settings.API_PREFIX}/notifications-v2", tags=["Notifications"])  # New notification system
 
 # Mount static files for uploads
 import os
