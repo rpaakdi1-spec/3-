@@ -9,6 +9,8 @@ import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import { Truck, Navigation, Clock, CheckCircle, Trash2, Edit2, X, Package, MapPin, AlertCircle } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 import toast from 'react-hot-toast';
+import { useResponsive } from '../hooks/useResponsive';
+import { MobileDispatchCard } from '../components/mobile/MobileDispatchCard';
 
 const DispatchesPage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -17,6 +19,7 @@ const DispatchesPage: React.FC = () => {
   const [selectedDispatch, setSelectedDispatch] = useState<Dispatch | null>(null);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [showModal, setShowModal] = useState(false);
+  const { isMobile } = useResponsive();
 
   useEffect(() => {
     fetchDispatches();
@@ -342,99 +345,139 @@ const DispatchesPage: React.FC = () => {
         )}
 
         {/* Dispatch List */}
-        <Card title="배차 목록">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="w-12 py-3 px-4">
-                    <input
-                      type="checkbox"
-                      checked={dispatches.length > 0 && selectedIds.length === dispatches.length}
-                      onChange={handleSelectAll}
-                      className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-                    />
-                  </th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">배차번호</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">주문번호</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">차량번호</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">기사명</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">거리(km)</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">예상도착</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">상태</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">작업</th>
-                </tr>
-              </thead>
-              <tbody>
-                {dispatches.length === 0 ? (
-                  <tr>
-                    <td colSpan={9} className="text-center py-8 text-gray-500">
-                      <Truck size={48} className="mx-auto mb-4 text-gray-300" />
-                      <p>진행 중인 배차가 없습니다</p>
-                    </td>
+        {isMobile ? (
+          /* Mobile Card View */
+          <div className="px-4 space-y-3">
+            {dispatches.length === 0 ? (
+              <div className="text-center py-12">
+                <Truck size={48} className="mx-auto mb-4 text-gray-300" />
+                <p className="text-gray-500">진행 중인 배차가 없습니다</p>
+              </div>
+            ) : (
+              dispatches.map((dispatch) => (
+                <MobileDispatchCard
+                  key={dispatch.id}
+                  dispatch={{
+                    id: dispatch.id,
+                    dispatch_number: dispatch.dispatch_number,
+                    dispatch_date: dispatch.dispatch_date || '',
+                    vehicle: dispatch.vehicle_plate ? {
+                      license_plate: dispatch.vehicle_plate,
+                      vehicle_type: dispatch.vehicle_type || '',
+                    } : undefined,
+                    driver: dispatch.driver_name ? {
+                      name: dispatch.driver_name,
+                    } : undefined,
+                    status: dispatch.status,
+                    total_orders: dispatch.total_orders || 0,
+                    total_pallets: dispatch.total_pallets || 0,
+                    estimated_duration_minutes: dispatch.estimated_duration_minutes,
+                    is_urgent: dispatch.is_urgent,
+                  }}
+                  onClick={() => {
+                    setSelectedDispatch(dispatch);
+                    setShowModal(true);
+                  }}
+                />
+              ))
+            )}
+          </div>
+        ) : (
+          /* Desktop Table View */
+          <Card title="배차 목록">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    <th className="w-12 py-3 px-4">
+                      <input
+                        type="checkbox"
+                        checked={dispatches.length > 0 && selectedIds.length === dispatches.length}
+                        onChange={handleSelectAll}
+                        className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                      />
+                    </th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">배차번호</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">주문번호</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">차량번호</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">기사명</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">거리(km)</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">예상도착</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">상태</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">작업</th>
                   </tr>
-                ) : (
-                  dispatches.map((dispatch) => (
-                    <tr
-                      key={dispatch.id}
-                      className="border-b border-gray-100 hover:bg-gray-50"
-                    >
-                      <td className="py-3 px-4">
-                        <input
-                          type="checkbox"
-                          checked={selectedIds.includes(dispatch.id)}
-                          onChange={() => handleSelectOne(dispatch.id)}
-                          onClick={(e) => e.stopPropagation()}
-                          className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-                        />
-                      </td>
-                      <td className="py-3 px-4 font-medium text-blue-600">
-                        {dispatch.dispatch_number}
-                      </td>
-                      <td className="py-3 px-4">{dispatch.order_number || '-'}</td>
-                      <td className="py-3 px-4">{dispatch.vehicle_plate || '-'}</td>
-                      <td className="py-3 px-4">{dispatch.driver_name || '-'}</td>
-                      <td className="py-3 px-4">{dispatch.distance_km != null ? dispatch.distance_km.toFixed(1) : '-'}</td>
-                      <td className="py-3 px-4">
-                        {dispatch.estimated_arrival
-                          ? new Date(dispatch.estimated_arrival).toLocaleString('ko-KR', {
-                              month: 'short',
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })
-                          : '-'}
-                      </td>
-                      <td className="py-3 px-4">{getStatusBadge(dispatch.status)}</td>
-                      <td className="py-3 px-4">
-                        <div className="flex space-x-2">
-                          <button 
-                            className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedDispatch(dispatch);
-                              setShowModal(true);
-                            }}
-                          >
-                            <Edit2 size={14} className="mr-1" />
-                            상세
-                          </button>
-                          <button 
-                            className="text-red-600 hover:text-red-800 text-sm font-medium flex items-center"
-                            onClick={() => handleDelete(dispatch.id)}
-                          >
-                            <Trash2 size={14} className="mr-1" />
-                            삭제
-                          </button>
-                        </div>
+                </thead>
+                <tbody>
+                  {dispatches.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} className="text-center py-8 text-gray-500">
+                        <Truck size={48} className="mx-auto mb-4 text-gray-300" />
+                        <p>진행 중인 배차가 없습니다</p>
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </Card>
+                  ) : (
+                    dispatches.map((dispatch) => (
+                      <tr
+                        key={dispatch.id}
+                        className="border-b border-gray-100 hover:bg-gray-50"
+                      >
+                        <td className="py-3 px-4">
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.includes(dispatch.id)}
+                            onChange={() => handleSelectOne(dispatch.id)}
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                          />
+                        </td>
+                        <td className="py-3 px-4 font-medium text-blue-600">
+                          {dispatch.dispatch_number}
+                        </td>
+                        <td className="py-3 px-4">{dispatch.order_number || '-'}</td>
+                        <td className="py-3 px-4">{dispatch.vehicle_plate || '-'}</td>
+                        <td className="py-3 px-4">{dispatch.driver_name || '-'}</td>
+                        <td className="py-3 px-4">{dispatch.distance_km != null ? dispatch.distance_km.toFixed(1) : '-'}</td>
+                        <td className="py-3 px-4">
+                          {dispatch.estimated_arrival
+                            ? new Date(dispatch.estimated_arrival).toLocaleString('ko-KR', {
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })
+                            : '-'}
+                        </td>
+                        <td className="py-3 px-4">{getStatusBadge(dispatch.status)}</td>
+                        <td className="py-3 px-4">
+                          <div className="flex space-x-2">
+                            <button 
+                              className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedDispatch(dispatch);
+                                setShowModal(true);
+                              }}
+                            >
+                              <Edit2 size={14} className="mr-1" />
+                              상세
+                            </button>
+                            <button 
+                              className="text-red-600 hover:text-red-800 text-sm font-medium flex items-center"
+                              onClick={() => handleDelete(dispatch.id)}
+                            >
+                              <Trash2 size={14} className="mr-1" />
+                              삭제
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        )}
 
         {/* Dispatch Detail Modal */}
         {showModal && selectedDispatch && (
