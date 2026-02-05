@@ -33,6 +33,93 @@ export interface Vehicle {
   is_active: boolean;
 }
 
+export type RecurringFrequency = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'CUSTOM';
+
+export interface RecurringOrder {
+  id: number;
+  name: string;
+  frequency: RecurringFrequency;
+  start_date: string;  // ISO date string
+  end_date?: string;
+  weekdays: number;  // Bit flags: Mon=1, Tue=2, Wed=4, Thu=8, Fri=16, Sat=32, Sun=64
+  custom_days?: string;  // JSON array "[1,15,30]"
+  
+  // Order info (same as Order)
+  order_date: string;
+  temperature_zone: '냉동' | '냉장' | '상온';
+  
+  // Pickup
+  pickup_client_id?: number;
+  pickup_client_name?: string;
+  pickup_address?: string;
+  pickup_address_detail?: string;
+  
+  // Delivery
+  delivery_client_id?: number;
+  delivery_client_name?: string;
+  delivery_address?: string;
+  delivery_address_detail?: string;
+  
+  // Details
+  pallet_count: number;
+  weight_kg?: number;
+  volume_cbm?: number;
+  product_name?: string;
+  product_code?: string;
+  
+  // Time windows
+  pickup_start_time?: string;
+  pickup_end_time?: string;
+  delivery_start_time?: string;
+  delivery_end_time?: string;
+  
+  // Status
+  is_active: boolean;
+  last_generated_date?: string;
+  
+  // Timestamps
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RecurringOrderCreate {
+  name: string;
+  frequency: RecurringFrequency;
+  start_date: string;
+  end_date?: string;
+  weekdays: number;
+  custom_days?: string;
+  
+  order_date: string;
+  temperature_zone: '냉동' | '냉장' | '상온';
+  
+  pickup_client_id?: number;
+  pickup_address?: string;
+  pickup_address_detail?: string;
+  
+  delivery_client_id?: number;
+  delivery_address?: string;
+  delivery_address_detail?: string;
+  
+  pallet_count: number;
+  weight_kg?: number;
+  volume_cbm?: number;
+  product_name?: string;
+  product_code?: string;
+  
+  pickup_start_time?: string;
+  pickup_end_time?: string;
+  delivery_start_time?: string;
+  delivery_end_time?: string;
+  
+  is_active?: boolean;
+}
+
+export interface RecurringOrderListResponse {
+  total: number;
+  items: RecurringOrder[];
+}
+
 export interface Order {
   id: number;
   order_number: string;
