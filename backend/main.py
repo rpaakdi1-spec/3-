@@ -155,7 +155,7 @@ async def internal_error_handler(request, exc):
 
 # Import and include routers
 # from app.api import auth, clients, vehicles, orders, dispatches, tracking, uvis, redispatch, notices, purchase_orders, band_messages, uvis_gps, analytics, delivery_tracking, traffic, monitoring, cache
-from app.api import auth, clients, vehicles, orders, dispatches, tracking, uvis, redispatch, notices, purchase_orders, band_messages, uvis_gps, delivery_tracking, traffic, monitoring, cache, emergency, ml_training, ai_chat, ai_usage, ml_dispatch, ab_test, recurring_orders, order_templates, driver_schedules, urgent_dispatches, notifications, temperature_monitoring, temperature_analytics, billing, vehicle_maintenance
+from app.api import auth, clients, vehicles, orders, dispatches, tracking, uvis, redispatch, notices, purchase_orders, band_messages, uvis_gps, delivery_tracking, traffic, monitoring, cache, emergency, ml_training, ai_chat, ai_usage, ml_dispatch, ab_test, recurring_orders, order_templates, driver_schedules, urgent_dispatches, notifications, temperature_monitoring, temperature_analytics, billing, vehicle_maintenance, ml_predictions
 from app.api.v1 import reports, realtime_monitoring, ml_models, fcm_notifications, performance, security, websocket
 app.include_router(auth.router, prefix=f"{settings.API_PREFIX}/auth", tags=["Authentication"])
 app.include_router(clients.router, prefix=f"{settings.API_PREFIX}/clients", tags=["Clients"])
@@ -196,6 +196,7 @@ app.include_router(temperature_monitoring.router, prefix=f"{settings.API_PREFIX}
 app.include_router(temperature_analytics.router, prefix=f"{settings.API_PREFIX}", tags=["Temperature Analytics"])  # Phase 3-A Part 5
 app.include_router(billing.router, prefix=f"{settings.API_PREFIX}/billing", tags=["Billing & Settlement"])  # Phase 3-B Week 1
 app.include_router(vehicle_maintenance.router, prefix=f"{settings.API_PREFIX}", tags=["Vehicle Maintenance"])  # Phase 3-B Week 3
+app.include_router(ml_predictions.router, prefix=f"{settings.API_PREFIX}", tags=["ML Predictions"])  # Phase 4 Week 1-2
 
 # Mount static files for uploads
 import os
