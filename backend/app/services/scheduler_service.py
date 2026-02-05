@@ -11,6 +11,7 @@ from datetime import datetime
 from app.core.database import SessionLocal
 from app.services.recurring_order_generator import RecurringOrderGeneratorService
 from app.services.temperature_monitoring import TemperatureMonitoringService
+from app.services.maintenance_alert_service import MaintenanceAlertService
 
 
 class SchedulerService:
