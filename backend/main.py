@@ -155,13 +155,14 @@ async def internal_error_handler(request, exc):
 
 # Import and include routers
 # from app.api import auth, clients, vehicles, orders, dispatches, tracking, uvis, redispatch, notices, purchase_orders, band_messages, uvis_gps, analytics, delivery_tracking, traffic, monitoring, cache
-from app.api import auth, clients, vehicles, orders, dispatches, tracking, uvis, redispatch, notices, purchase_orders, band_messages, uvis_gps, delivery_tracking, traffic, monitoring, cache, emergency, ml_training, ai_chat, ai_usage, ml_dispatch, ab_test, recurring_orders
+from app.api import auth, clients, vehicles, orders, dispatches, tracking, uvis, redispatch, notices, purchase_orders, band_messages, uvis_gps, delivery_tracking, traffic, monitoring, cache, emergency, ml_training, ai_chat, ai_usage, ml_dispatch, ab_test, recurring_orders, order_templates
 from app.api.v1 import reports, realtime_monitoring, ml_models, fcm_notifications, performance, security, websocket
 app.include_router(auth.router, prefix=f"{settings.API_PREFIX}/auth", tags=["Authentication"])
 app.include_router(clients.router, prefix=f"{settings.API_PREFIX}/clients", tags=["Clients"])
 app.include_router(vehicles.router, prefix=f"{settings.API_PREFIX}/vehicles", tags=["Vehicles"])
 app.include_router(orders.router, prefix=f"{settings.API_PREFIX}/orders", tags=["Orders"])
-app.include_router(recurring_orders.router, prefix=f"{settings.API_PREFIX}", tags=["Recurring Orders"])
+app.include_router(order_templates.router, prefix=f"{settings.API_PREFIX}/order-templates", tags=["Order Templates"])
+app.include_router(recurring_orders.router, prefix=f"{settings.API_PREFIX}/recurring-orders", tags=["Recurring Orders"])
 app.include_router(ai_chat.router, prefix=f"{settings.API_PREFIX}/ai-chat", tags=["AI Chat"])
 app.include_router(ai_usage.router, prefix=f"{settings.API_PREFIX}/ai-usage", tags=["AI Usage"])
 app.include_router(ab_test.router, tags=["AB Test"])
