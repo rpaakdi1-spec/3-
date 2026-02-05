@@ -15,6 +15,7 @@ from .security import TwoFactorAuth, TwoFactorLog, AuditLog, SecurityAlert
 from .ai_chat_history import AIChatHistory
 from .ai_usage_log import AIUsageLog
 from .recurring_order import RecurringOrder
+from .order_template import OrderTemplate
 
 __all__ = [
     "Base",
@@ -45,4 +46,5 @@ __all__ = [
     "AIChatHistory",
     "AIUsageLog",
     "RecurringOrder",
+    "OrderTemplate",
 ]
