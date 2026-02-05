@@ -1,41 +1,28 @@
-# Dependencies
-node_modules/
-package-lock.json
-yarn.lock
+# Don't copy .env file to Docker - use .env.production instead
+.env
+.env.local
+.env.development.local
+.env.test.local
 
-# Build
-dist/
-build/
+# Node modules will be installed in container
+node_modules
 
-# Git
+# Build output (will be generated in container)
+dist
+build
+
+# Development files
 .git
 .gitignore
-
-# Documentation
-*.md
-docs/
+README.md
+*.log
 
 # IDE
-.vscode/
-.idea/
+.vscode
+.idea
 *.swp
 *.swo
 
 # OS
 .DS_Store
 Thumbs.db
-
-# Environment
-.env.local
-.env.*.local
-
-# Testing
-coverage/
-
-# Logs
-*.log
-
-# Temporary
-tmp/
-temp/
-*.tmp
