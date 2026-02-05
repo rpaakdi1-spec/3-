@@ -14,7 +14,6 @@ import {
   Plus,
   DollarSign,
   FileText,
-  Tool,
   Truck,
   PlayCircle,
   StopCircle,
@@ -299,7 +298,7 @@ const VehicleMaintenancePage: React.FC = () => {
   const getMaintenanceTypeIcon = (type: string) => {
     const icons: Record<string, JSX.Element> = {
       '정기점검': <ClipboardCheck className="w-5 h-5 text-blue-500" />,
-      '수리': <Tool className="w-5 h-5 text-orange-500" />,
+      '수리': <Wrench className="w-5 h-5 text-orange-500" />,
       '부품교체': <Package className="w-5 h-5 text-purple-500" />,
       '오일교환': <Wrench className="w-5 h-5 text-green-500" />,
       '타이어교체': <Truck className="w-5 h-5 text-gray-600" />
