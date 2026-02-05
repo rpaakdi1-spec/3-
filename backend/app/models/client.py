@@ -55,6 +55,8 @@ class Client(Base, IDMixin, TimestampMixin):
     # Relationships
     pickup_orders = relationship("Order", foreign_keys="Order.pickup_client_id", back_populates="pickup_client")
     delivery_orders = relationship("Order", foreign_keys="Order.delivery_client_id", back_populates="delivery_client")
+    billing_policies = relationship("BillingPolicy", back_populates="client")
+    invoices = relationship("Invoice", back_populates="client")
     
     def __repr__(self):
         return f"<Client(code={self.code}, name={self.name}, type={self.client_type})>"

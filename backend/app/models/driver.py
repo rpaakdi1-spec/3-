@@ -35,6 +35,7 @@ class Driver(Base, IDMixin, TimestampMixin):
     # Relationships
     dispatches = relationship("Dispatch", back_populates="driver")
     schedules = relationship("DriverSchedule", back_populates="driver", cascade="all, delete-orphan")
+    settlements = relationship("DriverSettlement", back_populates="driver")
     
     def __repr__(self):
         return f"<Driver(code={self.code}, name={self.name})>"
