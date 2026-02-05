@@ -28,6 +28,7 @@ const MLTrainingPage = lazy(() => import('./pages/MLTrainingPage'));
 const ABTestMonitorPage = lazy(() => import('./pages/ABTestMonitorPage'));
 const RecurringOrdersPage = lazy(() => import('./pages/RecurringOrdersPage'));
 const TemperatureMonitoringPage = lazy(() => import('./pages/TemperatureMonitoringPage'));
+const TemperatureAnalyticsPage = lazy(() => import('./pages/TemperatureAnalyticsPage'));
 
 // Protected Route Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -257,6 +258,14 @@ const App: React.FC = () => {
               element={
                 <ProtectedRoute>
                   <TemperatureMonitoringPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/temperature-analytics"
+              element={
+                <ProtectedRoute>
+                  <TemperatureAnalyticsPage />
                 </ProtectedRoute>
               }
             />
