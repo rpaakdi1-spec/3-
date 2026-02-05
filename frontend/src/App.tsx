@@ -35,7 +35,11 @@ const MLPredictionsPage = lazy(() => import('./pages/MLPredictionsPage'));
 const RealtimeTelemetryPage = lazy(() => import('./pages/RealtimeTelemetryPage'));
 const DispatchOptimizationPage = lazy(() => import('./pages/DispatchOptimizationPage'));
 const AnalyticsDashboardPage = lazy(() => import('./pages/AnalyticsDashboardPage'));
-const AnalyticsDashboardPage = lazy(() => import('./pages/AnalyticsDashboardPage'));
+
+// IoT Sensor Pages
+const IoTSensorsPage = lazy(() => import('./pages/IoTSensorsPage'));
+const IoTSensorDetailPage = lazy(() => import('./pages/IoTSensorDetailPage'));
+const IoTAlertsPage = lazy(() => import('./pages/IoTAlertsPage'));
 
 // Protected Route Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -329,6 +333,32 @@ const App: React.FC = () => {
               element={
                 <ProtectedRoute>
                   <AnalyticsDashboardPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* IoT Sensor Routes */}
+            <Route
+              path="/iot/sensors"
+              element={
+                <ProtectedRoute>
+                  <IoTSensorsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/iot/sensors/:vehicleId"
+              element={
+                <ProtectedRoute>
+                  <IoTSensorDetailPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/iot/alerts"
+              element={
+                <ProtectedRoute>
+                  <IoTAlertsPage />
                 </ProtectedRoute>
               }
             />
