@@ -288,7 +288,7 @@ async def test_slack():
     success = notification_service.send_slack(
         title="테스트 메시지",
         message="Cold Chain Dispatch System의 Slack 연동 테스트입니다.",
-        level=NotificationLevel.INFO
+        level="info"
     )
     
     return {
@@ -303,7 +303,7 @@ async def test_slack():
     description="시스템 알림을 테스트합니다"
 )
 async def test_alert(
-    level: str = Query(NotificationLevel.WARNING, description="알림 레벨"),
+    level: str = Query("warning", description="알림 레벨"),
     channel: str = Query("slack", description="전송 채널")
 ):
     """
