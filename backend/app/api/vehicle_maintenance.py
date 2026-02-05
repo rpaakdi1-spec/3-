@@ -16,6 +16,7 @@ from app.models.vehicle_maintenance import (
     MaintenanceType, MaintenanceStatus, MaintenancePriority, PartCategory
 )
 from app.services.vehicle_maintenance_service import MaintenanceService, PartInventoryService
+from app.services.maintenance_alert_service import MaintenanceAlertService
 
 router = APIRouter()
 
@@ -527,3 +528,90 @@ def get_vehicle_maintenance_history(
     service = MaintenanceService(db)
     history = service.get_maintenance_history(vehicle_id, limit)
     return history
+
+
+# ============================================================================
+# Maintenance Alerts API
+# ============================================================================
+
+@router.get("/maintenance/alerts/overdue", tags=["Alerts"])
+def get_overdue_maintenance_alerts(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """연체된 정비 알림 조회"""
+    alert_service = MaintenanceAlertService(db)
+    alerts = alert_service.check_overdue_maintenance()
+    return alerts
+
+
+@router.get("/maintenance/alerts/upcoming", tags=["Alerts"])
+def get_upcoming_maintenance_alerts(
+    days_ahead: int = Query(7, ge=1, le=90),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """다가오는 정비 알림 조회"""
+    alert_service = MaintenanceAlertService(db)
+    alerts = alert_service.check_upcoming_maintenance(days_ahead)
+    return alerts
+
+
+@router.get("/maintenance/alerts/inspections", tags=["Alerts"])
+def get_inspection_alerts(
+    days_ahead: int = Query(30, ge=1, le=90),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """만료 예정 검사 알림 조회"""
+    alert_service = MaintenanceAlertService(db)
+    alerts = alert_service.check_expiring_inspections(days_ahead)
+    return alerts
+
+
+@router.get("/maintenance/alerts/parts", tags=["Alerts"])
+def get_low_stock_alerts(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """부품 재고 부족 알림 조회"""
+    alert_service = MaintenanceAlertService(db)
+    alerts = alert_service.check_low_stock_parts()
+    return alerts
+
+
+@router.post("/maintenance/alerts/send-all", tags=["Alerts"])
+def send_all_maintenance_alerts(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """모든 정비 알림 전송"""
+    alert_service = MaintenanceAlertService(db)
+    results = alert_service.send_all_alerts()
+    return results
+
+
+@router.get("/maintenance/alerts/dashboard", tags=["Alerts"])
+def get_maintenance_alerts_dashboard(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """정비 알림 대시보드 요약"""
+    alert_service = MaintenanceAlertService(db)
+    
+    overdue = alert_service.check_overdue_maintenance()
+    upcoming = alert_service.check_upcoming_maintenance(days_ahead=7)
+    expiring = alert_service.check_expiring_inspections(days_ahead=30)
+    low_stock = alert_service.check_low_stock_parts()
+    
+    return {
+        "overdue_count": len(overdue),
+        "upcoming_count": len(upcoming),
+        "expiring_inspections_count": len(expiring),
+        "low_stock_count": len(low_stock),
+        "overdue_alerts": overdue[:5],  # Top 5
+        "upcoming_alerts": upcoming[:5],
+        "expiring_alerts": expiring[:5],
+        "low_stock_alerts": low_stock[:5],
+        "total_alerts": len(overdue) + len(upcoming) + len(expiring) + len(low_stock)
+    }
