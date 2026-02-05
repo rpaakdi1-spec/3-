@@ -1,41 +1,38 @@
 {
-  "name": "UVISMobile",
-  "displayName": "UVIS GPS Fleet",
   "expo": {
-    "name": "UVIS GPS Fleet Management",
-    "slug": "uvis-gps-fleet",
+    "name": "UVIS 물류",
+    "slug": "uvis-logistics",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0066FF"
+      "backgroundColor": "#3B82F6"
     },
     "assetBundlePatterns": [
       "**/*"
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.uvis.gpsfleet",
+      "bundleIdentifier": "com.uvis.logistics",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "배송 중 실시간 위치 추적을 위해 필요합니다",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "백그라운드에서 위치 추적을 위해 필요합니다",
-        "NSCameraUsageDescription": "배송 증명 사진 촬영을 위해 필요합니다",
-        "NSPhotoLibraryUsageDescription": "갤러리에서 사진 선택을 위해 필요합니다"
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "배송 경로 추적을 위해 위치 권한이 필요합니다.",
+        "NSLocationWhenInUseUsageDescription": "배송 경로 추적을 위해 위치 권한이 필요합니다.",
+        "NSCameraUsageDescription": "배송 증빙 사진 촬영을 위해 카메라 권한이 필요합니다.",
+        "NSPhotoLibraryUsageDescription": "사진 저장을 위해 갤러리 접근 권한이 필요합니다."
       }
     },
     "android": {
+      "package": "com.uvis.logistics",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0066FF"
+        "backgroundColor": "#3B82F6"
       },
-      "package": "com.uvis.gpsfleet",
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
-        "ACCESS_BACKGROUND_LOCATION",
         "CAMERA",
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE"
@@ -46,29 +43,23 @@
     },
     "plugins": [
       [
-        "expo-location",
-        {
-          "locationAlwaysAndWhenInUsePermission": "배송 중 실시간 GPS 추적을 위해 위치 권한이 필요합니다."
-        }
-      ],
-      [
         "expo-notifications",
         {
           "icon": "./assets/notification-icon.png",
-          "color": "#0066FF",
-          "sounds": ["./assets/notification.wav"]
+          "color": "#3B82F6"
         }
       ],
+      "expo-location",
       [
         "expo-camera",
         {
-          "cameraPermission": "배송 증명 사진 촬영을 위해 카메라 권한이 필요합니다."
+          "cameraPermission": "배송 증빙 사진 촬영을 위해 카메라 권한이 필요합니다."
         }
       ]
     ],
     "extra": {
       "eas": {
-        "projectId": "uvis-gps-fleet"
+        "projectId": "your-project-id"
       }
     }
   }
