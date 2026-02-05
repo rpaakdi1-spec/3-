@@ -1,0 +1,44 @@
+# IoT Sensor Integration Requirements
+# 2026-02-05
+
+# MQTT Broker and Client
+paho-mqtt==1.6.1
+aiomqtt==1.2.1
+
+# HTTP/WebSocket
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+websockets==12.0
+aiohttp==3.9.1
+
+# Data Processing
+pandas==2.1.3
+numpy==1.26.2
+
+# Database
+asyncpg==0.29.0
+sqlalchemy[asyncio]==2.0.23
+redis==5.0.1
+aioredis==2.0.1
+
+# Time Series Database (Optional)
+influxdb-client==1.38.0
+
+# Monitoring & Alerts
+prometheus-client==0.19.0
+python-telegram-bot==20.7
+
+# Data Validation
+pydantic==2.5.0
+pydantic-settings==2.1.0
+
+# Utilities
+python-dotenv==1.0.0
+loguru==0.7.2
+pytz==2023.3.post1
+
+# Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+httpx==0.25.2
