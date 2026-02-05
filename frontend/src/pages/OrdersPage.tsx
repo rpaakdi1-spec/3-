@@ -7,9 +7,10 @@ import Loading from '../components/common/Loading';
 import OrderModal from '../components/orders/OrderModal';
 import apiClient from '../api/client';
 import { Order } from '../types';
-import { Package, Plus, Search, Filter, Upload, Download, Trash2, Edit2, FileSpreadsheet, Zap, Calendar, Clock, MessageSquare } from 'lucide-react';
+import { Package, Plus, Search, Filter, Upload, Download, Trash2, Edit2, FileSpreadsheet, Zap, Calendar, Clock, MessageSquare, Mic } from 'lucide-react';
 import toast from 'react-hot-toast';
 import OrderNLPParser from '../components/OrderNLPParser';
+import VoiceOrderInput from '../components/orders/VoiceOrderInput';
 
 const OrdersPage: React.FC = () => {
   const navigate = useNavigate();
@@ -24,6 +25,7 @@ const OrdersPage: React.FC = () => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [nlpModalOpen, setNlpModalOpen] = useState(false);
+  const [voiceModalOpen, setVoiceModalOpen] = useState(false);
 
   useEffect(() => {
     fetchOrders();
@@ -312,6 +314,14 @@ const OrdersPage: React.FC = () => {
             >
               <MessageSquare size={20} className="mr-2" />
               자연어 입력
+            </Button>
+            <Button 
+              variant="secondary"
+              onClick={() => setVoiceModalOpen(true)}
+              className="bg-blue-100 text-blue-700 hover:bg-blue-200"
+            >
+              <Mic size={20} className="mr-2" />
+              음성 입력
             </Button>
             <Button 
               variant="primary"
@@ -604,6 +614,31 @@ const OrdersPage: React.FC = () => {
             </div>
             <div className="p-6">
               <OrderNLPParser />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Voice Input Modal */}
+      {voiceModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-lg max-w-3xl w-full">
+            <div className="bg-white border-b px-6 py-4 flex items-center justify-between rounded-t-lg">
+              <h2 className="text-2xl font-bold">🎤 음성 주문 입력</h2>
+              <button
+                onClick={() => setVoiceModalOpen(false)}
+                className="text-gray-500 hover:text-gray-700 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+            <div className="p-6">
+              <VoiceOrderInput
+                onOrderCreated={() => {
+                  setVoiceModalOpen(false);
+                  fetchOrders();
+                }}
+              />
             </div>
           </div>
         </div>
