@@ -44,6 +44,7 @@ const Sidebar: React.FC = () => {
     { path: '/billing', label: '청구/정산', icon: DollarSign, roles: ['ADMIN', 'DISPATCHER'] },
     { path: '/maintenance', label: '차량 유지보수', icon: Wrench, roles: ['ADMIN', 'DISPATCHER'] },
     { path: '/ml-predictions', label: 'AI 예측 정비', icon: Brain, roles: ['ADMIN', 'DISPATCHER'] },
+    { path: '/telemetry', label: '실시간 텔레메트리', icon: Activity, roles: ['ADMIN', 'DISPATCHER'] },
     { path: '/vehicles', label: '차량 관리', icon: Truck, roles: ['ADMIN', 'DISPATCHER'] },
     { path: '/clients', label: '거래처 관리', icon: Building2, roles: ['ADMIN', 'DISPATCHER'] },
     { path: '/analytics', label: '통계/분석', icon: BarChart3, roles: ['ADMIN'] },
