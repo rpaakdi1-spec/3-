@@ -16,7 +16,8 @@ dist/
 # Environment variables
 .env
 .env.local
-.env.production
+# .env.production should be committed for Docker builds
+# .env.production
 
 # Database
 *.db
