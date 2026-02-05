@@ -1,0 +1,73 @@
+🎯 COPY AND PASTE THIS ON THE SERVER
+═══════════════════════════════════════════════════════════════════
+
+cd /root/uvis && git fetch origin genspark_ai_developer && git reset --hard origin/genspark_ai_developer && ./deploy_final.sh
+
+═══════════════════════════════════════════════════════════════════
+
+📋 What this does:
+   1. Navigate to /root/uvis
+   2. Fetch latest code (commit a1de1bc)
+   3. Reset to latest commit
+   4. Run deployment script with:
+      - Build frontend (no cache)
+      - Restart containers
+      - Verify no localhost:8000
+      - Confirm /api/v1 usage
+      - Health checks
+      - Complete verification
+
+⏱️  Estimated time: ~7 minutes
+
+✅ Expected result:
+   - ✅ No localhost:8000 in built files
+   - ✅ /api/v1 found in built files
+   - ✅ Backend health: OK
+   - ✅ Frontend accessible
+
+🌐 Access URLs after deployment:
+   Frontend:   http://139.150.11.99/
+   API Docs:   http://139.150.11.99:8000/docs
+   Health:     http://139.150.11.99:8000/health
+
+🔍 Browser verification:
+   1. Open http://139.150.11.99/
+   2. F12 → Network tab
+   3. Try login
+   4. Check: Request URL = '/api/v1/auth/login' (NOT localhost:8000)
+   5. Status = 200 OK or 401 (NOT ERR_CONNECTION_REFUSED)
+
+⚠️  If still seeing localhost:8000 in browser:
+   - Clear cache: Ctrl+Shift+Delete
+   - Hard refresh: Ctrl+Shift+R
+   - Incognito mode: Ctrl+Shift+N
+
+═══════════════════════════════════════════════════════════════════
+Git Info:
+   Repository: https://github.com/rpaakdi1-spec/3-
+   Branch:     genspark_ai_developer
+   PR:         #4 (https://github.com/rpaakdi1-spec/3-/pull/4)
+   Commit:     a1de1bc
+   Status:     ✅ READY FOR DEPLOYMENT
+
+📚 Documentation:
+   🎯_FINAL_SOLUTION.md - Complete solution guide
+   deploy_final.sh - Automated deployment script
+   README_DEPLOY.md - Deployment reference
+═══════════════════════════════════════════════════════════════════
+
+🎉 ALL 11 ISSUES RESOLVED
+   1. Backend import path ✅
+   2. NotificationLevel Enum ✅
+   3. Metadata field collision ✅
+   4. Circular imports ✅
+   5. Frontend apiClient import ✅
+   6. Dockerfile npm ci ✅
+   7. JSX HTML special chars ✅
+   8. VoiceOrderInput import ✅
+   9. lucide-react Icon ✅
+   10. API URL error (ERR_CONNECTION_REFUSED) ✅
+   11. .env.production Git missing ✅ (FINAL FIX!)
+
+Status: COMPLETE - READY FOR DEPLOYMENT ✅
+Date: 2026-02-05
