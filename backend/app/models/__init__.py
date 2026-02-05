@@ -17,6 +17,7 @@ from .ai_usage_log import AIUsageLog
 from .recurring_order import RecurringOrder
 from .order_template import OrderTemplate
 from .driver_schedule import DriverSchedule, ScheduleType
+from .notification import Notification, NotificationTemplate, NotificationType, NotificationChannel, NotificationStatus
 
 __all__ = [
     "Base",
@@ -50,4 +51,9 @@ __all__ = [
     "OrderTemplate",
     "DriverSchedule",
     "ScheduleType",
+    "Notification",
+    "NotificationTemplate",
+    "NotificationType",
+    "NotificationChannel",
+    "NotificationStatus",
 ]

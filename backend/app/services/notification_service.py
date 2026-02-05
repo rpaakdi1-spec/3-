@@ -1,482 +1,252 @@
-"""
-알림 서비스
-
-다양한 채널을 통한 알림 전송:
-1. 이메일 (SMTP)
-2. SMS (알리고 등)
-3. Slack
-4. 웹훅
-"""
-
-import smtplib
-import requests
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from typing import List, Dict, Any, Optional
+from typing import Optional, Dict, Any, List
 from datetime import datetime
+from sqlalchemy.orm import Session
 from loguru import logger
 
-from app.core.config import settings
-
-
-class NotificationChannel:
-    """알림 채널 타입"""
-    EMAIL = "email"
-    SMS = "sms"
-    SLACK = "slack"
-    WEBHOOK = "webhook"
-
-
-class NotificationLevel:
-    """알림 레벨"""
-    INFO = "info"
-    WARNING = "warning"
-    CRITICAL = "critical"
+from app.models.notification import (
+    Notification,
+    NotificationTemplate,
+    NotificationType,
+    NotificationChannel,
+    NotificationStatus
+)
+from app.schemas.notification import (
+    NotificationSendRequest,
+    TemplateNotificationRequest
+)
+from app.services.sms_service import sms_service
 
 
 class NotificationService:
-    """알림 서비스"""
+    """통합 알림 서비스"""
     
-    def __init__(self):
-        # SMTP 설정
-        self.smtp_host = getattr(settings, 'SMTP_HOST', 'smtp.gmail.com')
-        self.smtp_port = getattr(settings, 'SMTP_PORT', 587)
-        self.smtp_user = getattr(settings, 'SMTP_USER', '')
-        self.smtp_password = getattr(settings, 'SMTP_PASSWORD', '')
-        self.smtp_from = getattr(settings, 'SMTP_FROM', self.smtp_user)
-        
-        # Slack 설정
-        self.slack_webhook_url = getattr(settings, 'SLACK_WEBHOOK_URL', '')
-        
-        # SMS 설정 (알리고)
-        self.sms_api_key = getattr(settings, 'ALIGO_API_KEY', '')
-        self.sms_user_id = getattr(settings, 'ALIGO_USER_ID', '')
-        self.sms_sender = getattr(settings, 'ALIGO_SENDER', '')
+    def __init__(self, db: Session):
+        self.db = db
     
-    def send_alert(
+    async def send_notification(
         self,
-        title: str,
-        message: str,
-        level: str = NotificationLevel.INFO,
-        channels: List[str] = None,
-        recipients: Dict[str, List[str]] = None
-    ) -> Dict[str, bool]:
+        request: NotificationSendRequest
+    ) -> Notification:
         """
-        알림 전송
+        알림 발송
         
         Args:
-            title: 알림 제목
-            message: 알림 내용
-            level: 알림 레벨 (info/warning/critical)
-            channels: 전송 채널 목록
-            recipients: 수신자 정보 {"email": [...], "sms": [...], "slack": [...]}
-            
+            request: 알림 발송 요청
+        
         Returns:
-            Dict: 채널별 전송 결과
+            생성된 알림 객체
         """
-        if channels is None:
-            channels = [NotificationChannel.EMAIL]
+        # 알림 레코드 생성
+        notification = Notification(
+            notification_type=request.notification_type,
+            channel=request.channel,
+            status=NotificationStatus.PENDING,
+            recipient_name=request.recipient_name,
+            recipient_phone=request.recipient_phone,
+            recipient_email=request.recipient_email,
+            recipient_device_token=request.recipient_device_token,
+            title=request.title,
+            message=request.message,
+            template_code=request.template_code,
+            metadata=request.metadata,
+            order_id=request.order_id,
+            dispatch_id=request.dispatch_id,
+            vehicle_id=request.vehicle_id,
+            driver_id=request.driver_id
+        )
         
-        if recipients is None:
-            recipients = {}
+        self.db.add(notification)
+        self.db.commit()
+        self.db.refresh(notification)
         
-        results = {}
+        logger.info(f"📧 Created notification: ID={notification.id}, Type={notification.notification_type}, Channel={notification.channel}")
         
-        # 이메일 전송
-        if NotificationChannel.EMAIL in channels:
-            email_recipients = recipients.get("email", [])
-            if email_recipients:
-                results["email"] = self.send_email(
-                    to_emails=email_recipients,
-                    subject=f"[{level.upper()}] {title}",
-                    body=message
-                )
-            else:
-                results["email"] = False
-                logger.warning("No email recipients specified")
+        # 채널별 발송
+        if request.channel == NotificationChannel.SMS:
+            await self._send_sms(notification)
+        elif request.channel == NotificationChannel.KAKAO:
+            await self._send_kakao(notification)
+        elif request.channel == NotificationChannel.PUSH:
+            await self._send_push(notification)
+        elif request.channel == NotificationChannel.EMAIL:
+            await self._send_email(notification)
         
-        # SMS 전송
-        if NotificationChannel.SMS in channels:
-            sms_recipients = recipients.get("sms", [])
-            if sms_recipients:
-                results["sms"] = self.send_sms_bulk(
-                    phone_numbers=sms_recipients,
-                    message=f"[{level.upper()}] {title}\n{message}"
-                )
-            else:
-                results["sms"] = False
-                logger.warning("No SMS recipients specified")
+        return notification
+    
+    async def send_from_template(
+        self,
+        request: TemplateNotificationRequest
+    ) -> Notification:
+        """
+        템플릿 기반 알림 발송
         
-        # Slack 전송
-        if NotificationChannel.SLACK in channels:
-            results["slack"] = self.send_slack(
-                title=title,
-                message=message,
-                level=level
-            )
+        Args:
+            request: 템플릿 알림 요청
         
+        Returns:
+            생성된 알림 객체
+        """
+        # 템플릿 조회
+        template = self.db.query(NotificationTemplate).filter(
+            NotificationTemplate.template_code == request.template_code,
+            NotificationTemplate.channel == request.channel,
+            NotificationTemplate.is_active == True
+        ).first()
+        
+        if not template:
+            raise ValueError(f"템플릿을 찾을 수 없습니다: {request.template_code}")
+        
+        # 변수 치환
+        title = self._replace_variables(template.title_template, request.variables)
+        message = self._replace_variables(template.message_template, request.variables)
+        
+        # 알림 발송 요청 생성
+        send_request = NotificationSendRequest(
+            notification_type=template.notification_type,
+            channel=request.channel,
+            recipient_name=request.recipient_name,
+            recipient_phone=request.recipient_phone,
+            recipient_email=request.recipient_email,
+            recipient_device_token=request.recipient_device_token,
+            title=title,
+            message=message,
+            template_code=request.template_code,
+            metadata=request.variables,
+            order_id=request.order_id,
+            dispatch_id=request.dispatch_id,
+            vehicle_id=request.vehicle_id,
+            driver_id=request.driver_id
+        )
+        
+        return await self.send_notification(send_request)
+    
+    async def send_bulk_notifications(
+        self,
+        notifications: List[NotificationSendRequest]
+    ) -> List[Notification]:
+        """일괄 알림 발송"""
+        results = []
+        
+        for notif_request in notifications:
+            try:
+                notification = await self.send_notification(notif_request)
+                results.append(notification)
+            except Exception as e:
+                logger.error(f"❌ Bulk notification failed: {str(e)}")
+                # 실패해도 계속 진행
+                continue
+        
+        logger.info(f"✅ Bulk notifications sent: {len(results)}/{len(notifications)}")
         return results
     
-    def send_email(
-        self,
-        to_emails: List[str],
-        subject: str,
-        body: str,
-        html: bool = False
-    ) -> bool:
-        """
-        이메일 전송
-        
-        Args:
-            to_emails: 수신자 이메일 목록
-            subject: 제목
-            body: 본문
-            html: HTML 형식 여부
-            
-        Returns:
-            bool: 전송 성공 여부
-        """
-        if not self.smtp_user or not self.smtp_password:
-            logger.warning("SMTP credentials not configured")
-            return False
+    async def _send_sms(self, notification: Notification):
+        """SMS 발송"""
+        if not notification.recipient_phone:
+            notification.status = NotificationStatus.FAILED
+            notification.error_message = "수신자 전화번호가 없습니다"
+            self.db.commit()
+            return
         
         try:
-            message = MIMEMultipart()
-            message["From"] = self.smtp_from
-            message["To"] = ", ".join(to_emails)
-            message["Subject"] = subject
-            message["Date"] = datetime.now().strftime("%a, %d %b %Y %H:%M:%S %z")
+            # Twilio SMS 발송
+            result = sms_service.send_sms(
+                to_number=notification.recipient_phone,
+                message=notification.message,
+                metadata=notification.metadata
+            )
             
-            # 본문 추가
-            content_type = "html" if html else "plain"
-            message.attach(MIMEText(body, content_type, "utf-8"))
-            
-            # SMTP 서버 연결 및 전송
-            with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
-                server.starttls()
-                server.login(self.smtp_user, self.smtp_password)
-                server.send_message(message)
-            
-            logger.info(f"Email sent successfully to {len(to_emails)} recipient(s)")
-            return True
-            
-        except Exception as e:
-            logger.error(f"Failed to send email: {e}")
-            return False
-    
-    def send_sms(self, phone_number: str, message: str) -> bool:
-        """
-        SMS 전송 (단일)
-        
-        Args:
-            phone_number: 수신자 전화번호
-            message: 메시지 내용
-            
-        Returns:
-            bool: 전송 성공 여부
-        """
-        if not self.sms_api_key or not self.sms_user_id:
-            logger.warning("SMS API credentials not configured")
-            return False
-        
-        try:
-            url = "https://apis.aligo.in/send/"
-            data = {
-                "key": self.sms_api_key,
-                "user_id": self.sms_user_id,
-                "sender": self.sms_sender,
-                "receiver": phone_number,
-                "msg": message,
-                "msg_type": "SMS"
-            }
-            
-            response = requests.post(url, data=data, timeout=10)
-            response.raise_for_status()
-            
-            result = response.json()
-            if result.get("result_code") == "1":
-                logger.info(f"SMS sent successfully to {phone_number}")
-                return True
+            if result["success"]:
+                notification.status = NotificationStatus.SENT
+                notification.sent_at = datetime.utcnow()
+                notification.external_id = result.get("message_sid")
+                notification.external_response = result
+                logger.info(f"✅ SMS sent: Notification ID={notification.id}, SID={result.get('message_sid')}")
             else:
-                logger.error(f"SMS send failed: {result.get('message', 'Unknown error')}")
-                return False
-                
-        except Exception as e:
-            logger.error(f"Failed to send SMS: {e}")
-            return False
-    
-    def send_sms_bulk(self, phone_numbers: List[str], message: str) -> bool:
-        """
-        SMS 대량 전송
-        
-        Args:
-            phone_numbers: 수신자 전화번호 목록
-            message: 메시지 내용
+                notification.status = NotificationStatus.FAILED
+                notification.error_message = result.get("error")
+                notification.external_response = result
+                logger.error(f"❌ SMS failed: Notification ID={notification.id}, Error={result.get('error')}")
             
-        Returns:
-            bool: 전송 성공 여부
-        """
-        success_count = 0
-        for phone in phone_numbers:
-            if self.send_sms(phone, message):
-                success_count += 1
-        
-        return success_count > 0
-    
-    def send_slack(
-        self,
-        title: str,
-        message: str,
-        level: str = NotificationLevel.INFO
-    ) -> bool:
-        """
-        Slack 메시지 전송
-        
-        Args:
-            title: 제목
-            message: 내용
-            level: 알림 레벨
-            
-        Returns:
-            bool: 전송 성공 여부
-        """
-        if not self.slack_webhook_url:
-            logger.warning("Slack webhook URL not configured")
-            return False
-        
-        try:
-            # 레벨별 색상
-            color_map = {
-                NotificationLevel.INFO: "#36a64f",      # 녹색
-                NotificationLevel.WARNING: "#ff9800",   # 주황
-                NotificationLevel.CRITICAL: "#f44336"   # 빨강
-            }
-            
-            # 레벨별 이모지
-            emoji_map = {
-                NotificationLevel.INFO: ":information_source:",
-                NotificationLevel.WARNING: ":warning:",
-                NotificationLevel.CRITICAL: ":rotating_light:"
-            }
-            
-            payload = {
-                "username": "Cold Chain Monitor",
-                "icon_emoji": emoji_map.get(level, ":robot_face:"),
-                "attachments": [
-                    {
-                        "color": color_map.get(level, "#36a64f"),
-                        "title": title,
-                        "text": message,
-                        "footer": "Cold Chain Dispatch System",
-                        "footer_icon": "https://platform.slack-edge.com/img/default_application_icon.png",
-                        "ts": int(datetime.now().timestamp())
-                    }
-                ]
-            }
-            
-            response = requests.post(
-                self.slack_webhook_url,
-                json=payload,
-                timeout=10
-            )
-            response.raise_for_status()
-            
-            logger.info("Slack message sent successfully")
-            return True
+            self.db.commit()
             
         except Exception as e:
-            logger.error(f"Failed to send Slack message: {e}")
-            return False
+            logger.error(f"❌ SMS send error: {str(e)}")
+            notification.status = NotificationStatus.FAILED
+            notification.error_message = str(e)
+            self.db.commit()
     
-    def send_webhook(
-        self,
-        url: str,
-        payload: Dict[str, Any],
-        headers: Optional[Dict[str, str]] = None
-    ) -> bool:
+    async def _send_kakao(self, notification: Notification):
+        """카카오톡 발송 (구현 예정)"""
+        logger.warning("⚠️ KakaoTalk notification not implemented yet")
+        notification.status = NotificationStatus.FAILED
+        notification.error_message = "카카오톡 발송 기능 준비 중"
+        self.db.commit()
+    
+    async def _send_push(self, notification: Notification):
+        """푸시 알림 발송 (구현 예정)"""
+        logger.warning("⚠️ Push notification not implemented yet")
+        notification.status = NotificationStatus.FAILED
+        notification.error_message = "푸시 알림 기능 준비 중"
+        self.db.commit()
+    
+    async def _send_email(self, notification: Notification):
+        """이메일 발송 (구현 예정)"""
+        logger.warning("⚠️ Email notification not implemented yet")
+        notification.status = NotificationStatus.FAILED
+        notification.error_message = "이메일 발송 기능 준비 중"
+        self.db.commit()
+    
+    def _replace_variables(self, template: str, variables: Dict[str, Any]) -> str:
         """
-        웹훅 전송
+        템플릿 변수 치환
         
         Args:
-            url: 웹훅 URL
-            payload: 전송할 데이터
-            headers: HTTP 헤더
-            
+            template: 템플릿 문자열 (예: "안녕하세요 {{name}}님")
+            variables: 변수 딕셔너리 (예: {"name": "홍길동"})
+        
         Returns:
-            bool: 전송 성공 여부
+            치환된 문자열
         """
-        try:
-            if headers is None:
-                headers = {"Content-Type": "application/json"}
-            
-            response = requests.post(
-                url,
-                json=payload,
-                headers=headers,
-                timeout=10
-            )
-            response.raise_for_status()
-            
-            logger.info(f"Webhook sent successfully to {url}")
-            return True
-            
-        except Exception as e:
-            logger.error(f"Failed to send webhook: {e}")
-            return False
+        result = template
+        for key, value in variables.items():
+            result = result.replace(f"{{{{{key}}}}}", str(value))
+        return result
     
-    def send_system_alert(
+    def get_notification_stats(
         self,
-        alert: Dict[str, Any],
-        admin_emails: List[str] = None,
-        admin_phones: List[str] = None
-    ) -> Dict[str, bool]:
-        """
-        시스템 알림 전송
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None
+    ) -> Dict[str, Any]:
+        """알림 통계 조회"""
+        query = self.db.query(Notification)
         
-        모니터링 서비스에서 감지된 알림을 관리자에게 전송
+        if start_date:
+            query = query.filter(Notification.created_at >= start_date)
+        if end_date:
+            query = query.filter(Notification.created_at <= end_date)
         
-        Args:
-            alert: 알림 정보
-            admin_emails: 관리자 이메일 목록
-            admin_phones: 관리자 전화번호 목록
-            
-        Returns:
-            Dict: 채널별 전송 결과
-        """
-        title = alert.get("title", "시스템 알림")
-        message = alert.get("message", "")
-        level = alert.get("level", NotificationLevel.INFO)
+        notifications = query.all()
         
-        # 전송 채널 결정 (레벨에 따라)
-        channels = []
-        recipients = {}
+        total_sent = sum(1 for n in notifications if n.status == NotificationStatus.SENT)
+        total_delivered = sum(1 for n in notifications if n.status == NotificationStatus.DELIVERED)
+        total_failed = sum(1 for n in notifications if n.status == NotificationStatus.FAILED)
+        total_pending = sum(1 for n in notifications if n.status == NotificationStatus.PENDING)
         
-        if level == NotificationLevel.CRITICAL:
-            # Critical: 모든 채널 사용
-            channels = [NotificationChannel.EMAIL, NotificationChannel.SMS, NotificationChannel.SLACK]
-            if admin_emails:
-                recipients["email"] = admin_emails
-            if admin_phones:
-                recipients["sms"] = admin_phones
-                
-        elif level == NotificationLevel.WARNING:
-            # Warning: 이메일 + Slack
-            channels = [NotificationChannel.EMAIL, NotificationChannel.SLACK]
-            if admin_emails:
-                recipients["email"] = admin_emails
-                
-        else:
-            # Info: Slack만
-            channels = [NotificationChannel.SLACK]
+        by_channel = {}
+        by_type = {}
+        by_status = {}
         
-        # 메시지 포맷팅
-        formatted_message = f"""
-{message}
-
-Category: {alert.get('category', 'system')}
-Timestamp: {alert.get('timestamp', datetime.now().isoformat())}
-
----
-Cold Chain Dispatch System
-        """.strip()
+        for n in notifications:
+            by_channel[n.channel.value] = by_channel.get(n.channel.value, 0) + 1
+            by_type[n.notification_type.value] = by_type.get(n.notification_type.value, 0) + 1
+            by_status[n.status.value] = by_status.get(n.status.value, 0) + 1
         
-        return self.send_alert(
-            title=title,
-            message=formatted_message,
-            level=level,
-            channels=channels,
-            recipients=recipients
-        )
-    
-    def send_email_template(
-        self,
-        to_emails: List[str],
-        template_name: str,
-        context: Dict[str, Any]
-    ) -> bool:
-        """
-        템플릿 기반 이메일 전송
-        
-        Args:
-            to_emails: 수신자 목록
-            template_name: 템플릿 이름
-            context: 템플릿 컨텍스트
-            
-        Returns:
-            bool: 전송 성공 여부
-        """
-        # 템플릿 정의
-        templates = {
-            "system_health": {
-                "subject": "[Cold Chain] 시스템 상태 보고",
-                "body": """
-<html>
-<body>
-    <h2>시스템 상태 보고</h2>
-    <p>시스템 상태: <strong>{status}</strong></p>
-    
-    <h3>데이터베이스</h3>
-    <ul>
-        <li>상태: {db_status}</li>
-        <li>응답 시간: {db_response_time}ms</li>
-    </ul>
-    
-    <h3>시스템 리소스</h3>
-    <ul>
-        <li>CPU: {cpu_percent}%</li>
-        <li>메모리: {memory_percent}%</li>
-        <li>디스크: {disk_percent}%</li>
-    </ul>
-    
-    <p>보고 시각: {timestamp}</p>
-</body>
-</html>
-                """
-            },
-            "alert_summary": {
-                "subject": "[Cold Chain] 알림 요약",
-                "body": """
-<html>
-<body>
-    <h2>알림 요약</h2>
-    <p>총 {alert_count}개의 알림이 발생했습니다.</p>
-    
-    <h3>심각도별 분류</h3>
-    <ul>
-        <li>Critical: {critical_count}건</li>
-        <li>Warning: {warning_count}건</li>
-        <li>Info: {info_count}건</li>
-    </ul>
-    
-    <h3>최근 알림</h3>
-    <ul>
-        {recent_alerts}
-    </ul>
-    
-    <p>보고 시각: {timestamp}</p>
-</body>
-</html>
-                """
-            }
+        return {
+            "total_sent": total_sent,
+            "total_delivered": total_delivered,
+            "total_failed": total_failed,
+            "total_pending": total_pending,
+            "by_channel": by_channel,
+            "by_type": by_type,
+            "by_status": by_status
         }
-        
-        if template_name not in templates:
-            logger.error(f"Template '{template_name}' not found")
-            return False
-        
-        template = templates[template_name]
-        
-        try:
-            subject = template["subject"].format(**context)
-            body = template["body"].format(**context)
-            
-            return self.send_email(
-                to_emails=to_emails,
-                subject=subject,
-                body=body,
-                html=True
-            )
-            
-        except Exception as e:
-            logger.error(f"Failed to send template email: {e}")
-            return False
