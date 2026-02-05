@@ -34,6 +34,7 @@ const VehicleMaintenancePage = lazy(() => import('./pages/VehicleMaintenancePage
 const MLPredictionsPage = lazy(() => import('./pages/MLPredictionsPage'));
 const RealtimeTelemetryPage = lazy(() => import('./pages/RealtimeTelemetryPage'));
 const DispatchOptimizationPage = lazy(() => import('./pages/DispatchOptimizationPage'));
+const AnalyticsDashboardPage = lazy(() => import('./pages/AnalyticsDashboardPage'));
 
 // Protected Route Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -311,6 +312,14 @@ const App: React.FC = () => {
               element={
                 <ProtectedRoute>
                   <DispatchOptimizationPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/analytics"
+              element={
+                <ProtectedRoute>
+                  <AnalyticsDashboardPage />
                 </ProtectedRoute>
               }
             />
