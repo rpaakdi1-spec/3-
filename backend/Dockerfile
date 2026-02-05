@@ -1,41 +1,44 @@
-# Backend Dockerfile for Cold Chain Dispatch System
-FROM python:3.12-slim
+FROM python:3.11-slim
 
-# Set working directory
+LABEL maintainer="UVIS Team"
+LABEL description="UVIS Logistics Backend API"
+
 WORKDIR /app
 
-# Set environment variables
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
-
-# Install system dependencies
+# 시스템 의존성 설치
 RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
+    postgresql-client \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first for better caching
+# Python 의존성 설치
 COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
-# Install Python dependencies
-RUN pip install --upgrade pip && \
-    pip install -r requirements.txt
-
-# Copy application code
+# 애플리케이션 코드 복사
 COPY . .
 
-# Create necessary directories
-RUN mkdir -p /app/data/templates /app/data/uploads /app/logs
+# 업로드 디렉토리 생성
+RUN mkdir -p /app/uploads && \
+    chmod 755 /app/uploads
 
-# Expose port
+# 로그 디렉토리 생성
+RUN mkdir -p /app/logs && \
+    chmod 755 /app/logs
+
+# 포트 노출
 EXPOSE 8000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+# 헬스체크
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+  CMD curl -f http://localhost:8000/api/v1/health || exit 1
 
-# Run the application
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# 환경 변수
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+
+# 실행 (프로덕션에서는 Gunicorn + Uvicorn workers 사용)
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4", "--log-level", "info"]

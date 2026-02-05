@@ -1,64 +1,56 @@
-# Prometheus Configuration
-# Cold Chain Delivery Management System
-
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
   external_labels:
-    cluster: 'coldchain-production'
-    environment: 'production'
+    cluster: 'uvis-production'
+    environment: 'prod'
 
-# Alertmanager configuration
+# Alertmanager 설정
 alerting:
   alertmanagers:
     - static_configs:
         - targets:
-          # - alertmanager:9093
+          - 'alertmanager:9093'
 
-# Load rules once and periodically evaluate them
+# 알림 규칙
 rule_files:
-  # - "alerts/*.yml"
+  - 'alerts.yml'
 
-# Scrape configurations
+# 메트릭 수집 대상
 scrape_configs:
-  # Backend API metrics
-  - job_name: 'coldchain-backend'
+  # FastAPI 백엔드
+  - job_name: 'fastapi'
     static_configs:
       - targets: ['backend:8000']
     metrics_path: '/metrics'
     scrape_interval: 10s
 
-  # PostgreSQL metrics
-  - job_name: 'postgresql'
+  # PostgreSQL
+  - job_name: 'postgres'
     static_configs:
       - targets: ['postgres-exporter:9187']
     scrape_interval: 30s
 
-  # Redis metrics
+  # Redis
   - job_name: 'redis'
     static_configs:
       - targets: ['redis-exporter:9121']
     scrape_interval: 30s
 
-  # Nginx metrics
-  - job_name: 'nginx'
-    static_configs:
-      - targets: ['nginx-exporter:9113']
-    scrape_interval: 30s
-
-  # Node exporter for system metrics
+  # Node Exporter (시스템 메트릭)
   - job_name: 'node'
     static_configs:
       - targets: ['node-exporter:9100']
     scrape_interval: 30s
 
-  # Docker container metrics
-  - job_name: 'docker'
+  # Nginx
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['nginx-exporter:9113']
+    scrape_interval: 30s
+
+  # Docker
+  - job_name: 'cadvisor'
     static_configs:
       - targets: ['cadvisor:8080']
     scrape_interval: 30s
-
-  # Prometheus self-monitoring
-  - job_name: 'prometheus'
-    static_configs:
-      - targets: ['localhost:9090']
