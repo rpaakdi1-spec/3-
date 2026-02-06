@@ -88,7 +88,7 @@ const AnalyticsDashboardPage: React.FC = () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('access_token');
-      const res = await axios.get(`${API_URL}/api/v1/analytics/dashboard`, {
+      const res = await axios.get(`${API_URL}/analytics/dashboard`, {
         headers: { Authorization: `Bearer ${token}` },
         params: { period }
       });

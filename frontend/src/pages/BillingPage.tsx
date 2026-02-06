@@ -117,14 +117,14 @@ const BillingPage: React.FC = () => {
 
       if (activeTab === 'invoices') {
         // Load invoices
-        const invoicesRes = await axios.get(`${API_URL}/api/v1/billing/invoices`, {
+        const invoicesRes = await axios.get(`${API_URL}/billing/invoices`, {
           headers,
           params: { limit: 100 }
         });
         setInvoices(invoicesRes.data);
 
         // Load summary
-        const summaryRes = await axios.get(`${API_URL}/api/v1/billing/invoices/summary`, {
+        const summaryRes = await axios.get(`${API_URL}/billing/invoices/summary`, {
           headers,
           params: {
             start_date: dateRange.start,
@@ -134,7 +134,7 @@ const BillingPage: React.FC = () => {
         setSummary(summaryRes.data);
       } else if (activeTab === 'settlements') {
         // Load driver settlements
-        const settlementsRes = await axios.get(`${API_URL}/api/v1/billing/settlements`, {
+        const settlementsRes = await axios.get(`${API_URL}/billing/settlements`, {
           headers,
           params: { limit: 100 }
         });
@@ -151,7 +151,7 @@ const BillingPage: React.FC = () => {
     try {
       const token = localStorage.getItem('access_token');
       await axios.post(
-        `${API_URL}/api/v1/billing/invoices/generate`,
+        `${API_URL}/billing/invoices/generate`,
         {
           client_id: clientId,
           start_date: dateRange.start,
@@ -172,7 +172,7 @@ const BillingPage: React.FC = () => {
     try {
       const token = localStorage.getItem('access_token');
       await axios.post(
-        `${API_URL}/api/v1/billing/invoices/${invoiceId}/send`,
+        `${API_URL}/billing/invoices/${invoiceId}/send`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -188,7 +188,7 @@ const BillingPage: React.FC = () => {
     try {
       const token = localStorage.getItem('access_token');
       const response = await axios.get(
-        `${API_URL}/api/v1/billing/invoices/${invoiceId}/pdf`,
+        `${API_URL}/billing/invoices/${invoiceId}/pdf`,
         {
           headers: { Authorization: `Bearer ${token}` },
           responseType: 'blob'
@@ -218,7 +218,7 @@ const BillingPage: React.FC = () => {
     try {
       const token = localStorage.getItem('access_token');
       await axios.post(
-        `${API_URL}/api/v1/billing/payments`,
+        `${API_URL}/billing/payments`,
         {
           invoice_id: invoiceId,
           amount: parseFloat(amount),

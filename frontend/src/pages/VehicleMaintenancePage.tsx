@@ -145,7 +145,7 @@ const VehicleMaintenancePage: React.FC = () => {
         const params: any = { limit: 100 };
         if (statusFilter !== 'all') params.status = statusFilter;
         
-        const res = await axios.get(`${API_URL}/api/v1/maintenance/records`, {
+        const res = await axios.get(`${API_URL}/maintenance/records`, {
           headers,
           params
         });
@@ -154,7 +154,7 @@ const VehicleMaintenancePage: React.FC = () => {
         const params: any = {};
         if (showLowStock) params.low_stock = true;
         
-        const res = await axios.get(`${API_URL}/api/v1/maintenance/parts`, {
+        const res = await axios.get(`${API_URL}/maintenance/parts`, {
           headers,
           params
         });
@@ -163,19 +163,19 @@ const VehicleMaintenancePage: React.FC = () => {
         const params: any = {};
         if (showOverdue) params.is_overdue = true;
         
-        const res = await axios.get(`${API_URL}/api/v1/maintenance/schedules`, {
+        const res = await axios.get(`${API_URL}/maintenance/schedules`, {
           headers,
           params
         });
         setSchedules(res.data);
       } else if (activeTab === 'inspections') {
-        const res = await axios.get(`${API_URL}/api/v1/maintenance/inspections`, {
+        const res = await axios.get(`${API_URL}/maintenance/inspections`, {
           headers,
           params: { limit: 100 }
         });
         setInspections(res.data);
       } else if (activeTab === 'alerts') {
-        const res = await axios.get(`${API_URL}/api/v1/maintenance/alerts/dashboard`, {
+        const res = await axios.get(`${API_URL}/maintenance/alerts/dashboard`, {
           headers
         });
         setAlerts({
@@ -197,7 +197,7 @@ const VehicleMaintenancePage: React.FC = () => {
     try {
       const token = localStorage.getItem('access_token');
       await axios.post(
-        `${API_URL}/api/v1/maintenance/records/${recordId}/start`,
+        `${API_URL}/maintenance/records/${recordId}/start`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -219,7 +219,7 @@ const VehicleMaintenancePage: React.FC = () => {
     try {
       const token = localStorage.getItem('access_token');
       await axios.post(
-        `${API_URL}/api/v1/maintenance/records/${recordId}/complete`,
+        `${API_URL}/maintenance/records/${recordId}/complete`,
         {
           labor_cost: parseFloat(laborCost),
           parts_cost: parseFloat(partsCost)
@@ -241,7 +241,7 @@ const VehicleMaintenancePage: React.FC = () => {
     try {
       const token = localStorage.getItem('access_token');
       await axios.post(
-        `${API_URL}/api/v1/maintenance/parts/${partId}/stock`,
+        `${API_URL}/maintenance/parts/${partId}/stock`,
         { quantity_change: parseInt(change) },
         { headers: { Authorization: `Bearer ${token}` } }
       );
