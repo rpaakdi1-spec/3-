@@ -39,8 +39,12 @@ class User(Base):
     last_login = Column(DateTime(timezone=True), nullable=True, comment="마지막 로그인")
 
     # Relationships
+    # Note: Using string reference to avoid circular imports
     fcm_tokens = relationship("FCMToken", back_populates="user", cascade="all, delete-orphan", lazy="dynamic")
     two_factor_auth = relationship("TwoFactorAuth", back_populates="user", uselist=False, cascade="all, delete-orphan")
-
+    notification_preferences = relationship("NotificationPreferences", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    
+    def __repr__(self):
+        return f"<User(id={self.id}, username='{self.username}', role={self.role})>"
     def __repr__(self):
         return f"<User(id={self.id}, username='{self.username}', role={self.role})>"

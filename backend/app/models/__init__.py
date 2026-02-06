@@ -28,6 +28,7 @@ from .vehicle_maintenance import (
     MaintenanceSchedule, VehicleInspection,
     MaintenanceType, MaintenanceStatus, MaintenancePriority, PartCategory
 )
+from .mobile_photo import MobilePhoto, NotificationPreferences, MobileSession
 
 __all__ = [
     "Base",
@@ -88,4 +89,7 @@ __all__ = [
     "MaintenanceStatus",
     "MaintenancePriority",
     "PartCategory",
+    "MobilePhoto",
+    "NotificationPreferences",
+    "MobileSession",
 ]
