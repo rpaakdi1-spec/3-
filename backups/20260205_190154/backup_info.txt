@@ -1,0 +1,13 @@
+Backup Date: 20260205_190154
+Server: server-s1uvis.novalocal
+PostgreSQL Version:  PostgreSQL 14.20 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+Redis Version: redis_version:7.4.7
+Services Status:
+NAME                   IMAGE                    COMMAND                  SERVICE      CREATED          STATUS                     PORTS
+coldchain-backend      uvis-backend             "uvicorn main:app --…"   backend      9 minutes ago    Up 9 minutes (healthy)     0.0.0.0:8000->8000/tcp, :::8000->8000/tcp
+coldchain-frontend     uvis-frontend            "docker-entrypoint.s…"   frontend     9 minutes ago    Up 9 minutes               5173/tcp, 0.0.0.0:5173->3000/tcp, :::5173->3000/tcp
+coldchain-grafana      grafana/grafana:latest   "/run.sh"                grafana      4 minutes ago    Up 4 minutes               0.0.0.0:3001->3000/tcp, :::3001->3000/tcp
+coldchain-nginx        nginx:1.25-alpine        "/docker-entrypoint.…"   nginx        9 minutes ago    Up 9 minutes (unhealthy)   0.0.0.0:80->80/tcp, :::80->80/tcp
+coldchain-postgres     postgres:14-alpine       "docker-entrypoint.s…"   postgres     16 minutes ago   Up 15 minutes (healthy)    0.0.0.0:5432->5432/tcp, :::5432->5432/tcp
+coldchain-prometheus   prom/prometheus:latest   "/bin/prometheus --c…"   prometheus   4 minutes ago    Up 4 minutes               0.0.0.0:9090->9090/tcp, :::9090->9090/tcp
+coldchain-redis        redis:7-alpine           "docker-entrypoint.s…"   redis        16 minutes ago   Up 15 minutes (healthy)    0.0.0.0:6379->6379/tcp, :::6379->6379/tcp
