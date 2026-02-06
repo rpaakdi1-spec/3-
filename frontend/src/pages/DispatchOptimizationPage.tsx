@@ -133,7 +133,7 @@ const DispatchOptimizationPage: React.FC = () => {
   const loadPendingOrders = async () => {
     try {
       const token = localStorage.getItem('access_token');
-      const res = await axios.get(`${API_URL}/api/v1/orders`, {
+      const res = await axios.get(`${API_URL}/orders`, {
         headers: { Authorization: `Bearer ${token}` },
         params: {
           status: 'CONFIRMED',
@@ -159,7 +159,7 @@ const DispatchOptimizationPage: React.FC = () => {
     try {
       const token = localStorage.getItem('access_token');
       const res = await axios.post(
-        `${API_URL}/api/v1/dispatch-optimization/optimize`,
+        `${API_URL}/dispatch-optimization/optimize`,
         {
           order_ids: selectedOrders,
           date: selectedDate,
@@ -185,7 +185,7 @@ const DispatchOptimizationPage: React.FC = () => {
     try {
       const token = localStorage.getItem('access_token');
       await axios.post(
-        `${API_URL}/api/v1/dispatch-optimization/${result.optimization_id}/approve`,
+        `${API_URL}/dispatch-optimization/${result.optimization_id}/approve`,
         {
           approved_by: 1, // TODO: 실제 사용자 ID
           notes: '승인함'

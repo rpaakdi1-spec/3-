@@ -189,7 +189,7 @@ const RealtimeTelemetryPage: React.FC = () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('access_token');
-      const res = await axios.get(`${API_URL}/api/v1/telemetry/vehicles/status`, {
+      const res = await axios.get(`${API_URL}/telemetry/vehicles/status`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
