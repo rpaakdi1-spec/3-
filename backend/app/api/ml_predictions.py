@@ -8,7 +8,7 @@ from typing import List, Optional
 from pydantic import BaseModel
 
 from app.core.database import get_db
-from app.core.security import get_current_user
+from app.api.auth import get_current_user
 from app.models.user import User
 from app.ml.predictive_maintenance import get_ml_model, MaintenancePredictionModel
 

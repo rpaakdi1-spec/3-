@@ -1,26 +1,42 @@
 import os
 from typing import Optional, Dict, Any
 from loguru import logger
-from twilio.rest import Client
-from twilio.base.exceptions import TwilioRestException
+
+# Twilio를 optional import로 처리
+try:
+    from twilio.rest import Client
+    from twilio.base.exceptions import TwilioRestException
+    TWILIO_AVAILABLE = True
+except ImportError:
+    TWILIO_AVAILABLE = False
+    logger.warning("⚠️ Twilio package not installed. SMS service will be disabled.")
 
 
 class SMSService:
     """SMS 발송 서비스 (Twilio)"""
     
     def __init__(self):
+        self.client = None
+        self.enabled = False
+        
+        if not TWILIO_AVAILABLE:
+            logger.warning("⚠️ Twilio package not available. SMS service disabled.")
+            return
+        
         self.account_sid = os.getenv("TWILIO_ACCOUNT_SID")
         self.auth_token = os.getenv("TWILIO_AUTH_TOKEN")
         self.from_number = os.getenv("TWILIO_FROM_NUMBER")
         
         # Twilio 클라이언트 초기화
         if self.account_sid and self.auth_token:
-            self.client = Client(self.account_sid, self.auth_token)
-            self.enabled = True
-            logger.info("✅ Twilio SMS Service initialized")
+            try:
+                self.client = Client(self.account_sid, self.auth_token)
+                self.enabled = True
+                logger.info("✅ Twilio SMS Service initialized")
+            except Exception as e:
+                logger.error(f"❌ Twilio initialization error: {e}")
+                self.enabled = False
         else:
-            self.client = None
-            self.enabled = False
             logger.warning("⚠️ Twilio credentials not found. SMS service disabled.")
     
     def send_sms(
@@ -71,22 +87,25 @@ class SMSService:
                 "error": None
             }
             
-        except TwilioRestException as e:
-            logger.error(f"❌ Twilio SMS error: {e.msg} (Code: {e.code})")
-            return {
-                "success": False,
-                "message_sid": None,
-                "error": f"Twilio error: {e.msg}",
-                "error_code": e.code
-            }
-        
         except Exception as e:
-            logger.error(f"❌ SMS send error: {str(e)}")
-            return {
-                "success": False,
-                "message_sid": None,
-                "error": str(e)
-            }
+            # TwilioRestException 처리 (if available)
+            if TWILIO_AVAILABLE and hasattr(e, 'msg'):
+                logger.error(f"❌ Twilio SMS error: {e.msg} (Code: {e.code})")
+                return {
+                    "success": False,
+                    "message_sid": None,
+                    "error": f"Twilio error: {e.msg}",
+                    "error_code": e.code
+                }
+            else:
+                logger.error(f"❌ SMS send error: {str(e)}")
+                return {
+                    "success": False,
+                    "message_sid": None,
+                    "error": str(e)
+                }
+        
+
     
     def get_message_status(self, message_sid: str) -> Dict[str, Any]:
         """
@@ -116,11 +135,11 @@ class SMSService:
                 "error_message": message.error_message
             }
             
-        except TwilioRestException as e:
-            logger.error(f"❌ Failed to fetch message status: {e.msg}")
+        except Exception as e:
+            logger.error(f"❌ Failed to fetch message status: {str(e)}")
             return {
                 "success": False,
-                "error": f"Twilio error: {e.msg}"
+                "error": str(e)
             }
     
     def _format_phone_number(self, phone: str) -> str:

@@ -81,14 +81,14 @@ const MLPredictionsPage: React.FC = () => {
 
       // Load predictions
       const params = selectedRisk !== 'all' ? { risk_level: selectedRisk } : {};
-      const predRes = await axios.get(`${API_URL}/api/v1/ml/predictions`, {
+      const predRes = await axios.get(`${API_URL}/ml/predictions`, {
         headers,
         params
       });
       setPredictions(predRes.data);
 
       // Load statistics
-      const statsRes = await axios.get(`${API_URL}/api/v1/ml/statistics`, {
+      const statsRes = await axios.get(`${API_URL}/ml/statistics`, {
         headers
       });
       setStatistics(statsRes.data);
@@ -102,7 +102,7 @@ const MLPredictionsPage: React.FC = () => {
   const loadModelStatus = async () => {
     try {
       const token = localStorage.getItem('access_token');
-      const res = await axios.get(`${API_URL}/api/v1/ml/model-status`, {
+      const res = await axios.get(`${API_URL}/ml/model-status`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setModelStatus(res.data);
@@ -120,7 +120,7 @@ const MLPredictionsPage: React.FC = () => {
     try {
       const token = localStorage.getItem('access_token');
       await axios.post(
-        `${API_URL}/api/v1/ml/train`,
+        `${API_URL}/ml/train`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );

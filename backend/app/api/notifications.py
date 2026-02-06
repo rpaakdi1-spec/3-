@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime, timedelta
 
-from app.database import get_db
+from app.core.database import get_db
 from app.schemas.notification import (
     NotificationSendRequest,
     TemplateNotificationRequest,

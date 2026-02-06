@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 from loguru import logger
 from sqlalchemy.orm import Session
 
-from app.database import SessionLocal
+from app.core.database import SessionLocal
 from app.services.ab_test_service import ABTestService, ABTestMetricsService
 
 

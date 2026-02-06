@@ -1,10 +1,10 @@
 from .base import Base
 from .user import User
 from .client import Client
-from .vehicle import Vehicle
+from .vehicle import Vehicle, VehicleType, VehicleStatus
 from .driver import Driver
-from .order import Order
-from .dispatch import Dispatch, DispatchRoute
+from .order import Order, OrderStatus
+from .dispatch import Dispatch, DispatchRoute, DispatchStatus
 from .vehicle_location import VehicleLocation, TemperatureAlert
 from .notice import Notice
 from .purchase_order import PurchaseOrder
@@ -23,21 +23,33 @@ from .billing import (
     DriverSettlement, DriverSettlementItem,
     BillingCycleType, BillingStatus, PaymentMethod
 )
+from .billing_enhanced import (
+    TaxInvoice, TaxInvoiceStatus,
+    AutoInvoiceSchedule,
+    SettlementApproval, SettlementApprovalStatus, SettlementApprovalHistory,
+    PaymentReminder, PaymentReminderType, PaymentReminderStatus,
+    ExportTask, ExportTaskStatus
+)
 from .vehicle_maintenance import (
     VehicleMaintenanceRecord, VehiclePart, MaintenancePartUsage,
     MaintenanceSchedule, VehicleInspection,
     MaintenanceType, MaintenanceStatus, MaintenancePriority, PartCategory
 )
+from .mobile_photo import MobilePhoto, NotificationPreferences, MobileSession
 
 __all__ = [
     "Base",
     "User",
     "Client",
     "Vehicle",
+    "VehicleType",
+    "VehicleStatus",
     "Driver",
     "Order",
+    "OrderStatus",
     "Dispatch",
     "DispatchRoute",
+    "DispatchStatus",
     "VehicleLocation",
     "TemperatureAlert",
     "Notice",
@@ -84,4 +96,19 @@ __all__ = [
     "MaintenanceStatus",
     "MaintenancePriority",
     "PartCategory",
+    "MobilePhoto",
+    "NotificationPreferences",
+    "MobileSession",
+    # Phase 8: Billing Enhanced
+    "TaxInvoice",
+    "TaxInvoiceStatus",
+    "AutoInvoiceSchedule",
+    "SettlementApproval",
+    "SettlementApprovalStatus",
+    "SettlementApprovalHistory",
+    "PaymentReminder",
+    "PaymentReminderType",
+    "PaymentReminderStatus",
+    "ExportTask",
+    "ExportTaskStatus",
 ]

@@ -5,10 +5,12 @@ WORKDIR /app
 
 # 의존성 설치
 COPY package*.json ./
-RUN npm ci --only=production
+RUN npm install
 
 # 소스 복사 및 빌드
 COPY . .
+# Build for production using .env.production
+ENV NODE_ENV=production
 RUN npm run build
 
 # Production stage

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { apiClient } from '../services/apiClient';
+import { apiClient } from '../api/client';
 import { Thermometer, AlertTriangle, TrendingUp, TrendingDown, Activity, Clock, CheckCircle } from 'lucide-react';
 import { Line } from 'react-chartjs-2';
 import {

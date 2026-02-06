@@ -14,7 +14,7 @@ from typing import List, Optional
 
 from app.core.database import get_db
 from app.services.monitoring_service import MonitoringService
-from app.services.notification_service import NotificationService, NotificationLevel
+from app.services.notification_service import NotificationService
 from pydantic import BaseModel, Field
 
 router = APIRouter()
@@ -24,7 +24,7 @@ class AlertRequest(BaseModel):
     """알림 전송 요청"""
     title: str = Field(..., description="알림 제목")
     message: str = Field(..., description="알림 내용")
-    level: str = Field(NotificationLevel.INFO, description="알림 레벨")
+    level: str = Field("INFO", description="알림 레벨")
     channels: List[str] = Field(default=["slack"], description="전송 채널")
     email_recipients: Optional[List[str]] = Field(None, description="이메일 수신자")
     sms_recipients: Optional[List[str]] = Field(None, description="SMS 수신자")
@@ -288,7 +288,7 @@ async def test_slack():
     success = notification_service.send_slack(
         title="테스트 메시지",
         message="Cold Chain Dispatch System의 Slack 연동 테스트입니다.",
-        level=NotificationLevel.INFO
+        level="info"
     )
     
     return {
@@ -303,7 +303,7 @@ async def test_slack():
     description="시스템 알림을 테스트합니다"
 )
 async def test_alert(
-    level: str = Query(NotificationLevel.WARNING, description="알림 레벨"),
+    level: str = Query("warning", description="알림 레벨"),
     channel: str = Query("slack", description="전송 채널")
 ):
     """

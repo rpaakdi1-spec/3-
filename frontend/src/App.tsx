@@ -35,7 +35,19 @@ const MLPredictionsPage = lazy(() => import('./pages/MLPredictionsPage'));
 const RealtimeTelemetryPage = lazy(() => import('./pages/RealtimeTelemetryPage'));
 const DispatchOptimizationPage = lazy(() => import('./pages/DispatchOptimizationPage'));
 const AnalyticsDashboardPage = lazy(() => import('./pages/AnalyticsDashboardPage'));
-const AnalyticsDashboardPage = lazy(() => import('./pages/AnalyticsDashboardPage'));
+
+// Phase 8: Billing Enhanced Pages
+const FinancialDashboardPage = lazy(() => import('./pages/FinancialDashboardPage'));
+const ChargePreviewPage = lazy(() => import('./pages/ChargePreviewPage'));
+const AutoInvoiceSchedulePage = lazy(() => import('./pages/AutoInvoiceSchedulePage'));
+const SettlementApprovalPage = lazy(() => import('./pages/SettlementApprovalPage'));
+const PaymentReminderPage = lazy(() => import('./pages/PaymentReminderPage'));
+const ExportTaskPage = lazy(() => import('./pages/ExportTaskPage'));
+
+// IoT Sensor Pages
+const IoTSensorsPage = lazy(() => import('./pages/IoTSensorsPage'));
+const IoTSensorDetailPage = lazy(() => import('./pages/IoTSensorDetailPage'));
+const IoTAlertsPage = lazy(() => import('./pages/IoTAlertsPage'));
 
 // Protected Route Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -285,6 +297,54 @@ const App: React.FC = () => {
               }
             />
             <Route
+              path="/billing/financial-dashboard"
+              element={
+                <ProtectedRoute>
+                  <FinancialDashboardPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/billing/charge-preview"
+              element={
+                <ProtectedRoute>
+                  <ChargePreviewPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/billing/auto-schedule"
+              element={
+                <ProtectedRoute>
+                  <AutoInvoiceSchedulePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/billing/settlement-approval"
+              element={
+                <ProtectedRoute>
+                  <SettlementApprovalPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/billing/payment-reminder"
+              element={
+                <ProtectedRoute>
+                  <PaymentReminderPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/billing/export-task"
+              element={
+                <ProtectedRoute>
+                  <ExportTaskPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/maintenance"
               element={
                 <ProtectedRoute>
@@ -329,6 +389,32 @@ const App: React.FC = () => {
               element={
                 <ProtectedRoute>
                   <AnalyticsDashboardPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* IoT Sensor Routes */}
+            <Route
+              path="/iot/sensors"
+              element={
+                <ProtectedRoute>
+                  <IoTSensorsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/iot/sensors/:vehicleId"
+              element={
+                <ProtectedRoute>
+                  <IoTSensorDetailPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/iot/alerts"
+              element={
+                <ProtectedRoute>
+                  <IoTAlertsPage />
                 </ProtectedRoute>
               }
             />

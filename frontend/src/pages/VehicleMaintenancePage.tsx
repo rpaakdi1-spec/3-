@@ -14,7 +14,6 @@ import {
   Plus,
   DollarSign,
   FileText,
-  Tool,
   Truck,
   PlayCircle,
   StopCircle,
@@ -146,7 +145,7 @@ const VehicleMaintenancePage: React.FC = () => {
         const params: any = { limit: 100 };
         if (statusFilter !== 'all') params.status = statusFilter;
         
-        const res = await axios.get(`${API_URL}/api/v1/maintenance/records`, {
+        const res = await axios.get(`${API_URL}/maintenance/records`, {
           headers,
           params
         });
@@ -155,7 +154,7 @@ const VehicleMaintenancePage: React.FC = () => {
         const params: any = {};
         if (showLowStock) params.low_stock = true;
         
-        const res = await axios.get(`${API_URL}/api/v1/maintenance/parts`, {
+        const res = await axios.get(`${API_URL}/maintenance/parts`, {
           headers,
           params
         });
@@ -164,19 +163,19 @@ const VehicleMaintenancePage: React.FC = () => {
         const params: any = {};
         if (showOverdue) params.is_overdue = true;
         
-        const res = await axios.get(`${API_URL}/api/v1/maintenance/schedules`, {
+        const res = await axios.get(`${API_URL}/maintenance/schedules`, {
           headers,
           params
         });
         setSchedules(res.data);
       } else if (activeTab === 'inspections') {
-        const res = await axios.get(`${API_URL}/api/v1/maintenance/inspections`, {
+        const res = await axios.get(`${API_URL}/maintenance/inspections`, {
           headers,
           params: { limit: 100 }
         });
         setInspections(res.data);
       } else if (activeTab === 'alerts') {
-        const res = await axios.get(`${API_URL}/api/v1/maintenance/alerts/dashboard`, {
+        const res = await axios.get(`${API_URL}/maintenance/alerts/dashboard`, {
           headers
         });
         setAlerts({
@@ -198,7 +197,7 @@ const VehicleMaintenancePage: React.FC = () => {
     try {
       const token = localStorage.getItem('access_token');
       await axios.post(
-        `${API_URL}/api/v1/maintenance/records/${recordId}/start`,
+        `${API_URL}/maintenance/records/${recordId}/start`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -220,7 +219,7 @@ const VehicleMaintenancePage: React.FC = () => {
     try {
       const token = localStorage.getItem('access_token');
       await axios.post(
-        `${API_URL}/api/v1/maintenance/records/${recordId}/complete`,
+        `${API_URL}/maintenance/records/${recordId}/complete`,
         {
           labor_cost: parseFloat(laborCost),
           parts_cost: parseFloat(partsCost)
@@ -242,7 +241,7 @@ const VehicleMaintenancePage: React.FC = () => {
     try {
       const token = localStorage.getItem('access_token');
       await axios.post(
-        `${API_URL}/api/v1/maintenance/parts/${partId}/stock`,
+        `${API_URL}/maintenance/parts/${partId}/stock`,
         { quantity_change: parseInt(change) },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -299,7 +298,7 @@ const VehicleMaintenancePage: React.FC = () => {
   const getMaintenanceTypeIcon = (type: string) => {
     const icons: Record<string, JSX.Element> = {
       '정기점검': <ClipboardCheck className="w-5 h-5 text-blue-500" />,
-      '수리': <Tool className="w-5 h-5 text-orange-500" />,
+      '수리': <Wrench className="w-5 h-5 text-orange-500" />,
       '부품교체': <Package className="w-5 h-5 text-purple-500" />,
       '오일교환': <Wrench className="w-5 h-5 text-green-500" />,
       '타이어교체': <Truck className="w-5 h-5 text-gray-600" />

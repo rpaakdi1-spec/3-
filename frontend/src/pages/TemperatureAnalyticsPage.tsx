@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { apiClient } from '../services/apiClient';
+import { apiClient } from '../api/client';
 import {
   BarChart3,
   TrendingUp,

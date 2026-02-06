@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { useSpeechRecognition } from '../../hooks/useSpeechRecognition';
-import { ordersAPI } from '../../api/orders';
+import { ordersAPI } from '../../services/api';
 
 interface VoiceOrderInputProps {
   onOrderCreated?: () => void;
