@@ -36,6 +36,10 @@ const RealtimeTelemetryPage = lazy(() => import('./pages/RealtimeTelemetryPage')
 const DispatchOptimizationPage = lazy(() => import('./pages/DispatchOptimizationPage'));
 const AnalyticsDashboardPage = lazy(() => import('./pages/AnalyticsDashboardPage'));
 
+// Phase 8: Billing Enhanced Pages
+const FinancialDashboardPage = lazy(() => import('./pages/FinancialDashboardPage'));
+const ChargePreviewPage = lazy(() => import('./pages/ChargePreviewPage'));
+
 // IoT Sensor Pages
 const IoTSensorsPage = lazy(() => import('./pages/IoTSensorsPage'));
 const IoTSensorDetailPage = lazy(() => import('./pages/IoTSensorDetailPage'));
@@ -285,6 +289,22 @@ const App: React.FC = () => {
               element={
                 <ProtectedRoute>
                   <BillingPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/billing/financial-dashboard"
+              element={
+                <ProtectedRoute>
+                  <FinancialDashboardPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/billing/charge-preview"
+              element={
+                <ProtectedRoute>
+                  <ChargePreviewPage />
                 </ProtectedRoute>
               }
             />
