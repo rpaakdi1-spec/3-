@@ -453,7 +453,7 @@ async def list_export_tasks(
     """내보내기 작업 목록 조회"""
     from app.models.billing_enhanced import ExportTask
     
-    query = db.query(ExportTask).filter(ExportTask.created_by == current_user.id)
+    query = db.query(ExportTask).filter(ExportTask.user_id == current_user.id)
     
     if status:
         query = query.filter(ExportTask.status == status)
