@@ -21,6 +21,12 @@ import {
   Activity,
   Thermometer,
   Wrench,
+  FileText,
+  Calculator,
+  Clock,
+  CheckSquare,
+  Bell,
+  Download,
 } from 'lucide-react';
 
 const Sidebar: React.FC = () => {
@@ -42,6 +48,12 @@ const Sidebar: React.FC = () => {
     { path: '/temperature-monitoring', label: '온도 모니터링', icon: Thermometer, roles: ['ADMIN', 'DISPATCHER'] },
     { path: '/temperature-analytics', label: '온도 분석', icon: BarChart3, roles: ['ADMIN', 'DISPATCHER'] },
     { path: '/billing', label: '청구/정산', icon: DollarSign, roles: ['ADMIN', 'DISPATCHER'] },
+    { path: '/billing/financial-dashboard', label: '재무 대시보드', icon: BarChart3, roles: ['ADMIN', 'DISPATCHER'] },
+    { path: '/billing/charge-preview', label: '요금 미리보기', icon: Calculator, roles: ['ADMIN', 'DISPATCHER'] },
+    { path: '/billing/auto-schedule', label: '자동 청구 스케줄', icon: Clock, roles: ['ADMIN', 'DISPATCHER'] },
+    { path: '/billing/settlement-approval', label: '정산 승인', icon: CheckSquare, roles: ['ADMIN'] },
+    { path: '/billing/payment-reminder', label: '결제 알림', icon: Bell, roles: ['ADMIN', 'DISPATCHER'] },
+    { path: '/billing/export-task', label: '데이터 내보내기', icon: Download, roles: ['ADMIN', 'DISPATCHER'] },
     { path: '/maintenance', label: '차량 유지보수', icon: Wrench, roles: ['ADMIN', 'DISPATCHER'] },
     { path: '/ml-predictions', label: 'AI 예측 정비', icon: Brain, roles: ['ADMIN', 'DISPATCHER'] },
     { path: '/telemetry', label: '실시간 텔레메트리', icon: Activity, roles: ['ADMIN', 'DISPATCHER'] },
