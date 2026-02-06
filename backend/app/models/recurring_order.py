@@ -4,7 +4,7 @@ Recurring Order Model
 """
 from sqlalchemy import Column, Integer, String, Date, Time, Boolean, DateTime, Enum as SQLEnum, Text
 from sqlalchemy.sql import func
-from app.core.database import Base
+from app.models.base import Base
 from app.models.order import TemperatureZone
 import enum
 

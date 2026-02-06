@@ -75,7 +75,7 @@ class Notification(Base):
     template_code = Column(String(100), comment='템플릿 코드 (카카오톡)')
     
     # 추가 데이터
-    metadata = Column(JSON, comment='추가 메타데이터 (JSON)')
+    meta_data = Column(JSON, comment='추가 메타데이터 (JSON)')
     
     # 발송 정보
     sent_at = Column(DateTime, comment='발송 시각')

@@ -14,7 +14,7 @@ from sqlalchemy import and_, desc
 from app.models.vehicle import Vehicle
 from app.models.dispatch import Dispatch
 from app.models.vehicle_location import VehicleLocation
-from app.models.temperature_alert import TemperatureAlert
+from app.models.vehicle_location import TemperatureAlert
 from app.services.notification_service import NotificationService
 
 
