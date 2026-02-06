@@ -52,30 +52,43 @@ case $choice in
     2)
         echo ""
         echo -e "${BLUE}프론트엔드 재빌드 및 재시작 중...${NC}"
-        cd "$REPO_DIR/frontend"
+        cd "$REPO_DIR/frontend" || exit 1
+        
+        # 이전 빌드 삭제
+        if [ -d "dist" ]; then
+            echo "이전 빌드 삭제 중..."
+            rm -rf dist
+        fi
         
         # 빌드
         echo "빌드 중... (시간이 걸릴 수 있습니다)"
-        npm run build
-        
-        if [ -d "dist" ]; then
+        if npm run build; then
             echo -e "${GREEN}✓ 빌드 성공${NC}"
             
             # 재시작
-            cd "$REPO_DIR"
+            cd "$REPO_DIR" || exit 1
+            echo "Docker 이미지 재빌드 중..."
             docker-compose build --no-cache frontend
+            echo "프론트엔드 컨테이너 시작 중..."
             docker-compose up -d frontend
-            sleep 3
+            
+            echo "서비스 시작 대기 중... (5초)"
+            sleep 5
             
             # 헬스 체크
             FRONTEND_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost/ 2>/dev/null)
             if [ "$FRONTEND_STATUS" == "200" ]; then
                 echo -e "${GREEN}✓ 프론트엔드 재시작 완료: $FRONTEND_STATUS OK${NC}"
+                echo ""
+                echo "접속 URL: http://139.150.11.99/"
+                echo "브라우저 캐시 삭제: Ctrl + Shift + R"
             else
                 echo -e "${RED}✗ 프론트엔드 상태: $FRONTEND_STATUS${NC}"
+                echo "로그 확인: docker logs uvis-frontend --tail 50"
             fi
         else
             echo -e "${RED}✗ 빌드 실패${NC}"
+            echo "오류를 확인하고 다시 시도하세요."
         fi
         ;;
         
