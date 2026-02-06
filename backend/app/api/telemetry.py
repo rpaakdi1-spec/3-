@@ -11,7 +11,7 @@ import json
 import asyncio
 
 from app.core.database import get_db
-from app.core.security import get_current_user
+from app.api.auth import get_current_user
 from app.models.user import User
 from app.services.vehicle_telemetry_service import (
     get_telemetry_service,
@@ -243,7 +243,7 @@ def get_telemetry_statistics(
     - 온도 알림 수
     """
     from app.models.vehicle_location import VehicleLocation
-    from app.models.temperature_alert import TemperatureAlert
+    from app.models.vehicle_location import TemperatureAlert
     from datetime import timedelta
     from sqlalchemy import func
     

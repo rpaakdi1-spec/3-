@@ -7,7 +7,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from datetime import date, time
 from enum import Enum
-from app.core.database import Base
+from app.models.base import Base
 
 
 class ScheduleType(str, Enum):
