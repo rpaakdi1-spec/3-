@@ -49,7 +49,7 @@ def init_db():
     from app.models.base import Base
     import app.models  # Import all models
     
-    Base.metadata.create_all(bind=engine)
+    # Base.metadata.create_all(bind=engine)  # Disabled: Use Alembic migrations instead
 
 
 # Import Base at the end to avoid circular imports
