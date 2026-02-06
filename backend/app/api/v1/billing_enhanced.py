@@ -213,6 +213,26 @@ async def get_settlement_approval(
     return approval
 
 
+@router.get("/settlement-approval", response_model=List[SettlementApprovalResponse])
+async def list_settlement_approvals(
+    status: Optional[str] = Query(None, description="필터: pending, approved, rejected"),
+    limit: int = Query(100, ge=1, le=1000),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """정산 승인 목록 조회"""
+    from app.models.billing_enhanced import SettlementApproval
+    
+    query = db.query(SettlementApproval)
+    
+    if status:
+        query = query.filter(SettlementApproval.status == status)
+    
+    approvals = query.order_by(SettlementApproval.created_at.desc()).limit(limit).all()
+    
+    return approvals
+
+
 @router.get("/settlement-approval/{settlement_id}/history")
 async def get_settlement_approval_history(
     settlement_id: int,
@@ -240,6 +260,26 @@ async def get_settlement_approval_history(
 
 
 # ============= 결제 알림 =============
+
+@router.get("/payment-reminder", response_model=List[PaymentReminderResponse])
+async def list_payment_reminders(
+    status: Optional[str] = Query(None, description="필터: pending, sent, failed"),
+    limit: int = Query(100, ge=1, le=1000),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """결제 알림 목록 조회"""
+    from app.models.billing_enhanced import PaymentReminder
+    
+    query = db.query(PaymentReminder)
+    
+    if status:
+        query = query.filter(PaymentReminder.status == status)
+    
+    reminders = query.order_by(PaymentReminder.created_at.desc()).limit(limit).all()
+    
+    return reminders
+
 
 @router.post("/payment-reminder", response_model=PaymentReminderResponse)
 async def create_payment_reminder(
@@ -402,6 +442,26 @@ async def get_top_clients(
 
 
 # ============= Excel/PDF 내보내기 =============
+
+@router.get("/export", response_model=List[ExportResponse])
+async def list_export_tasks(
+    status: Optional[str] = Query(None, description="필터: pending, processing, completed, failed"),
+    limit: int = Query(100, ge=1, le=1000),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """내보내기 작업 목록 조회"""
+    from app.models.billing_enhanced import ExportTask
+    
+    query = db.query(ExportTask).filter(ExportTask.created_by == current_user.id)
+    
+    if status:
+        query = query.filter(ExportTask.status == status)
+    
+    tasks = query.order_by(ExportTask.created_at.desc()).limit(limit).all()
+    
+    return tasks
+
 
 @router.post("/export", response_model=ExportResponse)
 async def create_export_task(
