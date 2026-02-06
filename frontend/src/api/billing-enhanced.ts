@@ -7,6 +7,16 @@ import axios from 'axios';
 
 const API_BASE_URL = '/api/v1/billing/enhanced';
 
+// Get auth token
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('access_token');
+  return {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  };
+};
+
 // ============= Types =============
 
 export interface ChargePreviewRequest {
@@ -460,3 +470,119 @@ export const getLastNMonthsDates = (months: number): { startDate: string; endDat
     endDate: endDate.toISOString().split('T')[0],
   };
 };
+
+// ============= Additional API Functions for Phase 8 Pages =============
+
+/**
+ * Auto Invoice Schedule APIs
+ */
+export const getAutoInvoiceSchedules = async () => {
+  const response = await axios.get(`${API_BASE_URL}/auto-schedule`, getAuthHeaders());
+  return response.data;
+};
+
+export const getAutoInvoiceSchedule = async (clientId: number) => {
+  const response = await axios.get(`${API_BASE_URL}/auto-schedule/${clientId}`, getAuthHeaders());
+  return response.data;
+};
+
+export const createAutoInvoiceSchedule = async (data: any) => {
+  const response = await axios.post(`${API_BASE_URL}/auto-schedule`, data, getAuthHeaders());
+  return response.data;
+};
+
+export const updateAutoInvoiceSchedule = async (scheduleId: number, data: any) => {
+  const response = await axios.put(`${API_BASE_URL}/auto-schedule/${scheduleId}`, data, getAuthHeaders());
+  return response.data;
+};
+
+export const deleteAutoInvoiceSchedule = async (scheduleId: number) => {
+  const response = await axios.delete(`${API_BASE_URL}/auto-schedule/${scheduleId}`, getAuthHeaders());
+  return response.data;
+};
+
+export const executeAutoInvoices = async () => {
+  const response = await axios.post(`${API_BASE_URL}/auto-schedule/execute-due`, {}, getAuthHeaders());
+  return response.data;
+};
+
+/**
+ * Settlement Approval APIs
+ */
+export const getSettlementApprovals = async () => {
+  const response = await axios.get(`${API_BASE_URL}/settlement-approval`, getAuthHeaders());
+  return response.data;
+};
+
+export const createSettlementApproval = async (data: any) => {
+  const response = await axios.post(`${API_BASE_URL}/settlement-approval`, data, getAuthHeaders());
+  return response.data;
+};
+
+export const approveSettlement = async (settlementId: number, comments: string) => {
+  const response = await axios.post(
+    `${API_BASE_URL}/settlement-approval/${settlementId}/approve`,
+    { comments },
+    getAuthHeaders()
+  );
+  return response.data;
+};
+
+export const rejectSettlement = async (settlementId: number, comments: string) => {
+  const response = await axios.post(
+    `${API_BASE_URL}/settlement-approval/${settlementId}/reject`,
+    { comments },
+    getAuthHeaders()
+  );
+  return response.data;
+};
+
+export const getSettlementApprovalHistory = async (settlementId: number) => {
+  const response = await axios.get(
+    `${API_BASE_URL}/settlement-approval/${settlementId}/history`,
+    getAuthHeaders()
+  );
+  return response.data;
+};
+
+/**
+ * Payment Reminder APIs
+ */
+export const getPaymentReminders = async () => {
+  const response = await axios.get(`${API_BASE_URL}/payment-reminder`, getAuthHeaders());
+  return response.data;
+};
+
+export const createPaymentReminder = async (data: any) => {
+  const response = await axios.post(`${API_BASE_URL}/payment-reminder`, data, getAuthHeaders());
+  return response.data;
+};
+
+export const sendDuePaymentReminders = async () => {
+  const response = await axios.post(`${API_BASE_URL}/payment-reminder/send-due`, {}, getAuthHeaders());
+  return response.data;
+};
+
+export const deletePaymentReminder = async (reminderId: number) => {
+  const response = await axios.delete(`${API_BASE_URL}/payment-reminder/${reminderId}`, getAuthHeaders());
+  return response.data;
+};
+
+/**
+ * Export Task APIs
+ */
+export const getExportTasks = async () => {
+  const response = await axios.get(`${API_BASE_URL}/export`, getAuthHeaders());
+  return response.data;
+};
+
+export const getExportTask = async (taskId: number) => {
+  const response = await axios.get(`${API_BASE_URL}/export/${taskId}`, getAuthHeaders());
+  return response.data;
+};
+
+export const createExportTask = async (data: any) => {
+  const response = await axios.post(`${API_BASE_URL}/export`, data, getAuthHeaders());
+  return response.data;
+};
+
