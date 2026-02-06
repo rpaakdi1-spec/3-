@@ -156,7 +156,7 @@ async def internal_error_handler(request, exc):
 # Import and include routers
 # from app.api import auth, clients, vehicles, orders, dispatches, tracking, uvis, redispatch, notices, purchase_orders, band_messages, uvis_gps, analytics, delivery_tracking, traffic, monitoring, cache
 from app.api import auth, clients, vehicles, orders, dispatches, tracking, uvis, redispatch, notices, purchase_orders, band_messages, uvis_gps, delivery_tracking, traffic, monitoring, cache, emergency, ml_training, ai_chat, ai_usage, ml_dispatch, ab_test, recurring_orders, order_templates, driver_schedules, urgent_dispatches, notifications, temperature_monitoring, temperature_analytics, billing, vehicle_maintenance, ml_predictions, telemetry, dispatch_optimization, analytics, mobile
-from app.api.v1 import reports, realtime_monitoring, ml_models, fcm_notifications, performance, security, websocket, mobile_enhanced
+from app.api.v1 import reports, realtime_monitoring, ml_models, fcm_notifications, performance, security, websocket, mobile_enhanced, billing_enhanced
 app.include_router(auth.router, prefix=f"{settings.API_PREFIX}/auth", tags=["Authentication"])
 app.include_router(clients.router, prefix=f"{settings.API_PREFIX}/clients", tags=["Clients"])
 app.include_router(vehicles.router, prefix=f"{settings.API_PREFIX}/vehicles", tags=["Vehicles"])
@@ -202,6 +202,7 @@ app.include_router(dispatch_optimization.router, prefix=f"{settings.API_PREFIX}"
 app.include_router(analytics.router, prefix=f"{settings.API_PREFIX}", tags=["Analytics & BI"])  # Phase 4 Week 7-8
 app.include_router(mobile.router, prefix=f"{settings.API_PREFIX}/mobile", tags=["Mobile App"])  # Phase 4 Week 9-10
 app.include_router(mobile_enhanced.router, prefix=f"{settings.API_PREFIX}", tags=["Mobile App Enhanced"])  # Phase 7: Mobile API Enhancements
+app.include_router(billing_enhanced.router, prefix=f"{settings.API_PREFIX}", tags=["Billing Enhanced"])  # Phase 8: Billing Enhanced
 
 # Mount static files for uploads
 import os

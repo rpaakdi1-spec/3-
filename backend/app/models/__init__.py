@@ -23,6 +23,13 @@ from .billing import (
     DriverSettlement, DriverSettlementItem,
     BillingCycleType, BillingStatus, PaymentMethod
 )
+from .billing_enhanced import (
+    TaxInvoice, TaxInvoiceStatus,
+    AutoInvoiceSchedule,
+    SettlementApproval, SettlementApprovalStatus, SettlementApprovalHistory,
+    PaymentReminder, PaymentReminderType, PaymentReminderStatus,
+    ExportTask, ExportTaskStatus
+)
 from .vehicle_maintenance import (
     VehicleMaintenanceRecord, VehiclePart, MaintenancePartUsage,
     MaintenanceSchedule, VehicleInspection,
@@ -92,4 +99,16 @@ __all__ = [
     "MobilePhoto",
     "NotificationPreferences",
     "MobileSession",
+    # Phase 8: Billing Enhanced
+    "TaxInvoice",
+    "TaxInvoiceStatus",
+    "AutoInvoiceSchedule",
+    "SettlementApproval",
+    "SettlementApprovalStatus",
+    "SettlementApprovalHistory",
+    "PaymentReminder",
+    "PaymentReminderType",
+    "PaymentReminderStatus",
+    "ExportTask",
+    "ExportTaskStatus",
 ]

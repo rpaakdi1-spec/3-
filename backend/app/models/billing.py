@@ -118,6 +118,7 @@ class Invoice(Base):
     client = relationship("Client", back_populates="invoices")
     line_items = relationship("InvoiceLineItem", back_populates="invoice", cascade="all, delete-orphan")
     payments = relationship("Payment", back_populates="invoice", cascade="all, delete-orphan")
+    tax_invoice = relationship("TaxInvoice", back_populates="invoice", uselist=False, cascade="all, delete-orphan")
     
     def __repr__(self):
         return f"<Invoice(number={self.invoice_number}, client_id={self.client_id}, total={self.total_amount}, status={self.status})>"
@@ -222,6 +223,7 @@ class DriverSettlement(Base):
     # Relationships
     driver = relationship("Driver", back_populates="settlements")
     settlement_items = relationship("DriverSettlementItem", back_populates="settlement", cascade="all, delete-orphan")
+    approval = relationship("SettlementApproval", back_populates="settlement", uselist=False, cascade="all, delete-orphan")
     
     def __repr__(self):
         return f"<DriverSettlement(number={self.settlement_number}, driver_id={self.driver_id}, net={self.net_amount})>"
