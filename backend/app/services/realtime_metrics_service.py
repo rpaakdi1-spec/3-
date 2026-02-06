@@ -14,6 +14,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.websocket.connection_manager import manager
 from app.core.database import get_db
 
+from app.models.vehicle import Vehicle, VehicleStatus
+from app.models.dispatch import Dispatch
+from app.models.order import Order
 logger = logging.getLogger(__name__)
 
 
@@ -143,7 +146,7 @@ class RealtimeMetricsService:
         
         # Vehicles in transit
         vehicles_in_transit_query = select(func.count(Vehicle.id)).where(
-            Vehicle.status == "in_transit"
+            Vehicle.status == VehicleStatus.IN_USE
         )
         vehicles_in_transit = await db.scalar(vehicles_in_transit_query) or 0
         
@@ -170,7 +173,7 @@ class RealtimeMetricsService:
                 from app.models.vehicle import Vehicle
                 
                 vehicles_query = select(Vehicle).where(
-                    Vehicle.status == "in_transit"
+                    Vehicle.status == VehicleStatus.IN_USE
                 ).limit(50)
                 
                 result = await db.execute(vehicles_query)
