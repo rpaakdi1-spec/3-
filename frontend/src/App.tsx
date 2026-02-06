@@ -39,6 +39,10 @@ const AnalyticsDashboardPage = lazy(() => import('./pages/AnalyticsDashboardPage
 // Phase 8: Billing Enhanced Pages
 const FinancialDashboardPage = lazy(() => import('./pages/FinancialDashboardPage'));
 const ChargePreviewPage = lazy(() => import('./pages/ChargePreviewPage'));
+const AutoInvoiceSchedulePage = lazy(() => import('./pages/AutoInvoiceSchedulePage'));
+const SettlementApprovalPage = lazy(() => import('./pages/SettlementApprovalPage'));
+const PaymentReminderPage = lazy(() => import('./pages/PaymentReminderPage'));
+const ExportTaskPage = lazy(() => import('./pages/ExportTaskPage'));
 
 // IoT Sensor Pages
 const IoTSensorsPage = lazy(() => import('./pages/IoTSensorsPage'));
@@ -305,6 +309,38 @@ const App: React.FC = () => {
               element={
                 <ProtectedRoute>
                   <ChargePreviewPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/billing/auto-schedule"
+              element={
+                <ProtectedRoute>
+                  <AutoInvoiceSchedulePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/billing/settlement-approval"
+              element={
+                <ProtectedRoute>
+                  <SettlementApprovalPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/billing/payment-reminder"
+              element={
+                <ProtectedRoute>
+                  <PaymentReminderPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/billing/export-task"
+              element={
+                <ProtectedRoute>
+                  <ExportTaskPage />
                 </ProtectedRoute>
               }
             />
