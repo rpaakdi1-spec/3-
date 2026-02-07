@@ -7,6 +7,11 @@ import {
   Button,
   Box,
   Typography,
+  Chip,
+  IconButton,
+  Alert,
+} from '@mui/material';
+import {
   Timeline,
   TimelineItem,
   TimelineSeparator,
@@ -14,10 +19,7 @@ import {
   TimelineContent,
   TimelineDot,
   TimelineOppositeContent,
-  Chip,
-  IconButton,
-  Alert,
-} from '@mui/material';
+} from '@mui/lab';
 import {
   History as HistoryIcon,
   Restore as RestoreIcon,
