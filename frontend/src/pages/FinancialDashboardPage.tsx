@@ -29,7 +29,29 @@ import {
   ResponsiveContainer
 } from 'recharts';
 import * as BillingEnhancedAPI from '../api/billing-enhanced';
+import ReportDownloadModal from '../components/billing/ReportDownloadModal';
 
+// Backend response structure
+interface BackendFinancialSummary {
+  period_start: string;
+  period_end: string;
+  total_revenue: number;
+  invoiced_amount: number;
+  collected_amount: number;
+  collection_rate: number;
+  total_receivables: number;
+  current_receivables: number;
+  overdue_receivables: number;
+  overdue_count: number;
+  total_settlements: number;
+  pending_settlements: number;
+  paid_settlements: number;
+  cash_in: number;
+  cash_out: number;
+  net_cash_flow: number;
+}
+
+// Frontend display structure
 interface FinancialSummary {
   total_revenue: number;
   total_invoiced: number;
@@ -40,6 +62,9 @@ interface FinancialSummary {
   overdue_amount: number;
   pending_settlements: number;
   pending_settlement_amount: number;
+  cash_in: number;
+  cash_out: number;
+  net_cash_flow: number;
 }
 
 interface MonthlyTrend {
@@ -70,24 +95,57 @@ const FinancialDashboardPage: React.FC = () => {
     end_date: new Date().toISOString().split('T')[0]
   });
   const [trendMonths, setTrendMonths] = useState(12);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   useEffect(() => {
     loadDashboardData();
   }, [dateRange, trendMonths]);
 
+  // Transform backend response to frontend structure
+  const transformFinancialSummary = (backendData: BackendFinancialSummary): FinancialSummary => {
+    return {
+      total_revenue: backendData.total_revenue || 0,
+      total_invoiced: backendData.invoiced_amount || 0,
+      total_paid: backendData.collected_amount || 0,
+      total_outstanding: backendData.total_receivables || 0,
+      payment_rate: backendData.collection_rate || 0,
+      overdue_count: backendData.overdue_count || 0,
+      overdue_amount: backendData.overdue_receivables || 0,
+      pending_settlements: backendData.pending_settlements || 0,
+      pending_settlement_amount: backendData.total_settlements || 0,
+      cash_in: backendData.cash_in || 0,
+      cash_out: backendData.cash_out || 0,
+      net_cash_flow: backendData.net_cash_flow || 0
+    };
+  };
+
   const loadDashboardData = async () => {
     setLoading(true);
     try {
-      // Load financial summary
-      const summaryData = await BillingEnhancedAPI.getFinancialDashboard(dateRange);
-      setSummary(summaryData);
+      // Load financial summary - pass individual parameters, not nested object
+      const backendData = await BillingEnhancedAPI.getFinancialDashboard(
+        dateRange.start_date, 
+        dateRange.end_date
+      ) as unknown as BackendFinancialSummary;
+      
+      // Transform backend data to frontend structure
+      const transformedData = transformFinancialSummary(backendData);
+      setSummary(transformedData);
 
       // Load monthly trends
-      const trendsData = await BillingEnhancedAPI.getMonthlyTrends(trendMonths);
+      const trendsData = await BillingEnhancedAPI.getMonthlyTrends(
+        dateRange.start_date,
+        dateRange.end_date,
+        trendMonths
+      );
       setTrends(trendsData);
 
       // Load top clients
-      const clientsData = await BillingEnhancedAPI.getTopClients(10);
+      const clientsData = await BillingEnhancedAPI.getTopClients(
+        dateRange.start_date,
+        dateRange.end_date,
+        10
+      );
       setTopClients(clientsData);
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
@@ -128,7 +186,10 @@ const FinancialDashboardPage: React.FC = () => {
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
               새로고침
             </button>
-            <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2">
+            <button
+              onClick={() => setShowReportModal(true)}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+            >
               <Download className="w-4 h-4" />
               보고서 다운로드
             </button>
@@ -360,6 +421,13 @@ const FinancialDashboardPage: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Report Download Modal */}
+      <ReportDownloadModal
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        dateRange={dateRange}
+      />
     </div>
   );
 };

@@ -45,12 +45,16 @@ const Sidebar: React.FC = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
   const [isOpen, setIsOpen] = React.useState(false);
+  // 모든 메뉴를 기본으로 확장 (항상 펼쳐진 상태)
   const [expandedMenus, setExpandedMenus] = React.useState<Record<string, boolean>>({
-    billing: true, // Phase 8 메뉴 기본 확장
+    billing: true, // 청구/정산 메뉴 확장
+    // 추가 서브메뉴가 있는 경우 여기에 추가
   });
 
+  // 메뉴 토글 비활성화 (항상 확장 상태 유지)
   const toggleMenu = (key: string) => {
-    setExpandedMenus(prev => ({ ...prev, [key]: !prev[key] }));
+    // 아무 동작도 하지 않음 - 항상 확장 상태 유지
+    // setExpandedMenus(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
   const menuItems: MenuItem[] = [
@@ -109,8 +113,8 @@ const Sidebar: React.FC = () => {
     const Icon = item.icon;
     const isActive = location.pathname === item.path;
     const hasChildren = item.children && item.children.length > 0;
-    const isExpanded = expandedMenus[item.path] || expandedMenus['billing'];
-    const ChevronIcon = isExpanded ? ChevronDown : ChevronRight;
+    const isExpanded = true; // 항상 확장 상태
+    const ChevronIcon = ChevronDown; // 항상 아래 화살표 표시
 
     return (
       <li key={item.path + index}>
@@ -123,6 +127,8 @@ const Sidebar: React.FC = () => {
                   ? 'bg-blue-600 text-white'
                   : 'text-gray-300 hover:bg-gray-800'
               }`}
+              disabled
+              style={{ cursor: 'default' }}
             >
               <div className="flex items-center space-x-3">
                 <Icon size={20} />
@@ -130,37 +136,36 @@ const Sidebar: React.FC = () => {
               </div>
               <ChevronIcon size={16} />
             </button>
-            {isExpanded && (
-              <ul className="ml-4 mt-1 space-y-1 border-l-2 border-gray-700 pl-2">
-                {item.children!.map((child, childIndex) => {
-                  const ChildIcon = child.icon;
-                  const isChildActive = location.pathname === child.path;
-                  return (
-                    <li key={child.path + childIndex}>
-                      <Link
-                        to={child.path}
-                        className={`flex items-center justify-between space-x-2 px-3 py-2 rounded-lg transition-colors text-sm ${
-                          isChildActive
-                            ? 'bg-blue-600 text-white'
-                            : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
-                        }`}
-                        onClick={() => setIsOpen(false)}
-                      >
-                        <div className="flex items-center space-x-2">
-                          <ChildIcon size={16} />
-                          <span>{child.label}</span>
-                        </div>
-                        {child.isNew && (
-                          <span className="px-2 py-0.5 text-xs font-bold bg-green-500 text-white rounded-full">
-                            NEW
-                          </span>
-                        )}
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
+            {/* 항상 서브메뉴 표시 */}
+            <ul className="ml-4 mt-1 space-y-1 border-l-2 border-gray-700 pl-2">
+              {item.children!.map((child, childIndex) => {
+                const ChildIcon = child.icon;
+                const isChildActive = location.pathname === child.path;
+                return (
+                  <li key={child.path + childIndex}>
+                    <Link
+                      to={child.path}
+                      className={`flex items-center justify-between space-x-2 px-3 py-2 rounded-lg transition-colors text-sm ${
+                        isChildActive
+                          ? 'bg-blue-600 text-white'
+                          : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
+                      }`}
+                      onClick={() => setIsOpen(false)}
+                    >
+                      <div className="flex items-center space-x-2">
+                        <ChildIcon size={16} />
+                        <span>{child.label}</span>
+                      </div>
+                      {child.isNew && (
+                        <span className="px-2 py-0.5 text-xs font-bold bg-green-500 text-white rounded-full">
+                          NEW
+                        </span>
+                      )}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
           </>
         ) : (
           <Link
