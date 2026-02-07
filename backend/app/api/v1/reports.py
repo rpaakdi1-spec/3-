@@ -13,7 +13,7 @@ from app.api.auth import get_current_user
 from app.models.user import User
 
 # Phase 9: Billing Enhanced Reports
-from app.services.billing_enhanced import BillingEnhancedService
+from app.services.billing_enhanced_service import BillingEnhancedService
 from app.services.pdf_generator import pdf_generator
 from app.services.excel_generator import excel_generator as billing_excel_generator
 from io import BytesIO
