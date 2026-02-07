@@ -65,12 +65,27 @@ echo ""
 
 echo -e "${BLUE}Logging in as admin...${NC}"
 LOGIN_RESPONSE=$(curl -s -X POST "$BASE_URL/api/v1/auth/login" \
-  -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"admin123"}')
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "username=admin&password=admin123")
 
 echo "Response: $LOGIN_RESPONSE"
 
 TOKEN=$(echo "$LOGIN_RESPONSE" | grep -o '"access_token":"[^"]*' | cut -d'"' -f4)
+
+# If grep fails, try jq or python
+if [ -z "$TOKEN" ]; then
+    # Try with jq if available
+    if command -v jq &> /dev/null; then
+        TOKEN=$(echo "$LOGIN_RESPONSE" | jq -r '.access_token' 2>/dev/null)
+    fi
+fi
+
+# If still empty, try python
+if [ -z "$TOKEN" ]; then
+    if command -v python3 &> /dev/null; then
+        TOKEN=$(echo "$LOGIN_RESPONSE" | python3 -c "import sys, json; print(json.load(sys.stdin).get('access_token', ''))" 2>/dev/null)
+    fi
+fi
 
 if [ -z "$TOKEN" ]; then
     echo -e "${RED}❌ Failed to get authentication token${NC}"
