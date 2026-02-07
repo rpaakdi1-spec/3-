@@ -123,7 +123,7 @@ class RealtimeMetricsService:
         # Active dispatches
         active_dispatches_query = select(func.count(Dispatch.id)).where(
             Dispatch.status.in_([
-                DispatchStatus.ASSIGNED,
+                DispatchStatus.CONFIRMED,
                 DispatchStatus.IN_PROGRESS
             ])
         )
@@ -133,7 +133,7 @@ class RealtimeMetricsService:
         completed_today_query = select(func.count(Dispatch.id)).where(
             and_(
                 Dispatch.status == DispatchStatus.COMPLETED,
-                Dispatch.completed_at >= today_start
+                Dispatch.updated_at >= today_start
             )
         )
         completed_today = db.scalar(completed_today_query) or 0
