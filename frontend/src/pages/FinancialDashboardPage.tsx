@@ -29,6 +29,7 @@ import {
   ResponsiveContainer
 } from 'recharts';
 import * as BillingEnhancedAPI from '../api/billing-enhanced';
+import ReportDownloadModal from '../components/billing/ReportDownloadModal';
 
 // Backend response structure
 interface BackendFinancialSummary {
@@ -94,6 +95,7 @@ const FinancialDashboardPage: React.FC = () => {
     end_date: new Date().toISOString().split('T')[0]
   });
   const [trendMonths, setTrendMonths] = useState(12);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   useEffect(() => {
     loadDashboardData();
@@ -184,7 +186,10 @@ const FinancialDashboardPage: React.FC = () => {
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
               새로고침
             </button>
-            <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2">
+            <button
+              onClick={() => setShowReportModal(true)}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+            >
               <Download className="w-4 h-4" />
               보고서 다운로드
             </button>
@@ -416,6 +421,13 @@ const FinancialDashboardPage: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Report Download Modal */}
+      <ReportDownloadModal
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        dateRange={dateRange}
+      />
     </div>
   );
 };
