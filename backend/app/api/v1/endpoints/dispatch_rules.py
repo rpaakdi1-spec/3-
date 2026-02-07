@@ -3,12 +3,11 @@ Dispatch Rules API Endpoints
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from datetime import datetime
 from typing import List, Optional
 from pydantic import BaseModel, Field
 
 from app.core.database import get_db
-from app.core.security import get_current_user
-from app.models.user import User
 from app.models.dispatch_rule import DispatchRule, RuleExecutionLog
 from app.services.rule_engine import RuleEngine
 from app.services.rule_parser import RuleParser
@@ -63,8 +62,8 @@ class DispatchRuleResponse(BaseModel):
     execution_count: int
     avg_execution_time_ms: Optional[float]
     success_rate: Optional[float]
-    created_at: str
-    updated_at: str
+    created_at: datetime
+    updated_at: datetime
     
     class Config:
         from_attributes = True
@@ -87,8 +86,7 @@ class RuleTestResponse(BaseModel):
 @router.post("/", response_model=DispatchRuleResponse, status_code=201)
 async def create_rule(
     rule: DispatchRuleCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    db: Session = Depends(get_db)
 ):
     """
     새로운 배차 규칙 생성
@@ -111,7 +109,7 @@ async def create_rule(
         apply_time_start=rule.apply_time_start,
         apply_time_end=rule.apply_time_end,
         apply_days=rule.apply_days,
-        created_by=current_user.id
+        created_by=None
     )
     
     db.add(db_rule)
@@ -127,7 +125,7 @@ async def list_rules(
     rule_type: Optional[str] = Query(None, pattern="^(assignment|constraint|optimization)$"),
     is_active: Optional[bool] = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: dict = None
 ):
     """
     배차 규칙 목록 조회
@@ -150,7 +148,7 @@ async def list_rules(
 async def get_rule(
     rule_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: dict = None
 ):
     """
     특정 배차 규칙 조회
@@ -165,7 +163,7 @@ async def update_rule(
     rule_id: int,
     rule_update: DispatchRuleUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: dict = None
 ):
     """
     배차 규칙 수정
@@ -203,7 +201,7 @@ async def update_rule(
 async def delete_rule(
     rule_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: dict = None
 ):
     """
     배차 규칙 삭제 (soft delete)
@@ -222,7 +220,7 @@ async def test_rule(
     rule_id: int,
     test_request: RuleTestRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: dict = None
 ):
     """
     규칙 테스트 (dry run)
@@ -243,7 +241,7 @@ async def test_rule(
 async def activate_rule(
     rule_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: dict = None
 ):
     """
     규칙 활성화
@@ -261,7 +259,7 @@ async def activate_rule(
 async def deactivate_rule(
     rule_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: dict = None
 ):
     """
     규칙 비활성화
@@ -281,7 +279,7 @@ async def get_rule_logs(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: dict = None
 ):
     """
     규칙 실행 로그 조회
@@ -309,7 +307,7 @@ async def get_rule_logs(
 async def get_rule_performance(
     rule_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: dict = None
 ):
     """
     규칙 성능 메트릭 조회
@@ -349,7 +347,7 @@ async def get_rule_performance(
 async def simulate_rules(
     test_data: dict,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: dict = None
 ):
     """
     규칙 시뮬레이션
@@ -363,7 +361,7 @@ async def simulate_rules(
 async def optimize_order(
     order_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: dict = None
 ):
     """
     주문에 최적 차량 찾기 (규칙 + 최적화)
