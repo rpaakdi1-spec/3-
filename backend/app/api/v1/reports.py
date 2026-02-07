@@ -14,6 +14,12 @@ from app.models.user import User
 from app.services.report_generator import get_report_generator
 from app.services.excel_generator import get_excel_generator
 
+# Phase 9: Billing Enhanced Reports
+from app.services.billing_enhanced import BillingEnhancedService
+from app.services.pdf_generator import pdf_generator
+from app.services.excel_generator import excel_generator as billing_excel_generator
+from io import BytesIO
+
 
 router = APIRouter(prefix="/reports", tags=["Reports"])
 
@@ -250,6 +256,141 @@ async def generate_customer_excel(
         
         return StreamingResponse(
             excel_buffer,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate Excel report: {str(e)}")
+
+
+# ============================================================================
+# Phase 9: Billing Enhanced Financial Reports
+# ============================================================================
+
+@router.post("/financial-dashboard/pdf", summary="Generate Financial Dashboard Report PDF")
+async def generate_financial_dashboard_pdf(
+    start_date: date = Query(..., description="Start date (YYYY-MM-DD)"),
+    end_date: date = Query(..., description="End date (YYYY-MM-DD)"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Generate a comprehensive financial dashboard report in PDF format.
+    
+    **Parameters**:
+    - `start_date`: Report start date
+    - `end_date`: Report end date
+    
+    **Returns**: PDF file download with:
+    - 14 key financial metrics
+    - Monthly trends chart
+    - Top 10 clients
+    
+    **Permissions**: Admin only
+    """
+    try:
+        # Fetch billing data
+        billing_service = BillingEnhancedService(db)
+        
+        # 1. Financial summary
+        summary = billing_service.get_financial_dashboard(
+            start_date=start_date.isoformat(),
+            end_date=end_date.isoformat()
+        )
+        
+        # 2. Monthly trends (last 12 months)
+        monthly_trends = billing_service.get_monthly_trends(
+            start_date=start_date.isoformat(),
+            end_date=end_date.isoformat(),
+            months=12
+        )
+        
+        # 3. Top 10 clients
+        top_clients = billing_service.get_top_clients(
+            start_date=start_date.isoformat(),
+            end_date=end_date.isoformat(),
+            limit=10
+        )
+        
+        # Generate PDF
+        pdf_bytes = pdf_generator.generate_financial_dashboard_pdf(
+            summary=summary,
+            monthly_trends=monthly_trends,
+            top_clients=top_clients,
+            start_date=start_date.isoformat(),
+            end_date=end_date.isoformat()
+        )
+        
+        filename = f"financial_dashboard_{start_date}_{end_date}.pdf"
+        
+        return StreamingResponse(
+            BytesIO(pdf_bytes),
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate PDF report: {str(e)}")
+
+
+@router.post("/financial-dashboard/excel", summary="Generate Financial Dashboard Report Excel")
+async def generate_financial_dashboard_excel(
+    start_date: date = Query(..., description="Start date (YYYY-MM-DD)"),
+    end_date: date = Query(..., description="End date (YYYY-MM-DD)"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Generate a comprehensive financial dashboard report in Excel format.
+    
+    **Parameters**:
+    - `start_date`: Report start date
+    - `end_date`: Report end date
+    
+    **Returns**: Excel file download with multiple sheets:
+    - Summary sheet: 14 key financial metrics
+    - Monthly data sheet: Detailed trends
+    - Top clients sheet: Revenue by client
+    - Charts sheet: Visual representations
+    
+    **Permissions**: Admin only
+    """
+    try:
+        # Fetch billing data
+        billing_service = BillingEnhancedService(db)
+        
+        # 1. Financial summary
+        summary = billing_service.get_financial_dashboard(
+            start_date=start_date.isoformat(),
+            end_date=end_date.isoformat()
+        )
+        
+        # 2. Monthly trends (last 12 months)
+        monthly_trends = billing_service.get_monthly_trends(
+            start_date=start_date.isoformat(),
+            end_date=end_date.isoformat(),
+            months=12
+        )
+        
+        # 3. Top 10 clients
+        top_clients = billing_service.get_top_clients(
+            start_date=start_date.isoformat(),
+            end_date=end_date.isoformat(),
+            limit=10
+        )
+        
+        # Generate Excel
+        excel_bytes = billing_excel_generator.generate_financial_dashboard_excel(
+            summary=summary,
+            monthly_trends=monthly_trends,
+            top_clients=top_clients,
+            start_date=start_date.isoformat(),
+            end_date=end_date.isoformat()
+        )
+        
+        filename = f"financial_dashboard_{start_date}_{end_date}.xlsx"
+        
+        return StreamingResponse(
+            BytesIO(excel_bytes),
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             headers={"Content-Disposition": f"attachment; filename={filename}"}
         )

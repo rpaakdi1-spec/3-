@@ -1,386 +1,257 @@
 """
-Excel Report Generator Service
-Generates comprehensive Excel reports with multiple sheets, charts, and formatting
+Excel 생성 서비스
+OpenPyXL을 사용하여 Excel 파일 생성
 """
-from datetime import datetime, date
-from typing import List, Optional, Dict, Any
+
 from io import BytesIO
-from sqlalchemy.orm import Session
-from sqlalchemy import func, and_
+from typing import Dict, Any, List
+from datetime import datetime
 
 from openpyxl import Workbook
-from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
-from openpyxl.chart import BarChart, LineChart, PieChart, Reference
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.chart import LineChart, BarChart, Reference
 from openpyxl.utils import get_column_letter
 
-from app.models.dispatch import Dispatch
-from app.models.order import Order
-from app.models.vehicle import Vehicle
-from app.models.user import User
-from app.models.client import Client
 
-
-class ExcelReportGenerator:
-    """Excel Report Generator using OpenPyXL"""
+class ExcelGenerator:
+    """Excel 리포트 생성기"""
     
-    def __init__(self, db: Session):
-        self.db = db
+    def __init__(self):
+        self.header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+        self.header_font = Font(name="맑은 고딕", size=11, bold=True, color="FFFFFF")
+        self.normal_font = Font(name="맑은 고딕", size=10)
+        self.title_font = Font(name="맑은 고딕", size=14, bold=True)
         
-        # Define reusable styles
-        self.header_font = Font(name='Arial', size=12, bold=True, color="FFFFFF")
-        self.header_fill = PatternFill(start_color="1E40AF", end_color="1E40AF", fill_type="solid")
-        self.header_alignment = Alignment(horizontal='center', vertical='center')
-        
-        self.data_font = Font(name='Arial', size=10)
-        self.data_alignment = Alignment(horizontal='center', vertical='center')
-        
-        self.border = Border(
+        self.thin_border = Border(
             left=Side(style='thin'),
             right=Side(style='thin'),
             top=Side(style='thin'),
             bottom=Side(style='thin')
         )
     
-    def _apply_header_style(self, ws, row_num: int, col_start: int, col_end: int):
-        """Apply header style to a row"""
+    def _apply_header_style(self, sheet, row_num: int, col_start: int, col_end: int):
+        """
+        헤더 스타일 적용
+        """
         for col in range(col_start, col_end + 1):
-            cell = ws.cell(row=row_num, column=col)
+            cell = sheet.cell(row=row_num, column=col)
             cell.font = self.header_font
             cell.fill = self.header_fill
-            cell.alignment = self.header_alignment
-            cell.border = self.border
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+            cell.border = self.thin_border
     
-    def _apply_data_style(self, ws, row_start: int, row_end: int, col_start: int, col_end: int):
-        """Apply data style to a range"""
+    def _apply_data_style(self, sheet, row_start: int, row_end: int, col_start: int, col_end: int):
+        """
+        데이터 셀 스타일 적용
+        """
         for row in range(row_start, row_end + 1):
             for col in range(col_start, col_end + 1):
-                cell = ws.cell(row=row, column=col)
-                cell.font = self.data_font
-                cell.alignment = self.data_alignment
-                cell.border = self.border
+                cell = sheet.cell(row=row, column=col)
+                cell.font = self.normal_font
+                cell.border = self.thin_border
     
-    def _auto_adjust_column_width(self, ws):
-        """Auto-adjust column widths"""
-        for column in ws.columns:
-            max_length = 0
-            column_letter = get_column_letter(column[0].column)
-            
-            for cell in column:
-                try:
-                    if len(str(cell.value)) > max_length:
-                        max_length = len(cell.value)
-                except:
-                    pass
-            
-            adjusted_width = min(max_length + 2, 50)
-            ws.column_dimensions[column_letter].width = adjusted_width
+    def _format_currency(self, value: float) -> str:
+        """
+        통화 포맷 (원화)
+        """
+        return f"₩{value:,.0f}"
     
-    def generate_dispatch_report(
+    def _format_percentage(self, value: float) -> str:
+        """
+        퍼센트 포맷
+        """
+        return f"{value:.1f}%"
+    
+    def generate_financial_dashboard_excel(
         self,
-        start_date: date,
-        end_date: date
-    ) -> BytesIO:
-        """Generate comprehensive dispatch report with multiple sheets"""
+        summary: Dict[str, Any],
+        monthly_trends: List[Dict[str, Any]],
+        top_clients: List[Dict[str, Any]],
+        start_date: str,
+        end_date: str
+    ) -> bytes:
+        """
+        재무 대시보드 Excel 생성
+        
+        Args:
+            summary: 재무 요약 (14개 지표)
+            monthly_trends: 월별 추이 데이터
+            top_clients: Top 10 고객 목록
+            start_date: 시작일 (YYYY-MM-DD)
+            end_date: 종료일 (YYYY-MM-DD)
+        
+        Returns:
+            Excel 바이너리 데이터
+        """
         wb = Workbook()
         
-        # Remove default sheet
-        wb.remove(wb.active)
+        # Sheet 1: 요약 (Summary)
+        ws_summary = wb.active
+        ws_summary.title = "요약"
+        self._create_summary_sheet(ws_summary, summary, start_date, end_date)
         
-        # Sheet 1: Summary
-        ws_summary = wb.create_sheet("Summary")
-        ws_summary.append(['Dispatch Report'])
-        ws_summary.append([f'Period: {start_date} to {end_date}'])
-        ws_summary.append([])
+        # Sheet 2: 월별 데이터 (Monthly Data)
+        ws_monthly = wb.create_sheet("월별 데이터")
+        self._create_monthly_data_sheet(ws_monthly, monthly_trends)
         
-        # Query dispatches
-        dispatches = self.db.query(Dispatch).filter(
-            and_(
-                Dispatch.dispatch_date >= start_date,
-                Dispatch.dispatch_date <= end_date
-            )
-        ).all()
+        # Sheet 3: Top 고객 (Top Clients)
+        ws_clients = wb.create_sheet("Top 고객")
+        self._create_top_clients_sheet(ws_clients, top_clients)
         
-        total_dispatches = len(dispatches)
-        completed = sum(1 for d in dispatches if d.status == 'completed')
-        in_progress = sum(1 for d in dispatches if d.status == 'in_progress')
-        pending = sum(1 for d in dispatches if d.status == 'pending')
+        # Sheet 4: 차트 (Charts)
+        ws_chart = wb.create_sheet("차트")
+        self._create_chart_sheet(ws_chart, monthly_trends)
         
-        # Summary data
-        ws_summary.append(['Metric', 'Value'])
-        ws_summary.append(['Total Dispatches', total_dispatches])
-        ws_summary.append(['Completed', completed])
-        ws_summary.append(['In Progress', in_progress])
-        ws_summary.append(['Pending', pending])
-        ws_summary.append(['Completion Rate', f"{(completed/total_dispatches*100):.1f}%" if total_dispatches > 0 else "0%"])
-        
-        # Apply styles
-        ws_summary.merge_cells('A1:B1')
-        ws_summary['A1'].font = Font(size=16, bold=True)
-        ws_summary['A1'].alignment = Alignment(horizontal='center')
-        
-        self._apply_header_style(ws_summary, 4, 1, 2)
-        self._apply_data_style(ws_summary, 5, 9, 1, 2)
-        self._auto_adjust_column_width(ws_summary)
-        
-        # Sheet 2: Dispatch Details
-        ws_details = wb.create_sheet("Dispatch Details")
-        ws_details.append(['Dispatch Number', 'Date', 'Vehicle', 'Driver', 'Orders', 'Pallets', 'Weight (kg)', 'Status'])
-        
-        for dispatch in dispatches:
-            ws_details.append([
-                dispatch.dispatch_number,
-                str(dispatch.dispatch_date),
-                dispatch.vehicle.vehicle_number if dispatch.vehicle else 'N/A',
-                dispatch.driver.full_name if dispatch.driver else 'N/A',
-                len(dispatch.orders),
-                dispatch.total_pallets,
-                dispatch.total_weight_kg,
-                dispatch.status.upper()
-            ])
-        
-        self._apply_header_style(ws_details, 1, 1, 8)
-        if len(dispatches) > 0:
-            self._apply_data_style(ws_details, 2, len(dispatches) + 1, 1, 8)
-        self._auto_adjust_column_width(ws_details)
-        
-        # Sheet 3: Charts
-        ws_charts = wb.create_sheet("Charts")
-        
-        # Add status breakdown data for chart
-        ws_charts.append(['Status', 'Count'])
-        ws_charts.append(['Completed', completed])
-        ws_charts.append(['In Progress', in_progress])
-        ws_charts.append(['Pending', pending])
-        
-        # Create pie chart
-        pie = PieChart()
-        labels = Reference(ws_charts, min_col=1, min_row=2, max_row=4)
-        data = Reference(ws_charts, min_col=2, min_row=1, max_row=4)
-        pie.add_data(data, titles_from_data=True)
-        pie.set_categories(labels)
-        pie.title = "Dispatch Status Distribution"
-        ws_charts.add_chart(pie, "D2")
-        
-        # Save to buffer
+        # Excel 파일을 BytesIO에 저장
         buffer = BytesIO()
         wb.save(buffer)
         buffer.seek(0)
-        return buffer
+        
+        return buffer.read()
     
-    def generate_vehicle_performance_report(
-        self,
-        start_date: date,
-        end_date: date,
-        vehicle_id: Optional[int] = None
-    ) -> BytesIO:
-        """Generate vehicle performance report"""
-        wb = Workbook()
-        wb.remove(wb.active)
+    def _create_summary_sheet(self, sheet, summary: Dict[str, Any], start_date: str, end_date: str):
+        """
+        요약 시트 생성
+        """
+        # 제목
+        sheet['A1'] = "재무 대시보드 리포트"
+        sheet['A1'].font = self.title_font
         
-        # Sheet 1: Summary
-        ws = wb.create_sheet("Vehicle Performance")
+        sheet['A2'] = f"기간: {start_date} ~ {end_date}"
+        sheet['A2'].font = self.normal_font
         
-        # Title
-        ws.append(['Vehicle Performance Report'])
-        ws.append([f'Period: {start_date} to {end_date}'])
-        ws.append([])
+        sheet['A3'] = f"생성일: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        sheet['A3'].font = self.normal_font
         
-        # Headers
-        ws.append(['Vehicle Number', 'Type', 'Total Dispatches', 'Utilization %', 'Avg Load %', 'Total Distance (km)'])
+        # 헤더
+        row = 5
+        sheet[f'A{row}'] = "지표"
+        sheet[f'B{row}'] = "값"
+        self._apply_header_style(sheet, row, 1, 2)
         
-        # Query vehicles
-        vehicle_query = self.db.query(Vehicle)
-        if vehicle_id:
-            vehicle_query = vehicle_query.filter(Vehicle.id == vehicle_id)
-        vehicles = vehicle_query.all()
+        # 데이터
+        metrics = [
+            ("총 수익", summary.get("total_revenue", 0), "currency"),
+            ("청구액", summary.get("total_invoiced", 0), "currency"),
+            ("수금액", summary.get("total_paid", 0), "currency"),
+            ("미수금", summary.get("total_outstanding", 0), "currency"),
+            ("수금률", summary.get("payment_rate", 0), "percentage"),
+            ("연체 건수", summary.get("overdue_count", 0), "number"),
+            ("연체 금액", summary.get("overdue_amount", 0), "currency"),
+            ("정산 대기 금액", summary.get("pending_settlement_amount", 0), "currency"),
+            ("현금 유입", summary.get("cash_in", 0), "currency"),
+            ("현금 유출", summary.get("cash_out", 0), "currency"),
+            ("순 현금 흐름", summary.get("net_cash_flow", 0), "currency"),
+        ]
         
-        row_num = 5
-        for vehicle in vehicles:
-            # Get dispatches for this vehicle
-            dispatches = self.db.query(Dispatch).filter(
-                and_(
-                    Dispatch.vehicle_id == vehicle.id,
-                    Dispatch.dispatch_date >= start_date,
-                    Dispatch.dispatch_date <= end_date
-                )
-            ).all()
-            
-            total_dispatches = len(dispatches)
-            
-            # Calculate metrics
-            days_in_period = (end_date - start_date).days + 1
-            utilization = (total_dispatches / days_in_period * 100) if days_in_period > 0 else 0
-            
-            avg_pallets = sum(d.total_pallets for d in dispatches) / total_dispatches if total_dispatches > 0 else 0
-            avg_load_pct = (avg_pallets / vehicle.pallet_capacity * 100) if vehicle.pallet_capacity > 0 else 0
-            
-            total_distance = sum(d.total_distance_km for d in dispatches if d.total_distance_km)
-            
-            ws.append([
-                vehicle.vehicle_number,
-                vehicle.vehicle_type,
-                total_dispatches,
-                f"{utilization:.1f}%",
-                f"{avg_load_pct:.1f}%",
-                f"{total_distance:.1f}" if total_distance else "0.0"
-            ])
-            row_num += 1
+        for idx, (metric_name, value, fmt) in enumerate(metrics, start=row+1):
+            sheet[f'A{idx}'] = metric_name
+            if fmt == "currency":
+                sheet[f'B{idx}'] = self._format_currency(value)
+            elif fmt == "percentage":
+                sheet[f'B{idx}'] = self._format_percentage(value)
+            else:
+                sheet[f'B{idx}'] = value
         
-        # Apply styles
-        ws.merge_cells('A1:F1')
-        ws['A1'].font = Font(size=16, bold=True)
-        ws['A1'].alignment = Alignment(horizontal='center')
+        self._apply_data_style(sheet, row+1, row+len(metrics), 1, 2)
         
-        self._apply_header_style(ws, 4, 1, 6)
-        if len(vehicles) > 0:
-            self._apply_data_style(ws, 5, row_num - 1, 1, 6)
-        self._auto_adjust_column_width(ws)
-        
-        # Save to buffer
-        buffer = BytesIO()
-        wb.save(buffer)
-        buffer.seek(0)
-        return buffer
+        # 열 너비 조정
+        sheet.column_dimensions['A'].width = 25
+        sheet.column_dimensions['B'].width = 20
     
-    def generate_driver_evaluation_report(
-        self,
-        start_date: date,
-        end_date: date,
-        driver_id: Optional[int] = None
-    ) -> BytesIO:
-        """Generate driver evaluation report"""
-        wb = Workbook()
-        wb.remove(wb.active)
+    def _create_monthly_data_sheet(self, sheet, monthly_trends: List[Dict[str, Any]]):
+        """
+        월별 데이터 시트 생성
+        """
+        # 헤더
+        headers = ["월", "수익", "청구액", "수금액", "미수금", "수금률"]
+        for col, header in enumerate(headers, start=1):
+            cell = sheet.cell(row=1, column=col)
+            cell.value = header
         
-        # Sheet 1: Summary
-        ws = wb.create_sheet("Driver Evaluation")
+        self._apply_header_style(sheet, 1, 1, len(headers))
         
-        # Title
-        ws.append(['Driver Evaluation Report'])
-        ws.append([f'Period: {start_date} to {end_date}'])
-        ws.append([])
+        # 데이터
+        for row, trend in enumerate(monthly_trends, start=2):
+            sheet.cell(row=row, column=1).value = trend.get("month", "")
+            sheet.cell(row=row, column=2).value = self._format_currency(trend.get("revenue", 0))
+            sheet.cell(row=row, column=3).value = self._format_currency(trend.get("invoiced", 0))
+            sheet.cell(row=row, column=4).value = self._format_currency(trend.get("paid", 0))
+            sheet.cell(row=row, column=5).value = self._format_currency(trend.get("outstanding", 0))
+            sheet.cell(row=row, column=6).value = self._format_percentage(trend.get("payment_rate", 0))
         
-        # Headers
-        ws.append(['Driver Name', 'Total Dispatches', 'Completed', 'Completion Rate', 'Avg Orders per Dispatch'])
+        if monthly_trends:
+            self._apply_data_style(sheet, 2, 1 + len(monthly_trends), 1, len(headers))
         
-        # Query drivers
-        driver_query = self.db.query(User).filter(User.role == 'driver')
-        if driver_id:
-            driver_query = driver_query.filter(User.id == driver_id)
-        drivers = driver_query.all()
-        
-        row_num = 5
-        for driver in drivers:
-            # Get dispatches for this driver
-            dispatches = self.db.query(Dispatch).filter(
-                and_(
-                    Dispatch.driver_id == driver.id,
-                    Dispatch.dispatch_date >= start_date,
-                    Dispatch.dispatch_date <= end_date
-                )
-            ).all()
-            
-            total_dispatches = len(dispatches)
-            completed = sum(1 for d in dispatches if d.status == 'completed')
-            completion_rate = (completed / total_dispatches * 100) if total_dispatches > 0 else 0
-            avg_orders = sum(len(d.orders) for d in dispatches) / total_dispatches if total_dispatches > 0 else 0
-            
-            ws.append([
-                driver.full_name,
-                total_dispatches,
-                completed,
-                f"{completion_rate:.1f}%",
-                f"{avg_orders:.1f}"
-            ])
-            row_num += 1
-        
-        # Apply styles
-        ws.merge_cells('A1:E1')
-        ws['A1'].font = Font(size=16, bold=True)
-        ws['A1'].alignment = Alignment(horizontal='center')
-        
-        self._apply_header_style(ws, 4, 1, 5)
-        if len(drivers) > 0:
-            self._apply_data_style(ws, 5, row_num - 1, 1, 5)
-        self._auto_adjust_column_width(ws)
-        
-        # Save to buffer
-        buffer = BytesIO()
-        wb.save(buffer)
-        buffer.seek(0)
-        return buffer
+        # 열 너비 조정
+        for col in range(1, len(headers) + 1):
+            sheet.column_dimensions[get_column_letter(col)].width = 15
     
-    def generate_customer_satisfaction_report(
-        self,
-        start_date: date,
-        end_date: date
-    ) -> BytesIO:
-        """Generate customer satisfaction report"""
-        wb = Workbook()
-        wb.remove(wb.active)
+    def _create_top_clients_sheet(self, sheet, top_clients: List[Dict[str, Any]]):
+        """
+        Top 고객 시트 생성
+        """
+        # 헤더
+        headers = ["순위", "고객명", "총 매출", "청구액", "수금액", "미수금"]
+        for col, header in enumerate(headers, start=1):
+            cell = sheet.cell(row=1, column=col)
+            cell.value = header
         
-        ws = wb.create_sheet("Customer Satisfaction")
+        self._apply_header_style(sheet, 1, 1, len(headers))
         
-        # Title
-        ws.append(['Customer Satisfaction Report'])
-        ws.append([f'Period: {start_date} to {end_date}'])
-        ws.append([])
+        # 데이터
+        for row, client in enumerate(top_clients, start=2):
+            sheet.cell(row=row, column=1).value = row - 1  # 순위
+            sheet.cell(row=row, column=2).value = client.get("client_name", "")
+            sheet.cell(row=row, column=3).value = self._format_currency(client.get("total_revenue", 0))
+            sheet.cell(row=row, column=4).value = self._format_currency(client.get("invoiced", 0))
+            sheet.cell(row=row, column=5).value = self._format_currency(client.get("paid", 0))
+            sheet.cell(row=row, column=6).value = self._format_currency(client.get("outstanding", 0))
         
-        # Headers
-        ws.append(['Client Name', 'Total Orders', 'Completed', 'On-Time Deliveries', 'Satisfaction Score'])
+        if top_clients:
+            self._apply_data_style(sheet, 2, 1 + len(top_clients), 1, len(headers))
         
-        # Query clients with orders
-        clients = self.db.query(Client).all()
+        # 열 너비 조정
+        for col in range(1, len(headers) + 1):
+            sheet.column_dimensions[get_column_letter(col)].width = 15
         
-        row_num = 5
-        for client in clients:
-            # Get orders for this client
-            orders = self.db.query(Order).filter(
-                and_(
-                    Order.pickup_client_id == client.id,
-                    Order.created_at >= start_date,
-                    Order.created_at <= end_date
-                )
-            ).all()
-            
-            if not orders:
-                continue
-            
-            total_orders = len(orders)
-            completed = sum(1 for o in orders if o.status == 'completed')
-            
-            # Calculate on-time deliveries (simplified)
-            on_time = sum(1 for o in orders if o.status == 'completed')
-            
-            # Calculate satisfaction score (simplified)
-            satisfaction = (on_time / total_orders * 100) if total_orders > 0 else 0
-            
-            ws.append([
-                client.name,
-                total_orders,
-                completed,
-                on_time,
-                f"{satisfaction:.1f}%"
-            ])
-            row_num += 1
+        sheet.column_dimensions['B'].width = 25  # 고객명 열 넓게
+    
+    def _create_chart_sheet(self, sheet, monthly_trends: List[Dict[str, Any]]):
+        """
+        차트 시트 생성
+        """
+        if not monthly_trends:
+            sheet['A1'] = "차트 생성을 위한 데이터가 없습니다."
+            return
         
-        # Apply styles
-        ws.merge_cells('A1:E1')
-        ws['A1'].font = Font(size=16, bold=True)
-        ws['A1'].alignment = Alignment(horizontal='center')
+        # 차트 데이터 삽입
+        headers = ["월", "수익", "청구액", "수금액"]
+        for col, header in enumerate(headers, start=1):
+            sheet.cell(row=1, column=col).value = header
         
-        self._apply_header_style(ws, 4, 1, 5)
-        if row_num > 5:
-            self._apply_data_style(ws, 5, row_num - 1, 1, 5)
-        self._auto_adjust_column_width(ws)
+        for row, trend in enumerate(monthly_trends, start=2):
+            sheet.cell(row=row, column=1).value = trend.get("month", "")
+            sheet.cell(row=row, column=2).value = trend.get("revenue", 0)
+            sheet.cell(row=row, column=3).value = trend.get("invoiced", 0)
+            sheet.cell(row=row, column=4).value = trend.get("paid", 0)
         
-        # Save to buffer
-        buffer = BytesIO()
-        wb.save(buffer)
-        buffer.seek(0)
-        return buffer
+        # 라인 차트 생성
+        chart = LineChart()
+        chart.title = "월별 수익 추이"
+        chart.style = 13
+        chart.x_axis.title = "월"
+        chart.y_axis.title = "금액 (원)"
+        
+        data = Reference(sheet, min_col=2, min_row=1, max_row=len(monthly_trends) + 1, max_col=4)
+        cats = Reference(sheet, min_col=1, min_row=2, max_row=len(monthly_trends) + 1)
+        
+        chart.add_data(data, titles_from_data=True)
+        chart.set_categories(cats)
+        
+        # 차트 삽입
+        sheet.add_chart(chart, "F2")
 
 
-def get_excel_generator(db: Session) -> ExcelReportGenerator:
-    """Factory function to get Excel report generator instance"""
-    return ExcelReportGenerator(db)
+# Singleton 인스턴스
+excel_generator = ExcelGenerator()
