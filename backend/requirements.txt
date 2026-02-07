@@ -16,6 +16,7 @@ numpy==1.26.3
 # Report Generation
 reportlab==4.0.9
 weasyprint==60.2  # PDF generation from HTML
+pydyf==0.8.0  # PDF library for WeasyPrint (compatible version)
 Pillow==10.2.0
 matplotlib==3.8.2  # Chart generation
 jinja2==3.1.3
