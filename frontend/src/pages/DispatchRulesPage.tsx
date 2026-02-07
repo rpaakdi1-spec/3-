@@ -22,7 +22,10 @@ import {
   Alert,
   Snackbar,
   Tabs,
-  Tab
+  Tab,
+  Menu,
+  ListItemIcon,
+  ListItemText
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -32,10 +35,21 @@ import {
   TrendingUp as StatsIcon,
   ToggleOn,
   ToggleOff,
-  AccountTree as VisualIcon
+  AccountTree as VisualIcon,
+  MoreVert as MoreIcon,
+  History as HistoryIcon,
+  Science as SimulationIcon,
+  CollectionsBookmark as TemplateIcon,
+  Timeline as TimelineIcon
 } from '@mui/icons-material';
 import { DispatchRulesAPI, DispatchRule, CreateRulePayload } from '../api/dispatch-rules';
 import { RuleBuilderCanvas } from '../components/RuleBuilderCanvas';
+import { RuleTestDialog } from '../components/RuleTestDialog';
+import { RuleLogsDialog } from '../components/RuleLogsDialog';
+import { RulePerformanceDialog } from '../components/RulePerformanceDialog';
+import { RuleSimulationDialog } from '../components/RuleSimulationDialog';
+import { RuleTemplateGallery } from '../components/RuleTemplateGallery';
+import { RuleVersionHistory } from '../components/RuleVersionHistory';
 
 const DispatchRulesPage: React.FC = () => {
   const [rules, setRules] = useState<DispatchRule[]>([]);
@@ -44,6 +58,15 @@ const DispatchRulesPage: React.FC = () => {
   const [selectedRule, setSelectedRule] = useState<DispatchRule | null>(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
   const [tabValue, setTabValue] = useState(0); // 0: Form, 1: Visual Builder
+  
+  // Dialog states
+  const [testDialogOpen, setTestDialogOpen] = useState(false);
+  const [logsDialogOpen, setLogsDialogOpen] = useState(false);
+  const [performanceDialogOpen, setPerformanceDialogOpen] = useState(false);
+  const [simulationDialogOpen, setSimulationDialogOpen] = useState(false);
+  const [templateGalleryOpen, setTemplateGalleryOpen] = useState(false);
+  const [versionHistoryOpen, setVersionHistoryOpen] = useState(false);
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   
   const [formData, setFormData] = useState<CreateRulePayload>({
     name: '',
@@ -121,6 +144,48 @@ const DispatchRulesPage: React.FC = () => {
     showSnackbar('Rule configuration updated from visual builder', 'success');
   };
 
+  // New handlers for advanced features
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, rule: DispatchRule) => {
+    setAnchorEl(event.currentTarget);
+    setSelectedRule(rule);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleTestRule = () => {
+    handleMenuClose();
+    setTestDialogOpen(true);
+  };
+
+  const handleViewLogs = () => {
+    handleMenuClose();
+    setLogsDialogOpen(true);
+  };
+
+  const handleViewPerformance = () => {
+    handleMenuClose();
+    setPerformanceDialogOpen(true);
+  };
+
+  const handleViewVersionHistory = () => {
+    handleMenuClose();
+    setVersionHistoryOpen(true);
+  };
+
+  const handleSelectTemplate = (template: any) => {
+    setFormData({
+      name: template.name,
+      description: template.description,
+      rule_type: template.rule_type,
+      priority: template.priority,
+      conditions: template.conditions,
+      actions: template.actions,
+    });
+    showSnackbar('Template loaded successfully', 'success');
+  };
+
   const getRuleTypeColor = (type: string) => {
     switch (type) {
       case 'assignment': return 'primary';
@@ -134,13 +199,29 @@ const DispatchRulesPage: React.FC = () => {
     <Box sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
         <Typography variant="h4">Dispatch Rules</Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => setOpenDialog(true)}
-        >
-          Create Rule
-        </Button>
+        <Box display="flex" gap={2}>
+          <Button
+            variant="outlined"
+            startIcon={<SimulationIcon />}
+            onClick={() => setSimulationDialogOpen(true)}
+          >
+            Simulation
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<TemplateIcon />}
+            onClick={() => setTemplateGalleryOpen(true)}
+          >
+            Templates
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setOpenDialog(true)}
+          >
+            Create Rule
+          </Button>
+        </Box>
       </Box>
 
       <Grid container spacing={3}>
@@ -157,6 +238,12 @@ const DispatchRulesPage: React.FC = () => {
                       color={rule.is_active ? 'primary' : 'default'}
                     >
                       {rule.is_active ? <ToggleOn /> : <ToggleOff />}
+                    </IconButton>
+                    <IconButton 
+                      size="small" 
+                      onClick={(e) => handleMenuOpen(e, rule)}
+                    >
+                      <MoreIcon />
                     </IconButton>
                     <IconButton size="small" color="error" onClick={() => handleDelete(rule.id)}>
                       <DeleteIcon />
@@ -296,6 +383,89 @@ const DispatchRulesPage: React.FC = () => {
       >
         <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
       </Snackbar>
+
+      {/* Rule Menu */}
+      <Menu
+        anchorEl={anchorEl}
+        open={Boolean(anchorEl)}
+        onClose={handleMenuClose}
+      >
+        <MenuItem onClick={handleTestRule}>
+          <ListItemIcon><TestIcon fontSize="small" /></ListItemIcon>
+          <ListItemText>Test Rule</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={handleViewLogs}>
+          <ListItemIcon><HistoryIcon fontSize="small" /></ListItemIcon>
+          <ListItemText>View Logs</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={handleViewPerformance}>
+          <ListItemIcon><TimelineIcon fontSize="small" /></ListItemIcon>
+          <ListItemText>Performance</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={handleViewVersionHistory}>
+          <ListItemIcon><HistoryIcon fontSize="small" /></ListItemIcon>
+          <ListItemText>Version History</ListItemText>
+        </MenuItem>
+      </Menu>
+
+      {/* Test Dialog */}
+      {selectedRule && (
+        <RuleTestDialog
+          open={testDialogOpen}
+          onClose={() => setTestDialogOpen(false)}
+          ruleId={selectedRule.id}
+          ruleName={selectedRule.name}
+          onTest={DispatchRulesAPI.test}
+        />
+      )}
+
+      {/* Logs Dialog */}
+      {selectedRule && (
+        <RuleLogsDialog
+          open={logsDialogOpen}
+          onClose={() => setLogsDialogOpen(false)}
+          ruleId={selectedRule.id}
+          ruleName={selectedRule.name}
+          onLoadLogs={DispatchRulesAPI.getLogs}
+        />
+      )}
+
+      {/* Performance Dialog */}
+      {selectedRule && (
+        <RulePerformanceDialog
+          open={performanceDialogOpen}
+          onClose={() => setPerformanceDialogOpen(false)}
+          ruleId={selectedRule.id}
+          ruleName={selectedRule.name}
+          onLoadPerformance={DispatchRulesAPI.getPerformance}
+        />
+      )}
+
+      {/* Version History Dialog */}
+      {selectedRule && (
+        <RuleVersionHistory
+          open={versionHistoryOpen}
+          onClose={() => setVersionHistoryOpen(false)}
+          ruleId={selectedRule.id}
+          ruleName={selectedRule.name}
+          onLoadVersions={async (ruleId) => []} // Mock for now
+          onRestoreVersion={async (ruleId, version) => {}}
+        />
+      )}
+
+      {/* Simulation Dialog */}
+      <RuleSimulationDialog
+        open={simulationDialogOpen}
+        onClose={() => setSimulationDialogOpen(false)}
+        onSimulate={DispatchRulesAPI.simulate}
+      />
+
+      {/* Template Gallery */}
+      <RuleTemplateGallery
+        open={templateGalleryOpen}
+        onClose={() => setTemplateGalleryOpen(false)}
+        onSelectTemplate={handleSelectTemplate}
+      />
     </Box>
   );
 };
