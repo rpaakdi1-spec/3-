@@ -44,6 +44,9 @@ const SettlementApprovalPage = lazy(() => import('./pages/SettlementApprovalPage
 const PaymentReminderPage = lazy(() => import('./pages/PaymentReminderPage'));
 const ExportTaskPage = lazy(() => import('./pages/ExportTaskPage'));
 
+// Phase 10: Dispatch Rules
+const DispatchRulesPage = lazy(() => import('./pages/DispatchRulesPage'));
+
 // IoT Sensor Pages
 const IoTSensorsPage = lazy(() => import('./pages/IoTSensorsPage'));
 const IoTSensorDetailPage = lazy(() => import('./pages/IoTSensorDetailPage'));
@@ -181,6 +184,14 @@ const App: React.FC = () => {
               element={
                 <ProtectedRoute>
                   <DispatchesPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dispatch-rules"
+              element={
+                <ProtectedRoute>
+                  <DispatchRulesPage />
                 </ProtectedRoute>
               }
             />

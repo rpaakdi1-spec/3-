@@ -20,7 +20,9 @@ import {
   Switch,
   FormControlLabel,
   Alert,
-  Snackbar
+  Snackbar,
+  Tabs,
+  Tab
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -29,9 +31,11 @@ import {
   PlayArrow as TestIcon,
   TrendingUp as StatsIcon,
   ToggleOn,
-  ToggleOff
+  ToggleOff,
+  AccountTree as VisualIcon
 } from '@mui/icons-material';
 import { DispatchRulesAPI, DispatchRule, CreateRulePayload } from '../api/dispatch-rules';
+import { RuleBuilderCanvas } from '../components/RuleBuilderCanvas';
 
 const DispatchRulesPage: React.FC = () => {
   const [rules, setRules] = useState<DispatchRule[]>([]);
@@ -39,6 +43,7 @@ const DispatchRulesPage: React.FC = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedRule, setSelectedRule] = useState<DispatchRule | null>(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
+  const [tabValue, setTabValue] = useState(0); // 0: Form, 1: Visual Builder
   
   const [formData, setFormData] = useState<CreateRulePayload>({
     name: '',
@@ -104,6 +109,16 @@ const DispatchRulesPage: React.FC = () => {
 
   const showSnackbar = (message: string, severity: 'success' | 'error') => {
     setSnackbar({ open: true, message, severity });
+  };
+
+  const handleVisualBuilderSave = (ruleData: any) => {
+    // Update formData with visual builder data
+    setFormData({
+      ...formData,
+      conditions: ruleData.conditions,
+      actions: ruleData.actions
+    });
+    showSnackbar('Rule configuration updated from visual builder', 'success');
   };
 
   const getRuleTypeColor = (type: string) => {
@@ -174,56 +189,98 @@ const DispatchRulesPage: React.FC = () => {
       </Grid>
 
       {/* Create/Edit Dialog */}
-      <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="md" fullWidth>
+      <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="lg" fullWidth>
         <DialogTitle>Create New Rule</DialogTitle>
         <DialogContent>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Rule Name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              />
+          <Tabs value={tabValue} onChange={(e, v) => setTabValue(v)} sx={{ mb: 2 }}>
+            <Tab label="Basic Info" />
+            <Tab label="Visual Builder" icon={<VisualIcon />} iconPosition="start" />
+          </Tabs>
+
+          {tabValue === 0 && (
+            <Grid container spacing={2} sx={{ mt: 1 }}>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Rule Name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  multiline
+                  rows={2}
+                  label="Description"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                />
+              </Grid>
+              <Grid item xs={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Rule Type</InputLabel>
+                  <Select
+                    value={formData.rule_type}
+                    label="Rule Type"
+                    onChange={(e) => setFormData({ ...formData, rule_type: e.target.value })}
+                  >
+                    <MenuItem value="assignment">Assignment</MenuItem>
+                    <MenuItem value="constraint">Constraint</MenuItem>
+                    <MenuItem value="optimization">Optimization</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={6}>
+                <TextField
+                  fullWidth
+                  type="number"
+                  label="Priority"
+                  value={formData.priority}
+                  onChange={(e) => setFormData({ ...formData, priority: parseInt(e.target.value) })}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <Alert severity="info">
+                  Switch to the Visual Builder tab to design your rule logic visually
+                </Alert>
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  multiline
+                  rows={4}
+                  label="Conditions (JSON)"
+                  value={JSON.stringify(formData.conditions, null, 2)}
+                  onChange={(e) => {
+                    try {
+                      setFormData({ ...formData, conditions: JSON.parse(e.target.value) });
+                    } catch {}
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  multiline
+                  rows={4}
+                  label="Actions (JSON)"
+                  value={JSON.stringify(formData.actions, null, 2)}
+                  onChange={(e) => {
+                    try {
+                      setFormData({ ...formData, actions: JSON.parse(e.target.value) });
+                    } catch {}
+                  }}
+                />
+              </Grid>
             </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                multiline
-                rows={2}
-                label="Description"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              />
-            </Grid>
-            <Grid item xs={6}>
-              <FormControl fullWidth>
-                <InputLabel>Rule Type</InputLabel>
-                <Select
-                  value={formData.rule_type}
-                  onChange={(e) => setFormData({ ...formData, rule_type: e.target.value })}
-                >
-                  <MenuItem value="assignment">Assignment</MenuItem>
-                  <MenuItem value="constraint">Constraint</MenuItem>
-                  <MenuItem value="optimization">Optimization</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={6}>
-              <TextField
-                fullWidth
-                type="number"
-                label="Priority"
-                value={formData.priority}
-                onChange={(e) => setFormData({ ...formData, priority: parseInt(e.target.value) })}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <Alert severity="info">
-                Use the Visual Rule Builder (coming soon) or edit JSON directly
-              </Alert>
-            </Grid>
-          </Grid>
+          )}
+
+          {tabValue === 1 && (
+            <Box sx={{ mt: 2 }}>
+              <RuleBuilderCanvas onSave={handleVisualBuilderSave} />
+            </Box>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenDialog(false)}>Cancel</Button>

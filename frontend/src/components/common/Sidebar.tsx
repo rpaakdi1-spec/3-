@@ -29,6 +29,7 @@ import {
   Download,
   ChevronDown,
   ChevronRight,
+  GitBranch,
 } from 'lucide-react';
 
 interface MenuItem {
@@ -63,6 +64,7 @@ const Sidebar: React.FC = () => {
     { path: '/calendar', label: '오더 캘린더', icon: Calendar, roles: ['ADMIN', 'DISPATCHER'] },
     { path: '/ai-chat', label: 'AI 주문 어시스턴트', icon: MessageSquare, roles: ['ADMIN', 'DISPATCHER'] },
     { path: '/optimization', label: 'AI 배차 최적화', icon: Zap, roles: ['ADMIN', 'DISPATCHER'] },
+    { path: '/dispatch-rules', label: '스마트 배차 규칙', icon: GitBranch, roles: ['ADMIN', 'DISPATCHER'], isNew: true },
     { path: '/ai-cost', label: 'AI 비용 모니터링', icon: DollarSign, roles: ['ADMIN'] },
     { path: '/ab-test', label: 'AB Test 모니터링', icon: Activity, roles: ['ADMIN'] },
     { path: '/dispatches', label: '배차 관리', icon: Truck, roles: ['ADMIN', 'DISPATCHER'] },
