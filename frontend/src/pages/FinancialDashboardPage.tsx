@@ -78,16 +78,27 @@ const FinancialDashboardPage: React.FC = () => {
   const loadDashboardData = async () => {
     setLoading(true);
     try {
-      // Load financial summary
-      const summaryData = await BillingEnhancedAPI.getFinancialDashboard(dateRange);
+      // Load financial summary - pass individual parameters, not nested object
+      const summaryData = await BillingEnhancedAPI.getFinancialDashboard(
+        dateRange.start_date, 
+        dateRange.end_date
+      );
       setSummary(summaryData);
 
       // Load monthly trends
-      const trendsData = await BillingEnhancedAPI.getMonthlyTrends(trendMonths);
+      const trendsData = await BillingEnhancedAPI.getMonthlyTrends(
+        dateRange.start_date,
+        dateRange.end_date,
+        trendMonths
+      );
       setTrends(trendsData);
 
       // Load top clients
-      const clientsData = await BillingEnhancedAPI.getTopClients(10);
+      const clientsData = await BillingEnhancedAPI.getTopClients(
+        dateRange.start_date,
+        dateRange.end_date,
+        10
+      );
       setTopClients(clientsData);
     } catch (error) {
       console.error('Failed to load dashboard data:', error);

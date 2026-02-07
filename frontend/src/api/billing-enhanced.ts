@@ -7,7 +7,38 @@ import axios from 'axios';
 
 const API_BASE_URL = '/api/v1/billing/enhanced';
 
-// Get auth token
+// Create axios instance with interceptor
+const api = axios.create();
+
+// Request interceptor: Add auth token to all requests
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('access_token') || localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Response interceptor: Handle 401 errors
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      // Redirect to login on 401
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('token');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
+// Get auth token (deprecated - use interceptor instead)
 const getAuthHeaders = () => {
   const token = localStorage.getItem('access_token');
   return {
@@ -182,7 +213,7 @@ export interface ExportTask {
 export const previewCharge = async (
   request: ChargePreviewRequest
 ): Promise<ChargePreviewResponse> => {
-  const response = await axios.post<ChargePreviewResponse>(
+  const response = await api.post<ChargePreviewResponse>(
     `${API_BASE_URL}/preview`,
     request
   );
@@ -200,7 +231,7 @@ export const getFinancialSummary = async (
   if (startDate) params.start_date = startDate;
   if (endDate) params.end_date = endDate;
 
-  const response = await axios.get<FinancialSummary>(
+  const response = await api.get<FinancialSummary>(
     `${API_BASE_URL}/dashboard/financial`,
     { params }
   );
@@ -219,7 +250,7 @@ export const getMonthlyTrends = async (
   if (startDate) params.start_date = startDate;
   if (endDate) params.end_date = endDate;
 
-  const response = await axios.get<MonthlyTrend[]>(
+  const response = await api.get<MonthlyTrend[]>(
     `${API_BASE_URL}/dashboard/trends`,
     { params }
   );
@@ -238,7 +269,7 @@ export const getTopClients = async (
   if (startDate) params.start_date = startDate;
   if (endDate) params.end_date = endDate;
 
-  const response = await axios.get<TopClient[]>(
+  const response = await api.get<TopClient[]>(
     `${API_BASE_URL}/dashboard/top-clients`,
     { params }
   );
@@ -256,7 +287,7 @@ export const getFinancialDashboard = getFinancialSummary;
 export const createAutoInvoiceSchedule = async (
   request: AutoInvoiceScheduleRequest
 ): Promise<AutoInvoiceSchedule> => {
-  const response = await axios.post<AutoInvoiceSchedule>(
+  const response = await api.post<AutoInvoiceSchedule>(
     `${API_BASE_URL}/auto-schedule`,
     request
   );
@@ -272,7 +303,7 @@ export const getAutoInvoiceSchedules = async (
   const params: Record<string, any> = {};
   if (enabled !== undefined) params.enabled = enabled;
 
-  const response = await axios.get<AutoInvoiceSchedule[]>(
+  const response = await api.get<AutoInvoiceSchedule[]>(
     `${API_BASE_URL}/auto-schedule`,
     { params }
   );
@@ -285,7 +316,7 @@ export const getAutoInvoiceSchedules = async (
 export const getAutoInvoiceSchedule = async (
   clientId: number
 ): Promise<AutoInvoiceSchedule> => {
-  const response = await axios.get<AutoInvoiceSchedule>(
+  const response = await api.get<AutoInvoiceSchedule>(
     `${API_BASE_URL}/auto-schedule/${clientId}`
   );
   return response.data;
@@ -297,7 +328,7 @@ export const getAutoInvoiceSchedule = async (
 export const createOrUpdateAutoInvoiceSchedule = async (
   request: AutoInvoiceScheduleRequest
 ): Promise<AutoInvoiceSchedule> => {
-  const response = await axios.post<AutoInvoiceSchedule>(
+  const response = await api.post<AutoInvoiceSchedule>(
     `${API_BASE_URL}/auto-schedule`,
     request
   );
@@ -310,7 +341,7 @@ export const createOrUpdateAutoInvoiceSchedule = async (
 export const processSettlementApproval = async (
   request: SettlementApprovalRequest
 ): Promise<SettlementApproval> => {
-  const response = await axios.post<SettlementApproval>(
+  const response = await api.post<SettlementApproval>(
     `${API_BASE_URL}/settlement-approval`,
     request
   );
@@ -323,7 +354,7 @@ export const processSettlementApproval = async (
 export const getSettlementApproval = async (
   settlementId: number
 ): Promise<SettlementApproval> => {
-  const response = await axios.get<SettlementApproval>(
+  const response = await api.get<SettlementApproval>(
     `${API_BASE_URL}/settlement-approval/${settlementId}`
   );
   return response.data;
@@ -335,7 +366,7 @@ export const getSettlementApproval = async (
 export const getSettlementApprovalHistory = async (
   settlementId: number
 ): Promise<SettlementApprovalHistory[]> => {
-  const response = await axios.get<{ settlement_id: number; history: SettlementApprovalHistory[] }>(
+  const response = await api.get<{ settlement_id: number; history: SettlementApprovalHistory[] }>(
     `${API_BASE_URL}/settlement-approval/${settlementId}/history`
   );
   return response.data.history;
@@ -352,7 +383,7 @@ export const getBillingStatistics = async (
   if (startDate) params.start_date = startDate;
   if (endDate) params.end_date = endDate;
 
-  const response = await axios.get<BillingStatistics>(
+  const response = await api.get<BillingStatistics>(
     `${API_BASE_URL}/statistics/billing`,
     { params }
   );
@@ -370,7 +401,7 @@ export const getSettlementStatistics = async (
   if (startDate) params.start_date = startDate;
   if (endDate) params.end_date = endDate;
 
-  const response = await axios.get<SettlementStatistics>(
+  const response = await api.get<SettlementStatistics>(
     `${API_BASE_URL}/statistics/settlement`,
     { params }
   );
@@ -383,7 +414,7 @@ export const getSettlementStatistics = async (
 export const createExportTask = async (
   request: ExportRequest
 ): Promise<ExportTask> => {
-  const response = await axios.post<ExportTask>(
+  const response = await api.post<ExportTask>(
     `${API_BASE_URL}/export`,
     request
   );
@@ -394,7 +425,7 @@ export const createExportTask = async (
  * 내보내기 작업 상태 조회
  */
 export const getExportTask = async (taskId: string): Promise<ExportTask> => {
-  const response = await axios.get<ExportTask>(
+  const response = await api.get<ExportTask>(
     `${API_BASE_URL}/export/${taskId}`
   );
   return response.data;
@@ -495,7 +526,7 @@ export const getLastNMonthsDates = (months: number): { startDate: string; endDat
  * Execute due auto invoices
  */
 export const executeAutoInvoices = async (): Promise<{ scheduled: number; executed: number; failed: number }> => {
-  const response = await axios.post<{ scheduled: number; executed: number; failed: number }>(
+  const response = await api.post<{ scheduled: number; executed: number; failed: number }>(
     `${API_BASE_URL}/auto-schedule/execute-due`
   );
   return response.data;
@@ -510,7 +541,7 @@ export const getSettlementApprovals = async (
   const params: Record<string, any> = {};
   if (status) params.status = status;
 
-  const response = await axios.get<SettlementApproval[]>(
+  const response = await api.get<SettlementApproval[]>(
     `${API_BASE_URL}/settlement-approval`,
     { params }
   );
@@ -524,7 +555,7 @@ export const approveSettlement = async (
   settlementId: number, 
   comments: string
 ): Promise<SettlementApproval> => {
-  const response = await axios.post<SettlementApproval>(
+  const response = await api.post<SettlementApproval>(
     `${API_BASE_URL}/settlement-approval/${settlementId}/approve`,
     { comments }
   );
@@ -538,7 +569,7 @@ export const rejectSettlement = async (
   settlementId: number, 
   comments: string
 ): Promise<SettlementApproval> => {
-  const response = await axios.post<SettlementApproval>(
+  const response = await api.post<SettlementApproval>(
     `${API_BASE_URL}/settlement-approval/${settlementId}/reject`,
     { comments }
   );
@@ -554,7 +585,7 @@ export const getPaymentReminders = async (
   const params: Record<string, any> = {};
   if (status) params.status = status;
 
-  const response = await axios.get<any[]>(
+  const response = await api.get<any[]>(
     `${API_BASE_URL}/payment-reminder`,
     { params }
   );
@@ -565,7 +596,7 @@ export const getPaymentReminders = async (
  * Create payment reminder
  */
 export const createPaymentReminder = async (data: any): Promise<any> => {
-  const response = await axios.post(`${API_BASE_URL}/payment-reminder`, data);
+  const response = await api.post(`${API_BASE_URL}/payment-reminder`, data);
   return response.data;
 };
 
@@ -573,7 +604,7 @@ export const createPaymentReminder = async (data: any): Promise<any> => {
  * Send due payment reminders
  */
 export const sendDuePaymentReminders = async (): Promise<{ sent: number; failed: number }> => {
-  const response = await axios.post<{ sent: number; failed: number }>(
+  const response = await api.post<{ sent: number; failed: number }>(
     `${API_BASE_URL}/payment-reminder/send-due`
   );
   return response.data;
@@ -583,7 +614,7 @@ export const sendDuePaymentReminders = async (): Promise<{ sent: number; failed:
  * Delete payment reminder
  */
 export const deletePaymentReminder = async (reminderId: number): Promise<void> => {
-  await axios.delete(`${API_BASE_URL}/payment-reminder/${reminderId}`);
+  await api.delete(`${API_BASE_URL}/payment-reminder/${reminderId}`);
 };
 
 /**
@@ -595,7 +626,7 @@ export const getExportTasks = async (
   const params: Record<string, any> = {};
   if (status) params.status = status;
 
-  const response = await axios.get<ExportTask[]>(
+  const response = await api.get<ExportTask[]>(
     `${API_BASE_URL}/export`,
     { params }
   );
@@ -609,7 +640,7 @@ export const updateAutoInvoiceSchedule = async (
   scheduleId: number, 
   data: Partial<AutoInvoiceScheduleRequest>
 ): Promise<AutoInvoiceSchedule> => {
-  const response = await axios.put<AutoInvoiceSchedule>(
+  const response = await api.put<AutoInvoiceSchedule>(
     `${API_BASE_URL}/auto-schedule/${scheduleId}`,
     data
   );
@@ -620,6 +651,6 @@ export const updateAutoInvoiceSchedule = async (
  * Delete auto invoice schedule
  */
 export const deleteAutoInvoiceSchedule = async (scheduleId: number): Promise<void> => {
-  await axios.delete(`${API_BASE_URL}/auto-schedule/${scheduleId}`);
+  await api.delete(`${API_BASE_URL}/auto-schedule/${scheduleId}`);
 };
 
