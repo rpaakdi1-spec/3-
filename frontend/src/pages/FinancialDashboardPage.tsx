@@ -30,6 +30,27 @@ import {
 } from 'recharts';
 import * as BillingEnhancedAPI from '../api/billing-enhanced';
 
+// Backend response structure
+interface BackendFinancialSummary {
+  period_start: string;
+  period_end: string;
+  total_revenue: number;
+  invoiced_amount: number;
+  collected_amount: number;
+  collection_rate: number;
+  total_receivables: number;
+  current_receivables: number;
+  overdue_receivables: number;
+  overdue_count: number;
+  total_settlements: number;
+  pending_settlements: number;
+  paid_settlements: number;
+  cash_in: number;
+  cash_out: number;
+  net_cash_flow: number;
+}
+
+// Frontend display structure
 interface FinancialSummary {
   total_revenue: number;
   total_invoiced: number;
@@ -40,6 +61,9 @@ interface FinancialSummary {
   overdue_amount: number;
   pending_settlements: number;
   pending_settlement_amount: number;
+  cash_in: number;
+  cash_out: number;
+  net_cash_flow: number;
 }
 
 interface MonthlyTrend {
@@ -75,15 +99,36 @@ const FinancialDashboardPage: React.FC = () => {
     loadDashboardData();
   }, [dateRange, trendMonths]);
 
+  // Transform backend response to frontend structure
+  const transformFinancialSummary = (backendData: BackendFinancialSummary): FinancialSummary => {
+    return {
+      total_revenue: backendData.total_revenue || 0,
+      total_invoiced: backendData.invoiced_amount || 0,
+      total_paid: backendData.collected_amount || 0,
+      total_outstanding: backendData.total_receivables || 0,
+      payment_rate: backendData.collection_rate || 0,
+      overdue_count: backendData.overdue_count || 0,
+      overdue_amount: backendData.overdue_receivables || 0,
+      pending_settlements: backendData.pending_settlements || 0,
+      pending_settlement_amount: backendData.total_settlements || 0,
+      cash_in: backendData.cash_in || 0,
+      cash_out: backendData.cash_out || 0,
+      net_cash_flow: backendData.net_cash_flow || 0
+    };
+  };
+
   const loadDashboardData = async () => {
     setLoading(true);
     try {
       // Load financial summary - pass individual parameters, not nested object
-      const summaryData = await BillingEnhancedAPI.getFinancialDashboard(
+      const backendData = await BillingEnhancedAPI.getFinancialDashboard(
         dateRange.start_date, 
         dateRange.end_date
-      );
-      setSummary(summaryData);
+      ) as unknown as BackendFinancialSummary;
+      
+      // Transform backend data to frontend structure
+      const transformedData = transformFinancialSummary(backendData);
+      setSummary(transformedData);
 
       // Load monthly trends
       const trendsData = await BillingEnhancedAPI.getMonthlyTrends(
