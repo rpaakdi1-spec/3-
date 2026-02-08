@@ -395,34 +395,115 @@ export const RuleBuilderCanvas: React.FC<RuleBuilderCanvasProps> = ({
 
 // Helper functions to convert visual representation to rule JSON
 function convertNodesToConditions(nodes: Node[], edges: Edge[]): any {
-  // Implement logic to convert nodes/edges to condition JSON
   const conditionNodes = nodes.filter((n) => n.type === 'condition');
+  const logicalNodes = nodes.filter((n) => n.type === 'logical');
+  
   if (conditionNodes.length === 0) return {};
   
-  // Simple conversion (enhance as needed)
-  if (conditionNodes.length === 1) {
+  // Single condition
+  if (conditionNodes.length === 1 && logicalNodes.length === 0) {
     const node = conditionNodes[0];
+    return buildConditionObject(node);
+  }
+  
+  // Multiple conditions with logical operators
+  if (logicalNodes.length > 0) {
+    return buildComplexConditions(conditionNodes, logicalNodes, edges);
+  }
+  
+  // Multiple conditions without explicit logical operator - assume AND
+  return {
+    and: conditionNodes.map(buildConditionObject),
+  };
+}
+
+function buildConditionObject(node: Node): any {
+  const { field, operator, value } = node.data;
+  
+  // Convert operator to MongoDB-style notation
+  const operatorMap: Record<string, string> = {
+    'eq': '$eq',
+    'ne': '$ne',
+    'gt': '$gt',
+    'lt': '$lt',
+    'gte': '$gte',
+    'lte': '$lte',
+    'in': '$in',
+    'nin': '$nin',
+    'contains': '$regex',
+    'regex': '$regex',
+  };
+  
+  const mappedOp = operatorMap[operator] || operator;
+  
+  // Handle special cases
+  if (operator === 'contains') {
     return {
-      field: node.data.field,
-      operator: node.data.operator,
-      value: node.data.value,
+      [field]: {
+        [mappedOp]: value,
+        '$options': 'i' // case-insensitive
+      }
     };
   }
   
-  // Multiple conditions - assume AND for now
+  // Try to parse value as number if possible
+  let parsedValue = value;
+  if (typeof value === 'string' && !isNaN(Number(value))) {
+    parsedValue = Number(value);
+  }
+  
   return {
-    and: conditionNodes.map((node) => ({
-      field: node.data.field,
-      operator: node.data.operator,
-      value: node.data.value,
-    })),
+    [field]: {
+      [mappedOp]: parsedValue
+    }
+  };
+}
+
+function buildComplexConditions(conditionNodes: Node[], logicalNodes: Node[], edges: Edge[]): any {
+  // Build a tree structure based on edges
+  // For now, implement a simple approach
+  const primaryLogical = logicalNodes[0];
+  const operator = primaryLogical?.data.label?.toLowerCase() === 'or' ? 'or' : 'and';
+  
+  return {
+    [operator]: conditionNodes.map(buildConditionObject),
   };
 }
 
 function convertNodesToActions(nodes: Node[], edges: Edge[]): any {
   const actionNodes = nodes.filter((n) => n.type === 'action');
-  return actionNodes.map((node) => ({
-    type: node.data.actionType,
-    params: node.data.params,
-  }));
+  
+  if (actionNodes.length === 0) return {};
+  
+  // Convert to action object format expected by backend
+  const actions: Record<string, any> = {};
+  
+  actionNodes.forEach((node) => {
+    const { actionType, params } = node.data;
+    
+    switch (actionType) {
+      case 'assign_driver':
+        actions.assign_driver = true;
+        if (params.criteria) actions.driver_criteria = params.criteria;
+        break;
+      case 'assign_vehicle':
+        actions.assign_vehicle = true;
+        if (params.criteria) actions.vehicle_criteria = params.criteria;
+        break;
+      case 'set_priority':
+        actions.set_priority = params.priority || 50;
+        break;
+      case 'notify':
+        actions.notify = true;
+        if (params.message) actions.notification_message = params.message;
+        break;
+      case 'optimize':
+        actions.optimize = true;
+        break;
+      default:
+        actions[actionType] = params;
+    }
+  });
+  
+  return actions;
 }
