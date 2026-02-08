@@ -5,7 +5,7 @@ WORKDIR /app
 
 # 의존성 설치
 COPY package*.json ./
-RUN npm install
+RUN npm install --legacy-peer-deps
 
 # 소스 복사 및 빌드
 COPY . .
@@ -23,7 +23,7 @@ LABEL description="UVIS Logistics Frontend"
 COPY --from=builder /app/dist /usr/share/nginx/html
 
 # Nginx 설정 복사
-COPY nginx.conf /etc/nginx/nginx.conf
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # 포트 노출
 EXPOSE 80
