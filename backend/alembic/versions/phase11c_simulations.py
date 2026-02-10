@@ -1,7 +1,7 @@
 """add simulation tables
 
 Revision ID: phase11c_simulations
-Revises: add_dispatch_rules_tables
+Revises: phase10_001
 Create Date: 2026-02-10 07:20:00.000000
 
 """
@@ -11,7 +11,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = 'phase11c_simulations'
-down_revision = 'add_dispatch_rules_tables'
+down_revision = 'phase10_001'
 branch_labels = None
 depends_on = None
 

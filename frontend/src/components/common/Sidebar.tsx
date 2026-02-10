@@ -259,12 +259,5 @@ const Sidebar: React.FC = () => {
 };
 
 export default Sidebar;
-hidden"
-          onClick={() => setIsOpen(false)}
-        />
-      )}
-    </>
-  );
-};
 
 export default Sidebar;
