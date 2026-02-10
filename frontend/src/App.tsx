@@ -47,6 +47,9 @@ const ExportTaskPage = lazy(() => import('./pages/ExportTaskPage'));
 // Phase 10: Dispatch Rules
 const DispatchRulesPage = lazy(() => import('./pages/DispatchRulesPage'));
 
+// Phase 11-C: Rule Simulation
+const SimulationPage = lazy(() => import('./pages/SimulationPage'));
+
 // IoT Sensor Pages
 const IoTSensorsPage = lazy(() => import('./pages/IoTSensorsPage'));
 const IoTSensorDetailPage = lazy(() => import('./pages/IoTSensorDetailPage'));
@@ -192,6 +195,14 @@ const App: React.FC = () => {
               element={
                 <ProtectedRoute>
                   <DispatchRulesPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/simulations"
+              element={
+                <ProtectedRoute>
+                  <SimulationPage />
                 </ProtectedRoute>
               }
             />
