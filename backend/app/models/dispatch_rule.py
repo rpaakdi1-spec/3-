@@ -38,6 +38,7 @@ class DispatchRule(Base, IDMixin, TimestampMixin):
     # Relationships
     constraints = relationship("RuleConstraint", back_populates="rule", cascade="all, delete-orphan")
     execution_logs = relationship("RuleExecutionLog", back_populates="rule")
+    simulations = relationship("RuleSimulation", back_populates="rule")
     creator = relationship("User", foreign_keys=[created_by])
     
     def __repr__(self):

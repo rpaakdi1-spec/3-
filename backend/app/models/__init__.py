@@ -36,6 +36,7 @@ from .vehicle_maintenance import (
     MaintenanceType, MaintenanceStatus, MaintenancePriority, PartCategory
 )
 from .mobile_photo import MobilePhoto, NotificationPreferences, MobileSession
+from .simulation import RuleSimulation, SimulationComparison, SimulationTemplate
 
 __all__ = [
     "Base",
@@ -111,4 +112,8 @@ __all__ = [
     "PaymentReminderStatus",
     "ExportTask",
     "ExportTaskStatus",
+    # Phase 11-C: Rule Simulation
+    "RuleSimulation",
+    "SimulationComparison",
+    "SimulationTemplate",
 ]

@@ -1,373 +1,365 @@
 """
-Advanced Simulation Engine for Rule Testing and What-If Analysis
+Simulation Engine for Rule Testing
+규칙 시뮬레이션 실행 엔진
 """
-from typing import Dict, List, Optional, Any
-from datetime import datetime, timedelta
-import json
+import time
+import random
+from typing import Dict, Any, List, Optional
+from datetime import datetime
 from sqlalchemy.orm import Session
-from loguru import logger
 
+from app.services.condition_parser import ConditionParser, validate_conditions
+from app.models.simulation import RuleSimulation
 from app.models.dispatch_rule import DispatchRule
-from app.models.dispatches import Dispatch
-from app.models.orders import Order
-from app.services.rule_engine import RuleEngine
 
 
 class SimulationEngine:
-    """
-    Advanced simulation engine for testing dispatch rules
-    - Historical data replay
-    - What-if scenario analysis
-    - A/B testing
-    - Performance comparison
-    """
+    """시뮬레이션 엔진"""
     
     def __init__(self, db: Session):
         self.db = db
-        self.rule_engine = RuleEngine(db)
-        
-    async def run_historical_simulation(
+        self.parser = ConditionParser()
+    
+    async def run_simulation(
         self,
-        start_date: datetime,
-        end_date: datetime,
-        rule_ids: Optional[List[int]] = None
+        simulation_id: int,
+        rule_config: Dict[str, Any],
+        scenario_data: Dict[str, Any],
+        iterations: int = 1,
+        randomize: bool = False
     ) -> Dict[str, Any]:
         """
-        Replay historical dispatches with current rules
+        시뮬레이션 실행
         
         Args:
-            start_date: Start date for historical data
-            end_date: End date for historical data
-            rule_ids: Optional list of specific rule IDs to test
+            simulation_id: 시뮬레이션 ID
+            rule_config: 규칙 설정
+            scenario_data: 시나리오 데이터
+            iterations: 반복 횟수
+            randomize: 데이터 랜덤화 여부
             
         Returns:
-            Simulation results with metrics
+            실행 결과
         """
-        logger.info(f"Starting historical simulation from {start_date} to {end_date}")
         
-        # Fetch historical dispatches
-        dispatches = self.db.query(Dispatch).filter(
-            Dispatch.created_at >= start_date,
-            Dispatch.created_at <= end_date
-        ).all()
+        # 시뮬레이션 조회
+        simulation = self.db.query(RuleSimulation).filter(
+            RuleSimulation.id == simulation_id
+        ).first()
         
-        logger.info(f"Found {len(dispatches)} historical dispatches")
+        if not simulation:
+            raise ValueError(f"Simulation {simulation_id} not found")
         
-        results = {
-            "total_dispatches": len(dispatches),
-            "simulation_period": {
-                "start": start_date.isoformat(),
-                "end": end_date.isoformat()
-            },
-            "original_metrics": self._calculate_dispatch_metrics(dispatches),
-            "simulated_metrics": {},
-            "improvements": {},
-            "dispatch_results": []
-        }
+        # 상태 업데이트
+        simulation.status = "running"
+        simulation.started_at = datetime.utcnow()
+        self.db.commit()
         
-        # Run simulation for each dispatch
-        simulated_dispatches = []
-        for dispatch in dispatches:
-            context = self._build_dispatch_context(dispatch)
+        try:
+            # 규칙 조건 검증
+            conditions = rule_config.get("conditions", {})
+            validation_errors = validate_conditions(conditions)
             
-            # Execute rules in simulation mode
-            if rule_ids:
-                rule_results = []
-                for rule_id in rule_ids:
-                    rule = self.db.query(DispatchRule).filter_by(id=rule_id).first()
-                    if rule:
-                        result = self.rule_engine.execute_rule(rule, context, simulation=True)
-                        rule_results.append(result)
-            else:
-                rule_results = self.rule_engine.execute_rules(context, simulation=True)
+            if validation_errors:
+                raise ValueError(f"Invalid conditions: {', '.join(validation_errors)}")
             
-            # Apply simulated changes
-            simulated_dispatch = self._apply_simulation_results(dispatch, rule_results)
-            simulated_dispatches.append(simulated_dispatch)
+            # 시뮬레이션 실행
+            results = []
+            response_times = []
+            successful_matches = 0
+            failed_matches = 0
             
-            results["dispatch_results"].append({
-                "original_dispatch_id": dispatch.id,
-                "rules_applied": len([r for r in rule_results if r.get("matched")]),
-                "changes": simulated_dispatch.get("changes", [])
-            })
-        
-        # Calculate simulated metrics
-        results["simulated_metrics"] = self._calculate_simulated_metrics(simulated_dispatches)
-        
-        # Calculate improvements
-        results["improvements"] = self._calculate_improvements(
-            results["original_metrics"],
-            results["simulated_metrics"]
-        )
-        
-        logger.info(f"Simulation complete. Improvements: {results['improvements']}")
-        
-        return results
-        
-    async def run_whatif_simulation(
-        self,
-        scenario: Dict[str, Any],
-        sample_size: int = 100
-    ) -> Dict[str, Any]:
-        """
-        Run what-if analysis with modified parameters
-        
-        Args:
-            scenario: Dictionary with modified parameters
-            sample_size: Number of recent dispatches to use
-            
-        Returns:
-            Comparison of baseline vs scenario
-        """
-        logger.info(f"Running what-if simulation: {scenario.get('name', 'Unnamed')}")
-        
-        # Get recent dispatches as baseline
-        dispatches = self.db.query(Dispatch).order_by(
-            Dispatch.created_at.desc()
-        ).limit(sample_size).all()
-        
-        results = {
-            "scenario_name": scenario.get("name", "Unnamed Scenario"),
-            "scenario_description": scenario.get("description", ""),
-            "sample_size": len(dispatches),
-            "baseline_metrics": {},
-            "scenario_metrics": {},
-            "comparison": {}
-        }
-        
-        # Calculate baseline metrics
-        baseline_dispatches = []
-        for dispatch in dispatches:
-            context = self._build_dispatch_context(dispatch)
-            baseline_dispatches.append(dispatch)
-        
-        results["baseline_metrics"] = self._calculate_dispatch_metrics(baseline_dispatches)
-        
-        # Apply scenario modifications
-        scenario_dispatches = []
-        for dispatch in dispatches:
-            context = self._build_dispatch_context(dispatch)
-            
-            # Apply scenario changes to context
-            if "rule_modifications" in scenario:
-                context.update(scenario["rule_modifications"])
-            
-            # Execute rules with modified context
-            rule_results = self.rule_engine.execute_rules(context, simulation=True)
-            
-            # Apply results
-            simulated = self._apply_simulation_results(dispatch, rule_results)
-            scenario_dispatches.append(simulated)
-        
-        results["scenario_metrics"] = self._calculate_simulated_metrics(scenario_dispatches)
-        
-        # Compare scenarios
-        results["comparison"] = self._calculate_improvements(
-            results["baseline_metrics"],
-            results["scenario_metrics"]
-        )
-        
-        return results
-        
-    async def run_ab_test(
-        self,
-        rule_a_id: int,
-        rule_b_id: int,
-        test_duration_days: int = 7,
-        traffic_split: float = 0.5
-    ) -> Dict[str, Any]:
-        """
-        Run A/B test between two rules
-        
-        Args:
-            rule_a_id: ID of rule A (control)
-            rule_b_id: ID of rule B (treatment)
-            test_duration_days: Duration of test in days
-            traffic_split: Percentage of traffic for rule B (0.0-1.0)
-            
-        Returns:
-            A/B test results with statistical significance
-        """
-        logger.info(f"Running A/B test: Rule {rule_a_id} vs Rule {rule_b_id}")
-        
-        rule_a = self.db.query(DispatchRule).filter_by(id=rule_a_id).first()
-        rule_b = self.db.query(DispatchRule).filter_by(id=rule_b_id).first()
-        
-        if not rule_a or not rule_b:
-            raise ValueError("Both rules must exist")
-        
-        # Get historical data for test period
-        end_date = datetime.now()
-        start_date = end_date - timedelta(days=test_duration_days)
-        
-        dispatches = self.db.query(Dispatch).filter(
-            Dispatch.created_at >= start_date,
-            Dispatch.created_at <= end_date
-        ).all()
-        
-        # Split traffic
-        split_index = int(len(dispatches) * traffic_split)
-        group_a_dispatches = dispatches[:split_index]
-        group_b_dispatches = dispatches[split_index:]
-        
-        results = {
-            "test_name": f"A/B Test: {rule_a.name} vs {rule_b.name}",
-            "test_period": {
-                "start": start_date.isoformat(),
-                "end": end_date.isoformat(),
-                "duration_days": test_duration_days
-            },
-            "traffic_split": traffic_split,
-            "group_a": {
-                "rule_id": rule_a_id,
-                "rule_name": rule_a.name,
-                "sample_size": len(group_a_dispatches),
-                "metrics": {}
-            },
-            "group_b": {
-                "rule_id": rule_b_id,
-                "rule_name": rule_b.name,
-                "sample_size": len(group_b_dispatches),
-                "metrics": {}
-            },
-            "comparison": {},
-            "winner": None
-        }
-        
-        # Simulate group A with rule A
-        group_a_results = []
-        for dispatch in group_a_dispatches:
-            context = self._build_dispatch_context(dispatch)
-            result = self.rule_engine.execute_rule(rule_a, context, simulation=True)
-            simulated = self._apply_simulation_results(dispatch, [result])
-            group_a_results.append(simulated)
-        
-        results["group_a"]["metrics"] = self._calculate_simulated_metrics(group_a_results)
-        
-        # Simulate group B with rule B
-        group_b_results = []
-        for dispatch in group_b_dispatches:
-            context = self._build_dispatch_context(dispatch)
-            result = self.rule_engine.execute_rule(rule_b, context, simulation=True)
-            simulated = self._apply_simulation_results(dispatch, [result])
-            group_b_results.append(simulated)
-        
-        results["group_b"]["metrics"] = self._calculate_simulated_metrics(group_b_results)
-        
-        # Compare groups
-        results["comparison"] = self._calculate_improvements(
-            results["group_a"]["metrics"],
-            results["group_b"]["metrics"]
-        )
-        
-        # Determine winner (simplified - use more advanced statistics in production)
-        if results["comparison"].get("distance_saved_km", 0) > 0:
-            results["winner"] = "B"
-        elif results["comparison"].get("distance_saved_km", 0) < 0:
-            results["winner"] = "A"
-        else:
-            results["winner"] = "Tie"
-        
-        return results
-        
-    def _build_dispatch_context(self, dispatch: Dispatch) -> Dict[str, Any]:
-        """Build context from dispatch for simulation"""
-        # Fetch related data
-        order = self.db.query(Order).filter_by(id=dispatch.order_id).first()
-        
-        context = {
-            "dispatch": {
-                "id": dispatch.id,
-                "status": dispatch.status.value if hasattr(dispatch.status, 'value') else dispatch.status,
-                "created_at": dispatch.created_at.isoformat() if dispatch.created_at else None,
-                "driver_id": dispatch.driver_id,
-                "vehicle_id": dispatch.vehicle_id
-            },
-            "order": {}
-        }
-        
-        if order:
-            context["order"] = {
-                "id": order.id,
-                "priority": order.priority if hasattr(order, 'priority') else "normal",
-                "weight": order.weight if hasattr(order, 'weight') else 0,
-                "volume": order.volume if hasattr(order, 'volume') else 0,
-                "value": order.total_amount if hasattr(order, 'total_amount') else 0
-            }
-        
-        return context
-        
-    def _apply_simulation_results(
-        self,
-        dispatch: Dispatch,
-        rule_results: List[Dict[str, Any]]
-    ) -> Dict[str, Any]:
-        """Apply simulation results to create modified dispatch"""
-        simulated = {
-            "original_dispatch_id": dispatch.id,
-            "changes": []
-        }
-        
-        for result in rule_results:
-            if result.get("matched"):
-                for action in result.get("actions", []):
-                    if action.get("type") == "assign_driver":
-                        simulated["driver_id"] = action["params"].get("driver_id")
-                        simulated["changes"].append("driver_changed")
-                    elif action.get("type") == "assign_vehicle":
-                        simulated["vehicle_id"] = action["params"].get("vehicle_id")
-                        simulated["changes"].append("vehicle_changed")
-        
-        return simulated
-        
-    def _calculate_dispatch_metrics(self, dispatches: List[Dispatch]) -> Dict[str, Any]:
-        """Calculate metrics from actual dispatches"""
-        if not dispatches:
-            return {}
-        
-        total_distance = sum(d.distance_km for d in dispatches if hasattr(d, 'distance_km') and d.distance_km)
-        total_cost = sum(d.cost for d in dispatches if hasattr(d, 'cost') and d.cost)
-        completed = len([d for d in dispatches if d.status == "completed"])
-        
-        return {
-            "total_dispatches": len(dispatches),
-            "completed_count": completed,
-            "completion_rate": completed / len(dispatches) if dispatches else 0,
-            "total_distance_km": total_distance,
-            "avg_distance_km": total_distance / len(dispatches) if dispatches else 0,
-            "total_cost": total_cost,
-            "avg_cost": total_cost / len(dispatches) if dispatches else 0
-        }
-        
-    def _calculate_simulated_metrics(self, simulated_dispatches: List[Dict]) -> Dict[str, Any]:
-        """Calculate metrics from simulated dispatches"""
-        if not simulated_dispatches:
-            return {}
-        
-        changes_count = sum(len(d.get("changes", [])) for d in simulated_dispatches)
-        
-        return {
-            "total_simulated": len(simulated_dispatches),
-            "total_changes": changes_count,
-            "change_rate": changes_count / len(simulated_dispatches) if simulated_dispatches else 0,
-            # Add more simulated metrics here
-        }
-        
-    def _calculate_improvements(
-        self,
-        baseline: Dict[str, Any],
-        simulated: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """Calculate percentage improvements"""
-        improvements = {}
-        
-        for key in baseline:
-            if key in simulated and isinstance(baseline[key], (int, float)):
-                baseline_val = baseline[key]
-                simulated_val = simulated.get(key, baseline_val)
+            for iteration in range(iterations):
+                # 시나리오 데이터 준비
+                test_data = self._prepare_scenario_data(scenario_data, randomize, iteration)
                 
-                if baseline_val != 0:
-                    improvement_pct = ((simulated_val - baseline_val) / baseline_val) * 100
-                    improvements[f"{key}_improvement_pct"] = round(improvement_pct, 2)
+                # 각 주문에 대해 매칭 시도
+                orders = test_data.get("orders", [])
+                drivers = test_data.get("drivers", [])
+                
+                for order in orders:
+                    start_time = time.time()
+                    
+                    # 규칙 적용하여 최적 기사 찾기
+                    matched_driver = self._find_best_match(
+                        order, 
+                        drivers, 
+                        conditions,
+                        rule_config.get("actions", {})
+                    )
+                    
+                    end_time = time.time()
+                    response_time_ms = (end_time - start_time) * 1000
+                    response_times.append(response_time_ms)
+                    
+                    # 결과 기록
+                    if matched_driver:
+                        successful_matches += 1
+                        results.append({
+                            "iteration": iteration + 1,
+                            "order_id": order.get("id"),
+                            "matched_driver_id": matched_driver.get("id"),
+                            "success": True,
+                            "response_time_ms": response_time_ms,
+                            "distance_km": order.get("distance_km"),
+                            "estimated_cost": self._calculate_cost(order, matched_driver)
+                        })
+                    else:
+                        failed_matches += 1
+                        results.append({
+                            "iteration": iteration + 1,
+                            "order_id": order.get("id"),
+                            "success": False,
+                            "response_time_ms": response_time_ms,
+                            "reason": "No matching driver found"
+                        })
+            
+            # 통계 계산
+            total_matches = len(results)
+            match_rate = (successful_matches / total_matches * 100) if total_matches > 0 else 0
+            
+            avg_response_time = sum(response_times) / len(response_times) if response_times else 0
+            min_response_time = min(response_times) if response_times else 0
+            max_response_time = max(response_times) if response_times else 0
+            
+            estimated_distance = sum(r.get("distance_km", 0) for r in results if r.get("success"))
+            estimated_cost = sum(r.get("estimated_cost", 0) for r in results if r.get("success"))
+            estimated_time = estimated_distance / 40 * 60 if estimated_distance > 0 else 0  # 평균 40km/h 가정
+            
+            # 결과 업데이트
+            simulation.status = "completed"
+            simulation.completed_at = datetime.utcnow()
+            simulation.duration_seconds = (simulation.completed_at - simulation.started_at).total_seconds()
+            
+            simulation.total_matches = total_matches
+            simulation.successful_matches = successful_matches
+            simulation.failed_matches = failed_matches
+            simulation.match_rate = match_rate
+            
+            simulation.avg_response_time_ms = avg_response_time
+            simulation.min_response_time_ms = min_response_time
+            simulation.max_response_time_ms = max_response_time
+            
+            simulation.estimated_cost = estimated_cost
+            simulation.estimated_distance_km = estimated_distance
+            simulation.estimated_time_minutes = estimated_time
+            
+            simulation.results = results
+            
+            self.db.commit()
+            
+            return {
+                "simulation_id": simulation_id,
+                "status": "completed",
+                "statistics": {
+                    "total_matches": total_matches,
+                    "successful_matches": successful_matches,
+                    "failed_matches": failed_matches,
+                    "match_rate": round(match_rate, 2),
+                    "avg_response_time_ms": round(avg_response_time, 2),
+                    "min_response_time_ms": round(min_response_time, 2),
+                    "max_response_time_ms": round(max_response_time, 2),
+                    "estimated_cost": round(estimated_cost, 2),
+                    "estimated_distance_km": round(estimated_distance, 2),
+                    "estimated_time_minutes": round(estimated_time, 2)
+                },
+                "results": results
+            }
+            
+        except Exception as e:
+            # 오류 처리
+            simulation.status = "failed"
+            simulation.completed_at = datetime.utcnow()
+            simulation.errors = [{"error": str(e), "timestamp": datetime.utcnow().isoformat()}]
+            self.db.commit()
+            
+            raise
+    
+    def _prepare_scenario_data(
+        self, 
+        scenario_data: Dict[str, Any], 
+        randomize: bool, 
+        iteration: int
+    ) -> Dict[str, Any]:
+        """시나리오 데이터 준비 (랜덤화 옵션)"""
         
-        return improvements
+        if not randomize:
+            return scenario_data
+        
+        # 랜덤 시드 설정 (재현 가능성)
+        random.seed(iteration)
+        
+        # 데이터 복사 및 랜덤화
+        test_data = scenario_data.copy()
+        
+        # 주문 데이터 랜덤화
+        if "orders" in test_data:
+            orders = []
+            for order in test_data["orders"]:
+                randomized_order = order.copy()
+                # 거리 ±20% 랜덤
+                if "distance_km" in randomized_order:
+                    base_distance = randomized_order["distance_km"]
+                    randomized_order["distance_km"] = base_distance * random.uniform(0.8, 1.2)
+                orders.append(randomized_order)
+            test_data["orders"] = orders
+        
+        # 기사 데이터 랜덤화
+        if "drivers" in test_data:
+            drivers = []
+            for driver in test_data["drivers"]:
+                randomized_driver = driver.copy()
+                # 평점 ±0.3 랜덤
+                if "rating" in randomized_driver:
+                    base_rating = randomized_driver["rating"]
+                    randomized_driver["rating"] = max(1.0, min(5.0, base_rating + random.uniform(-0.3, 0.3)))
+                drivers.append(randomized_driver)
+            test_data["drivers"] = drivers
+        
+        return test_data
+    
+    def _find_best_match(
+        self,
+        order: Dict[str, Any],
+        drivers: List[Dict[str, Any]],
+        conditions: Dict[str, Any],
+        actions: Dict[str, Any]
+    ) -> Optional[Dict[str, Any]]:
+        """최적 기사 찾기"""
+        
+        matched_drivers = []
+        
+        for driver in drivers:
+            # 컨텍스트 구성
+            context = {
+                **order,
+                **driver,
+                "order": order,
+                "driver": driver
+            }
+            
+            # 조건 평가
+            if self.parser.evaluate(conditions, context):
+                matched_drivers.append(driver)
+        
+        if not matched_drivers:
+            return None
+        
+        # 우선순위에 따라 정렬 (평점 높은 순)
+        matched_drivers.sort(
+            key=lambda d: d.get("rating", 0), 
+            reverse=True
+        )
+        
+        return matched_drivers[0]
+    
+    def _calculate_cost(self, order: Dict[str, Any], driver: Dict[str, Any]) -> float:
+        """비용 계산 (간단한 모델)"""
+        base_cost = 10000  # 기본 비용
+        distance_cost = order.get("distance_km", 0) * 1500  # km당 1500원
+        priority_cost = 5000 if order.get("priority") == "high" else 0
+        
+        return base_cost + distance_cost + priority_cost
+
+
+async def compare_simulations(
+    db: Session,
+    simulation_a_id: int,
+    simulation_b_id: int
+) -> Dict[str, Any]:
+    """
+    두 시뮬레이션 결과 비교
+    
+    Returns:
+        비교 결과 및 추천
+    """
+    
+    sim_a = db.query(RuleSimulation).filter(RuleSimulation.id == simulation_a_id).first()
+    sim_b = db.query(RuleSimulation).filter(RuleSimulation.id == simulation_b_id).first()
+    
+    if not sim_a or not sim_b:
+        raise ValueError("One or both simulations not found")
+    
+    # 지표 비교
+    metrics = {
+        "match_rate": {
+            "a": sim_a.match_rate or 0,
+            "b": sim_b.match_rate or 0,
+            "winner": "A" if (sim_a.match_rate or 0) > (sim_b.match_rate or 0) else "B"
+        },
+        "avg_response_time_ms": {
+            "a": sim_a.avg_response_time_ms or 0,
+            "b": sim_b.avg_response_time_ms or 0,
+            "winner": "A" if (sim_a.avg_response_time_ms or float('inf')) < (sim_b.avg_response_time_ms or float('inf')) else "B"
+        },
+        "estimated_cost": {
+            "a": sim_a.estimated_cost or 0,
+            "b": sim_b.estimated_cost or 0,
+            "winner": "A" if (sim_a.estimated_cost or float('inf')) < (sim_b.estimated_cost or float('inf')) else "B"
+        }
+    }
+    
+    # 전체 승자 결정
+    a_wins = sum(1 for m in metrics.values() if m["winner"] == "A")
+    b_wins = sum(1 for m in metrics.values() if m["winner"] == "B")
+    
+    overall_winner = "A" if a_wins > b_wins else ("B" if b_wins > a_wins else "tie")
+    
+    # AI 추천 생성
+    recommendation = _generate_recommendation(sim_a, sim_b, metrics, overall_winner)
+    
+    return {
+        "simulation_a": {
+            "id": sim_a.id,
+            "name": sim_a.name,
+            "match_rate": sim_a.match_rate,
+            "avg_response_time_ms": sim_a.avg_response_time_ms,
+            "estimated_cost": sim_a.estimated_cost
+        },
+        "simulation_b": {
+            "id": sim_b.id,
+            "name": sim_b.name,
+            "match_rate": sim_b.match_rate,
+            "avg_response_time_ms": sim_b.avg_response_time_ms,
+            "estimated_cost": sim_b.estimated_cost
+        },
+        "metrics": metrics,
+        "overall_winner": overall_winner,
+        "recommendation": recommendation,
+        "confidence_score": 0.85 if overall_winner != "tie" else 0.5
+    }
+
+
+def _generate_recommendation(
+    sim_a: RuleSimulation,
+    sim_b: RuleSimulation,
+    metrics: Dict,
+    winner: str
+) -> str:
+    """AI 추천 생성"""
+    
+    if winner == "tie":
+        return "두 규칙의 성능이 비슷합니다. 더 많은 시나리오로 테스트해보세요."
+    
+    winner_sim = sim_a if winner == "A" else sim_b
+    loser_sim = sim_b if winner == "A" else sim_a
+    
+    recommendation = f"규칙 {winner} ({winner_sim.name})를 추천합니다.\n\n"
+    
+    # 장점 나열
+    advantages = []
+    if metrics["match_rate"]["winner"] == winner:
+        diff = abs(metrics["match_rate"]["a"] - metrics["match_rate"]["b"])
+        advantages.append(f"매칭 성공률이 {diff:.1f}% 더 높습니다")
+    
+    if metrics["avg_response_time_ms"]["winner"] == winner:
+        diff = abs(metrics["avg_response_time_ms"]["a"] - metrics["avg_response_time_ms"]["b"])
+        advantages.append(f"응답 시간이 {diff:.1f}ms 더 빠릅니다")
+    
+    if metrics["estimated_cost"]["winner"] == winner:
+        diff = abs(metrics["estimated_cost"]["a"] - metrics["estimated_cost"]["b"])
+        advantages.append(f"예상 비용이 {diff:,.0f}원 더 저렴합니다")
+    
+    recommendation += "장점:\n" + "\n".join(f"• {adv}" for adv in advantages)
+    
+    return recommendation
