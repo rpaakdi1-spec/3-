@@ -115,3 +115,5 @@ export const SimulationList: React.FC<SimulationListProps> = ({
     </div>
   );
 };
+
+export default SimulationList;

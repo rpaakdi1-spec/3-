@@ -196,3 +196,5 @@ export const SimulationDetail: React.FC<SimulationDetailProps> = ({ simulation, 
     </div>
   );
 };
+
+export default SimulationDetail;

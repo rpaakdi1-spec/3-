@@ -192,3 +192,5 @@ export const ComparisonView: React.FC<ComparisonViewProps> = ({ comparison, onCl
     </div>
   );
 };
+
+export default ComparisonView;

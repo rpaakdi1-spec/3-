@@ -182,3 +182,5 @@ export const TemplateGallery: React.FC<TemplateGalleryProps> = ({
     </div>
   );
 };
+
+export default TemplateGallery;
