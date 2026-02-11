@@ -56,6 +56,10 @@ const AutoDispatchPage = lazy(() => import('./pages/AutoDispatchPage'));
 const DispatchAnalyticsDashboard = lazy(() => import('./pages/DispatchAnalyticsDashboard'));
 const MLAutoLearningDashboard = lazy(() => import('./pages/MLAutoLearningDashboard'));
 
+// Phase 13-14: IoT & Predictive Maintenance
+const IoTSensorMonitoring = lazy(() => import('./pages/IoTSensorMonitoring'));
+const PredictiveMaintenanceDashboard = lazy(() => import('./pages/PredictiveMaintenanceDashboard'));
+
 // IoT Sensor Pages
 const IoTSensorsPage = lazy(() => import('./pages/IoTSensorsPage'));
 const IoTSensorDetailPage = lazy(() => import('./pages/IoTSensorDetailPage'));
@@ -233,6 +237,22 @@ const App: React.FC = () => {
               element={
                 <ProtectedRoute>
                   <MLAutoLearningDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/iot-sensor-monitoring"
+              element={
+                <ProtectedRoute>
+                  <IoTSensorMonitoring />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/predictive-maintenance"
+              element={
+                <ProtectedRoute>
+                  <PredictiveMaintenanceDashboard />
                 </ProtectedRoute>
               }
             />

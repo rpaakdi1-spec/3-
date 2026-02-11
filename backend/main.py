@@ -162,7 +162,7 @@ async def internal_error_handler(request, exc):
 
 # Import and include routers
 # from app.api import auth, clients, vehicles, orders, dispatches, tracking, uvis, redispatch, notices, purchase_orders, band_messages, uvis_gps, analytics, delivery_tracking, traffic, monitoring, cache
-from app.api import auth, clients, vehicles, orders, dispatches, tracking, uvis, redispatch, notices, purchase_orders, band_messages, uvis_gps, delivery_tracking, traffic, monitoring, cache, emergency, ml_training, ai_chat, ai_usage, ml_dispatch, ab_test, recurring_orders, order_templates, driver_schedules, urgent_dispatches, notifications, temperature_monitoring, temperature_analytics, billing, vehicle_maintenance, ml_predictions, telemetry, dispatch_optimization, analytics, mobile, integrated_dispatch, ml_autolearning
+from app.api import auth, clients, vehicles, orders, dispatches, tracking, uvis, redispatch, notices, purchase_orders, band_messages, uvis_gps, delivery_tracking, traffic, monitoring, cache, emergency, ml_training, ai_chat, ai_usage, ml_dispatch, ab_test, recurring_orders, order_templates, driver_schedules, urgent_dispatches, notifications, temperature_monitoring, temperature_analytics, billing, vehicle_maintenance, ml_predictions, telemetry, dispatch_optimization, analytics, mobile, integrated_dispatch, ml_autolearning, iot_maintenance
 from app.api.v1 import reports, realtime_monitoring, ml_models, fcm_notifications, performance, security, websocket, mobile_enhanced, billing_enhanced
 from app.api.v1.endpoints import dispatch_rules, simulations
 app.include_router(auth.router, prefix=f"{settings.API_PREFIX}/auth", tags=["Authentication"])
@@ -214,6 +214,7 @@ app.include_router(billing_enhanced.router, prefix=f"{settings.API_PREFIX}", tag
 app.include_router(dispatch_rules.router, prefix=f"{settings.API_PREFIX}/dispatch-rules", tags=["Dispatch Rules"])  # Phase 10: Smart Dispatch Rule Engine
 app.include_router(simulations.router, prefix=f"{settings.API_PREFIX}/simulations", tags=["Simulations"])  # Phase 11-C: Rule Simulation
 app.include_router(integrated_dispatch.router, prefix=f"{settings.API_PREFIX}", tags=["Integrated Dispatch"])  # Phase 12: 핵심 통합 (Naver Map + GPS + AI)
+app.include_router(iot_maintenance.router, prefix=f"{settings.API_PREFIX}/iot", tags=["IoT & Predictive Maintenance"])  # Phase 13-14: IoT 센서 모니터링 + 예측 유지보수
 app.include_router(ml_autolearning.router, prefix=f"{settings.API_PREFIX}", tags=["ML Auto-Learning"])  # Phase 15: AI 자동 학습
 
 # Mount static files for uploads
