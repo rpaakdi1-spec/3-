@@ -160,6 +160,19 @@ async def internal_error_handler(request, exc):
     )
 
 
+# Health check endpoint
+@app.get(f"{settings.API_PREFIX}/health")
+async def health_check():
+    """Health check endpoint for monitoring"""
+    from datetime import datetime
+    return {
+        "status": "healthy",
+        "timestamp": datetime.utcnow().isoformat(),
+        "service": "Cold Chain Dispatch System",
+        "version": "1.0.0"
+    }
+
+
 # Import and include routers
 # from app.api import auth, clients, vehicles, orders, dispatches, tracking, uvis, redispatch, notices, purchase_orders, band_messages, uvis_gps, analytics, delivery_tracking, traffic, monitoring, cache
 from app.api import auth, clients, vehicles, orders, dispatches, tracking, uvis, redispatch, notices, purchase_orders, band_messages, uvis_gps, delivery_tracking, traffic, monitoring, cache, emergency, ml_training, ai_chat, ai_usage, ml_dispatch, ab_test, recurring_orders, order_templates, driver_schedules, urgent_dispatches, notifications, temperature_monitoring, temperature_analytics, billing, vehicle_maintenance, ml_predictions, telemetry, dispatch_optimization, analytics, mobile, integrated_dispatch, ml_autolearning, iot_maintenance, driver_app, traffic_info
