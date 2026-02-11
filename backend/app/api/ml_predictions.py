@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from app.core.database import get_db
 from app.api.auth import get_current_user
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.ml.predictive_maintenance import get_ml_model, MaintenancePredictionModel
 
 router = APIRouter()
@@ -56,7 +56,8 @@ def train_ml_model(
     - 고장 예측 분류 모델
     - 비용 예측 회귀 모델
     """
-    if current_user.role != "ADMIN":
+    from app.models.user import UserRole
+    if current_user.role != UserRole.ADMIN:
         raise HTTPException(status_code=403, detail="관리자 권한 필요")
     
     def train_task():
