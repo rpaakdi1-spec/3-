@@ -1,14 +1,16 @@
 """
 Phase 12: 통합 배차 API
-자동 배차, 차량 지도, 경로 조회
+자동 배차, 차량 지도, 경로 조회, 분석
 """
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import Optional
+from datetime import datetime
 from pydantic import BaseModel
 
 from app.core.database import get_db
 from app.services.integrated_dispatch_service import IntegratedDispatchService
+from app.services.dispatch_analytics_service import DispatchAnalyticsService
 from app.core.auth import get_current_user
 from app.models.user import User
 
@@ -344,4 +346,140 @@ async def batch_auto_dispatch(
         "success": success_count,
         "failed": failed_count,
         "results": results
+    }
+
+
+@router.get("/dispatch/analytics/statistics")
+async def get_dispatch_statistics(
+    start_date: Optional[datetime] = Query(None, description="시작 날짜"),
+    end_date: Optional[datetime] = Query(None, description="종료 날짜"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    배차 통계 조회
+    
+    **Returns**:
+    ```json
+    {
+        "total_dispatches": 150,
+        "success_rate": 95.5,
+        "avg_distance_km": 12.3,
+        "avg_duration_min": 25.5,
+        "by_status": {...},
+        "by_vehicle_type": {...}
+    }
+    ```
+    """
+    analytics = DispatchAnalyticsService(db)
+    return analytics.get_dispatch_statistics(start_date, end_date)
+
+
+@router.get("/dispatch/analytics/driver-performance")
+async def get_driver_performance(
+    driver_id: Optional[int] = Query(None, description="기사 ID"),
+    limit: int = Query(10, ge=1, le=100, description="반환할 기사 수"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    기사별 성과 분석
+    
+    **Returns**:
+    ```json
+    {
+        "drivers": [
+            {
+                "driver_id": 1,
+                "driver_name": "홍길동",
+                "total_dispatches": 50,
+                "completed": 48,
+                "completion_rate": 96.0,
+                "avg_rating": 4.8,
+                "total_distance_km": 520.5
+            },
+            ...
+        ]
+    }
+    ```
+    """
+    analytics = DispatchAnalyticsService(db)
+    performance = analytics.get_driver_performance(driver_id, limit)
+    
+    return {
+        "drivers": performance,
+        "total": len(performance)
+    }
+
+
+@router.get("/dispatch/analytics/suggestions")
+async def get_optimization_suggestions(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    최적화 제안 조회
+    
+    **Returns**:
+    ```json
+    {
+        "suggestions": [
+            {
+                "type": "warning",
+                "title": "배차 시간이 평균보다 깁니다",
+                "description": "최근 7일 평균 배차 시간: 50.2분",
+                "action": "차량 추가 배치 또는 배차 규칙 최적화를 고려하세요"
+            },
+            ...
+        ],
+        "generated_at": "2026-02-11T13:00:00"
+    }
+    ```
+    """
+    analytics = DispatchAnalyticsService(db)
+    suggestions = analytics.get_optimization_suggestions()
+    
+    return {
+        "suggestions": suggestions,
+        "generated_at": datetime.utcnow().isoformat()
+    }
+
+
+@router.get("/dispatch/analytics/hourly-pattern")
+async def get_hourly_dispatch_pattern(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    시간대별 배차 패턴 분석 (최근 30일)
+    
+    **Returns**:
+    ```json
+    {
+        "pattern": {
+            "0": 5,
+            "1": 2,
+            ...
+            "23": 8
+        },
+        "peak_hours": [8, 9, 17, 18],
+        "low_hours": [0, 1, 2, 3]
+    }
+    ```
+    """
+    analytics = DispatchAnalyticsService(db)
+    pattern = analytics.get_hourly_dispatch_pattern()
+    
+    # 피크 시간대 계산 (상위 25%)
+    sorted_hours = sorted(pattern.items(), key=lambda x: x[1], reverse=True)
+    peak_count = max(1, len(sorted_hours) // 4)
+    peak_hours = [int(h) for h, _ in sorted_hours[:peak_count] if int(h) >= 6 and int(h) <= 22]
+    
+    # 한산한 시간대 (하위 25%)
+    low_hours = [int(h) for h, _ in sorted_hours[-peak_count:]]
+    
+    return {
+        "pattern": pattern,
+        "peak_hours": sorted(peak_hours),
+        "low_hours": sorted(low_hours)
     }

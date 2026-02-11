@@ -61,6 +61,11 @@ async def lifespan(app: FastAPI):
     from app.services.scheduler_service import scheduler_service
     await scheduler_service.start()
     
+    # Start vehicle tracking service
+    logger.info("Starting vehicle tracking service...")
+    from app.services.vehicle_tracking_service import vehicle_tracking_service
+    await vehicle_tracking_service.start()
+    
     logger.info("Application startup complete!")
     
     yield
@@ -68,7 +73,9 @@ async def lifespan(app: FastAPI):
     # Shutdown
     logger.info("Shutting down application...")
     from app.services.scheduler_service import scheduler_service
+    from app.services.vehicle_tracking_service import vehicle_tracking_service
     await scheduler_service.stop()
+    await vehicle_tracking_service.stop()
     await metrics_service.stop()
     await manager.shutdown()
 
