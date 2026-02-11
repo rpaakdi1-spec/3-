@@ -200,7 +200,7 @@ class MaintenancePrediction(Base):
     # 상태
     is_active = Column(Boolean, default=True)
     is_scheduled = Column(Boolean, default=False)
-    scheduled_maintenance_id = Column(Integer, ForeignKey("maintenance_schedules.id"))
+    scheduled_maintenance_id = Column(Integer, ForeignKey("iot_maintenance_schedules.id"))
     
     # 마지막 정비 참조
     last_maintenance_id = Column(Integer, ForeignKey("maintenance_records.id"))
@@ -215,7 +215,7 @@ class MaintenancePrediction(Base):
 
     # Relationships
     last_maintenance = relationship("MaintenanceRecord", back_populates="predictions")
-    scheduled_maintenance = relationship("MaintenanceSchedule", back_populates="predictions")
+    scheduled_maintenance = relationship("IoTMaintenanceSchedule", back_populates="predictions")
 
 
 class VehicleHealth(Base):
@@ -293,9 +293,9 @@ class PartInventory(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
-class MaintenanceSchedule(Base):
-    """정비 스케줄"""
-    __tablename__ = "maintenance_schedules"
+class IoTMaintenanceSchedule(Base):
+    """IoT 예측 기반 정비 스케줄"""
+    __tablename__ = "iot_maintenance_schedules"
 
     id = Column(Integer, primary_key=True, index=True)
     vehicle_id = Column(Integer, ForeignKey("vehicles.id"), nullable=False, index=True)

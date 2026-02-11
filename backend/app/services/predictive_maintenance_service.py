@@ -11,7 +11,7 @@ import json
 
 from app.models.iot_sensor import (
     MaintenanceRecord, MaintenancePrediction, VehicleHealth,
-    PartInventory, MaintenanceSchedule, MaintenanceStatus,
+    PartInventory, IoTMaintenanceSchedule, MaintenanceStatus,
     SensorReading, VehicleSensor
 )
 
@@ -380,7 +380,7 @@ class PredictiveMaintenanceService:
         required_parts = await self._get_required_parts(prediction.component)
 
         # 스케줄 생성
-        schedule = MaintenanceSchedule(
+        schedule = IoTMaintenanceSchedule(
             vehicle_id=prediction.vehicle_id,
             schedule_type="predictive",
             priority="normal" if prediction.failure_probability < 0.7 else "high",
@@ -449,8 +449,8 @@ class PredictiveMaintenanceService:
         ).scalar()
 
         # 스케줄된 정비 수
-        scheduled_maintenance = self.db.query(func.count(MaintenanceSchedule.id)).filter(
-            MaintenanceSchedule.status == MaintenanceStatus.SCHEDULED
+        scheduled_maintenance = self.db.query(func.count(IoTMaintenanceSchedule.id)).filter(
+            IoTMaintenanceSchedule.status == MaintenanceStatus.SCHEDULED
         ).scalar()
 
         # 고위험 차량 수 (overall_score < 60)
