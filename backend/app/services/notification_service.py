@@ -65,7 +65,7 @@ class NotificationService:
             push_token=push_token.token if push_token else None,
             action_required=action_required,
             action_url=action_url,
-            metadata=metadata or {}
+            notification_metadata=metadata or {}
         )
         
         self.db.add(notification)

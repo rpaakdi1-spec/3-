@@ -135,7 +135,7 @@ class ChatService:
             file_name=file_name,
             latitude=latitude,
             longitude=longitude,
-            metadata=metadata or {},
+            message_metadata=metadata or {},
             is_read=False
         )
         

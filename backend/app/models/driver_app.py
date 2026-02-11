@@ -69,7 +69,7 @@ class DriverNotification(Base):
     action_taken_at = Column(DateTime, nullable=True, comment="액션 수행 시각")
     
     # 메타 정보
-    metadata = Column(JSON, nullable=True, comment="추가 메타데이터")
+    notification_metadata = Column(JSON, nullable=True, comment="추가 메타데이터")
     
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -129,7 +129,7 @@ class DeliveryProof(Base):
     recipient_phone = Column(String(20), nullable=True, comment="수령인 연락처")
     
     # 메타 정보
-    metadata = Column(JSON, nullable=True, comment="추가 메타데이터")
+    proof_metadata = Column(JSON, nullable=True, comment="추가 메타데이터")
     
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -159,7 +159,7 @@ class ChatRoom(Base):
     is_active = Column(Boolean, default=True, comment="활성 여부")
     
     # 메타 정보
-    metadata = Column(JSON, nullable=True, comment="추가 메타데이터")
+    room_metadata = Column(JSON, nullable=True, comment="추가 메타데이터")
     
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -193,7 +193,7 @@ class ChatMessage(Base):
     read_at = Column(DateTime, nullable=True, comment="읽은 시각")
     
     # 메타 정보
-    metadata = Column(JSON, nullable=True, comment="추가 메타데이터")
+    message_metadata = Column(JSON, nullable=True, comment="추가 메타데이터")
     
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -237,7 +237,7 @@ class DriverPerformance(Base):
     rank = Column(Integer, nullable=True, comment="순위")
     
     # 메타 정보
-    metadata = Column(JSON, nullable=True, comment="추가 통계 데이터")
+    performance_metadata = Column(JSON, nullable=True, comment="추가 통계 데이터")
     
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -279,7 +279,7 @@ class NavigationSession(Base):
     last_location_update = Column(DateTime, nullable=True, comment="마지막 위치 업데이트")
     
     # 메타 정보
-    metadata = Column(JSON, nullable=True, comment="추가 메타데이터")
+    navigation_metadata = Column(JSON, nullable=True, comment="추가 메타데이터")
     
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -310,7 +310,7 @@ class DriverLocation(Base):
     battery_level = Column(Integer, nullable=True, comment="배터리 잔량 (%)")
     
     # 메타 정보
-    metadata = Column(JSON, nullable=True, comment="추가 메타데이터")
+    location_metadata = Column(JSON, nullable=True, comment="추가 메타데이터")
     
     recorded_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
