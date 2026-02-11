@@ -5,8 +5,8 @@
 import React, { useState, useEffect } from 'react';
 import { MapPin, Truck, RefreshCw, Zap } from 'lucide-react';
 import NaverMap from '../components/map/NaverMap';
-import { wsClient } from '../services/websocket';
-import api from '../services/api';
+import { wsClient } from '../utils/websocket';
+import apiClient from '../api/client';
 
 interface VehicleLocation {
   vehicle_id: number;
@@ -97,7 +97,7 @@ const VehicleTrackingPage: React.FC = () => {
   const loadVehicles = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/vehicles/map');
+      const response = await apiClient.get('/vehicles/map');
       setVehicles(response.data.vehicles || []);
     } catch (error) {
       console.error('Failed to load vehicles:', error);

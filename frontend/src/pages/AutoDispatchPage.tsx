@@ -4,7 +4,7 @@
  */
 import React, { useState } from 'react';
 import { Zap, Truck, MapPin, Clock, TrendingUp, CheckCircle, AlertCircle } from 'lucide-react';
-import api from '../services/api';
+import apiClient from '../api/client';
 
 interface DispatchResult {
   success: boolean;
@@ -53,7 +53,7 @@ const AutoDispatchPage: React.FC = () => {
     setResult(null);
 
     try {
-      const response = await api.post('/dispatch/auto', {
+      const response = await apiClient.post('/dispatch/auto', {
         order_id: parseInt(orderId),
         apply_rules: applyRules,
         simulate: false,
@@ -78,7 +78,7 @@ const AutoDispatchPage: React.FC = () => {
     setResult(null);
 
     try {
-      const response = await api.post('/dispatch/auto', {
+      const response = await apiClient.post('/dispatch/auto', {
         order_id: parseInt(orderId),
         apply_rules: applyRules,
         simulate: true,

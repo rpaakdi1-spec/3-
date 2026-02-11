@@ -19,7 +19,7 @@ import {
   Pie,
   Cell,
 } from 'recharts';
-import api from '../services/api';
+import apiClient from '../api/client';
 
 interface DispatchStatistics {
   total_dispatches: number;
@@ -72,10 +72,10 @@ const DispatchAnalyticsDashboard: React.FC = () => {
     try {
       // 병렬로 모든 데이터 로드
       const [statsRes, driversRes, suggestionsRes, patternRes] = await Promise.all([
-        api.get('/dispatch/analytics/statistics'),
-        api.get('/dispatch/analytics/driver-performance'),
-        api.get('/dispatch/analytics/suggestions'),
-        api.get('/dispatch/analytics/hourly-pattern'),
+        apiClient.get('/dispatch/analytics/statistics'),
+        apiClient.get('/dispatch/analytics/driver-performance'),
+        apiClient.get('/dispatch/analytics/suggestions'),
+        apiClient.get('/dispatch/analytics/hourly-pattern'),
       ]);
 
       setStatistics(statsRes.data);
