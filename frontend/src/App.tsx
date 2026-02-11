@@ -53,6 +53,7 @@ const SimulationPage = lazy(() => import('./pages/SimulationPage'));
 // Phase 12: Integrated Dispatch (Naver Map + GPS + AI)
 const VehicleTrackingPage = lazy(() => import('./pages/VehicleTrackingPage'));
 const AutoDispatchPage = lazy(() => import('./pages/AutoDispatchPage'));
+const DispatchAnalyticsDashboard = lazy(() => import('./pages/DispatchAnalyticsDashboard'));
 
 // IoT Sensor Pages
 const IoTSensorsPage = lazy(() => import('./pages/IoTSensorsPage'));
@@ -215,6 +216,14 @@ const App: React.FC = () => {
               element={
                 <ProtectedRoute>
                   <VehicleTrackingPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dispatch-analytics"
+              element={
+                <ProtectedRoute>
+                  <DispatchAnalyticsDashboard />
                 </ProtectedRoute>
               }
             />

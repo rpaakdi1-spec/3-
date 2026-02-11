@@ -31,6 +31,8 @@ import {
   ChevronRight,
   GitBranch,
   FlaskConical,
+  MapPin,
+  TrendingUp,
 } from 'lucide-react';
 
 interface MenuItem {
@@ -69,6 +71,7 @@ const Sidebar: React.FC = () => {
     { path: '/simulations', label: '규칙 시뮬레이션', icon: FlaskConical, roles: ['ADMIN', 'DISPATCHER'], isNew: true },
     { path: '/vehicle-tracking', label: '실시간 차량 추적', icon: MapPin, roles: ['ADMIN', 'DISPATCHER'], isNew: true },
     { path: '/auto-dispatch', label: 'AI 자동 배차', icon: Zap, roles: ['ADMIN', 'DISPATCHER'], isNew: true },
+    { path: '/dispatch-analytics', label: '배차 분석 대시보드', icon: TrendingUp, roles: ['ADMIN', 'DISPATCHER'], isNew: true },
     { path: '/ai-cost', label: 'AI 비용 모니터링', icon: DollarSign, roles: ['ADMIN'] },
     { path: '/ab-test', label: 'AB Test 모니터링', icon: Activity, roles: ['ADMIN'] },
     { path: '/dispatches', label: '배차 관리', icon: Truck, roles: ['ADMIN', 'DISPATCHER'] },
