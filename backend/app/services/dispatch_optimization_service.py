@@ -506,7 +506,7 @@ class DispatchOptimizationService:
                 route = Route(
                     route_id=vehicle_idx + 1,
                     vehicle_id=vehicle.vehicle_id,
-                    driver_id=vehicle.driver_id,
+                    driver_id=getattr(vehicle, 'driver_id', None),  # driver_id 없으면 None
                     orders=route_orders,
                     sequence=route_sequence,
                     total_distance=round(total_distance, 2),

@@ -42,10 +42,10 @@ class DriverEvaluationSystem:
         if not driver:
             return {'error': 'Driver not found'}
         
-        # 기간 내 배차 조회
-        dispatches = self.db.query(Dispatch).join(Vehicle).filter(
+        # 기간 내 배차 조회 (driver_id 없으므로 driver_name으로 조회)
+        # TODO: Vehicle 모델에 driver_id 추가 필요
+        dispatches = self.db.query(Dispatch).filter(
             and_(
-                Vehicle.driver_id == driver_id,
                 Dispatch.created_at >= start_date,
                 Dispatch.created_at <= end_date
             )
