@@ -75,6 +75,8 @@ const Sidebar: React.FC = () => {
     { path: '/ml-autolearning', label: 'AI 자동 학습', icon: Brain, roles: ['ADMIN'], isNew: true },
     { path: '/iot-sensor-monitoring', label: 'IoT 센서 모니터링', icon: Activity, roles: ['ADMIN', 'DISPATCHER'], isNew: true },
     { path: '/predictive-maintenance', label: '예측 유지보수', icon: Wrench, roles: ['ADMIN', 'DISPATCHER'], isNew: true },
+    { path: '/driver-dashboard', label: '드라이버 대시보드', icon: Truck, roles: ['ADMIN', 'DRIVER'], isNew: true },
+    { path: '/driver-notifications', label: '드라이버 알림', icon: Bell, roles: ['ADMIN', 'DRIVER'], isNew: true },
     { path: '/ai-cost', label: 'AI 비용 모니터링', icon: DollarSign, roles: ['ADMIN'] },
     { path: '/ab-test', label: 'AB Test 모니터링', icon: Activity, roles: ['ADMIN'] },
     { path: '/dispatches', label: '배차 관리', icon: Truck, roles: ['ADMIN', 'DISPATCHER'] },

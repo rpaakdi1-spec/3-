@@ -60,6 +60,10 @@ const MLAutoLearningDashboard = lazy(() => import('./pages/MLAutoLearningDashboa
 const IoTSensorMonitoring = lazy(() => import('./pages/IoTSensorMonitoring'));
 const PredictiveMaintenanceDashboard = lazy(() => import('./pages/PredictiveMaintenanceDashboard'));
 
+// Phase 16: Driver App
+const DriverDashboard = lazy(() => import('./pages/DriverDashboard'));
+const DriverNotifications = lazy(() => import('./pages/DriverNotifications'));
+
 // IoT Sensor Pages
 const IoTSensorsPage = lazy(() => import('./pages/IoTSensorsPage'));
 const IoTSensorDetailPage = lazy(() => import('./pages/IoTSensorDetailPage'));
@@ -245,6 +249,30 @@ const App: React.FC = () => {
               element={
                 <ProtectedRoute>
                   <IoTSensorMonitoring />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/predictive-maintenance"
+              element={
+                <ProtectedRoute>
+                  <PredictiveMaintenanceDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/driver-dashboard"
+              element={
+                <ProtectedRoute>
+                  <DriverDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/driver-notifications"
+              element={
+                <ProtectedRoute>
+                  <DriverNotifications />
                 </ProtectedRoute>
               }
             />
