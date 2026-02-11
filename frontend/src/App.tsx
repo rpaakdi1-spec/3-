@@ -54,6 +54,7 @@ const SimulationPage = lazy(() => import('./pages/SimulationPage'));
 const VehicleTrackingPage = lazy(() => import('./pages/VehicleTrackingPage'));
 const AutoDispatchPage = lazy(() => import('./pages/AutoDispatchPage'));
 const DispatchAnalyticsDashboard = lazy(() => import('./pages/DispatchAnalyticsDashboard'));
+const MLAutoLearningDashboard = lazy(() => import('./pages/MLAutoLearningDashboard'));
 
 // IoT Sensor Pages
 const IoTSensorsPage = lazy(() => import('./pages/IoTSensorsPage'));
@@ -224,6 +225,14 @@ const App: React.FC = () => {
               element={
                 <ProtectedRoute>
                   <DispatchAnalyticsDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/ml-autolearning"
+              element={
+                <ProtectedRoute>
+                  <MLAutoLearningDashboard />
                 </ProtectedRoute>
               }
             />
