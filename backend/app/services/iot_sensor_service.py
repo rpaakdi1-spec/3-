@@ -76,7 +76,7 @@ class IoTSensorService:
             unit=sensor.unit,
             latitude=latitude,
             longitude=longitude,
-            metadata=metadata,
+            sensor_metadata=metadata,
             is_anomaly=is_anomaly,
             anomaly_score=min(anomaly_score, 1.0),
             recorded_at=datetime.utcnow()

@@ -85,7 +85,7 @@ class SensorReading(Base):
     longitude = Column(Float)
     
     # 추가 데이터
-    metadata = Column(JSON)  # 센서별 추가 정보
+    sensor_metadata = Column(JSON)  # 센서별 추가 정보
     
     # 이상 감지
     is_anomaly = Column(Boolean, default=False)
