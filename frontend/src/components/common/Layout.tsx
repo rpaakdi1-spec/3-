@@ -12,13 +12,22 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { isMobile } = useResponsive();
 
   return (
-    <div className="flex h-screen bg-gray-100">
+    <div style={{ display: 'flex', height: '100vh', backgroundColor: '#f3f4f6' }}>
       {!isMobile && <Sidebar />}
-      <main className="flex-1 overflow-y-auto">
-        <div className="flex justify-end items-center p-4 bg-white border-b">
+      <main style={{ flex: 1, overflowY: 'auto' }}>
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'flex-end', 
+          alignItems: 'center', 
+          padding: '1rem', 
+          backgroundColor: 'white', 
+          borderBottom: '1px solid #e5e7eb' 
+        }}>
           <NotificationCenter />
         </div>
-        <div className={`p-4 md:p-6 lg:p-8 ${isMobile ? 'pb-20' : ''}`}>
+        <div style={{ 
+          padding: isMobile ? '1rem 1rem 5rem 1rem' : '2rem' 
+        }}>
           {children}
         </div>
       </main>
