@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import Layout from '../components/common/Layout';
 import {
-import Layout from '../components/common/Layout';
   Calculator,
   DollarSign,
   TrendingUp,

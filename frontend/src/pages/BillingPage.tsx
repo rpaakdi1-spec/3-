@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/common/Layout';
 import {
-import Layout from '../components/common/Layout';
   Calendar,
   DollarSign,
   FileText,
