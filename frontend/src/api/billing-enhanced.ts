@@ -662,3 +662,111 @@ export const deleteAutoInvoiceSchedule = async (scheduleId: number): Promise<voi
   await apiClient.delete(`${API_BASE_URL}/auto-schedule/${scheduleId}`);
 };
 
+// ============= 재무 대시보드 보고서 다운로드 =============
+
+/**
+ * 재무 대시보드 Excel 다운로드
+ */
+export const downloadFinancialDashboardExcel = async (
+  startDate?: string,
+  endDate?: string,
+  months: number = 12
+): Promise<void> => {
+  try {
+    const params: Record<string, any> = { months };
+    if (startDate) params.start_date = startDate;
+    if (endDate) params.end_date = endDate;
+
+    const response = await apiClient.get(
+      `${API_BASE_URL}/export/financial-dashboard/excel`,
+      {
+        params,
+        responseType: 'blob' // 파일 다운로드를 위해 blob 타입으로 요청
+      }
+    );
+
+    // Blob으로 파일 생성
+    const blob = new Blob([response.data], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    });
+
+    // 파일명 추출 (Content-Disposition 헤더에서)
+    const contentDisposition = response.headers['content-disposition'];
+    let filename = '재무대시보드.xlsx';
+    
+    if (contentDisposition) {
+      const filenameMatch = contentDisposition.match(/filename\*=UTF-8''(.+)/);
+      if (filenameMatch && filenameMatch[1]) {
+        filename = decodeURIComponent(filenameMatch[1]);
+      }
+    }
+
+    // 다운로드 링크 생성 및 클릭
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+
+    apiLog('Excel 파일 다운로드 완료:', filename);
+  } catch (error) {
+    apiError('Excel 다운로드 실패:', error);
+    throw error;
+  }
+};
+
+/**
+ * 재무 대시보드 PDF 다운로드
+ */
+export const downloadFinancialDashboardPDF = async (
+  startDate?: string,
+  endDate?: string,
+  months: number = 12
+): Promise<void> => {
+  try {
+    const params: Record<string, any> = { months };
+    if (startDate) params.start_date = startDate;
+    if (endDate) params.end_date = endDate;
+
+    const response = await apiClient.get(
+      `${API_BASE_URL}/export/financial-dashboard/pdf`,
+      {
+        params,
+        responseType: 'blob' // 파일 다운로드를 위해 blob 타입으로 요청
+      }
+    );
+
+    // Blob으로 파일 생성
+    const blob = new Blob([response.data], { type: 'application/pdf' });
+
+    // 파일명 추출
+    const contentDisposition = response.headers['content-disposition'];
+    let filename = '재무대시보드.pdf';
+    
+    if (contentDisposition) {
+      const filenameMatch = contentDisposition.match(/filename\*=UTF-8''(.+)/);
+      if (filenameMatch && filenameMatch[1]) {
+        filename = decodeURIComponent(filenameMatch[1]);
+      }
+    }
+
+    // 다운로드 링크 생성 및 클릭
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+
+    apiLog('PDF 파일 다운로드 완료:', filename);
+  } catch (error) {
+    apiError('PDF 다운로드 실패:', error);
+    throw error;
+  }
+};
+
