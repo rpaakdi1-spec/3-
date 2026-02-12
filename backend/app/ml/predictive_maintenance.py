@@ -178,10 +178,23 @@ class MaintenancePredictionModel:
         elif avg_distance_per_day >= 100:
             risk_score += 1
         
-        # 위험도 임계값 기반 분류
-        # risk_score >= 6: 고위험 (failure_occurred = 1)
-        # risk_score < 6: 저위험 (failure_occurred = 0)
-        failure_occurred = 1 if risk_score >= 6 else 0
+        # 추가 미세 위험 요소 (새 차량도 위험 점수 획득 가능)
+        # 정비 기록이 전혀 없고 운행 중인 경우
+        if total_maintenances == 0 and days_since_last_maintenance >= 180:
+            risk_score += 1
+        
+        # 배차 없이 오래된 차량 (유휴 차량)
+        if total_dispatches == 0 and vehicle_age_years >= 0.1:  # 약 37일 이상
+            risk_score += 1
+        
+        # 냉동차량은 기본적으로 고부하
+        if vehicle_type_code >= 3 and vehicle_age_years >= 0.01:  # FROZEN, 약 4일 이상
+            risk_score += 1
+        
+        # 위험도 임계값 기반 분류 (낮춘 임계값으로 다양성 확보)
+        # risk_score >= 3: 고위험 (failure_occurred = 1)
+        # risk_score < 3: 저위험 (failure_occurred = 0)
+        failure_occurred = 1 if risk_score >= 3 else 0
         
         return {
             'vehicle_id': vehicle.id,
