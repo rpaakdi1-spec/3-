@@ -45,13 +45,6 @@ const Sidebar: React.FC = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
   const [isOpen, setIsOpen] = React.useState(false);
-  const [expandedMenus, setExpandedMenus] = React.useState<Record<string, boolean>>({
-    billing: true, // Phase 8 메뉴 기본 확장
-  });
-
-  const toggleMenu = (key: string) => {
-    setExpandedMenus(prev => ({ ...prev, [key]: !prev[key] }));
-  };
 
   const menuItems: MenuItem[] = [
     { path: '/dashboard', label: '대시보드', icon: Home, roles: ['ADMIN', 'DISPATCHER'] },
@@ -90,6 +83,23 @@ const Sidebar: React.FC = () => {
     { path: '/ml-training', label: 'AI 학습', icon: Brain, roles: ['ADMIN', 'DISPATCHER'] },
     { path: '/settings', label: '설정', icon: Settings, roles: ['ADMIN'] },
   ];
+
+  // 모든 서브메뉴를 기본적으로 확장 상태로 초기화
+  const initialExpandedState = React.useMemo(() => {
+    const expanded: Record<string, boolean> = {};
+    menuItems.forEach(item => {
+      if (item.children && item.children.length > 0) {
+        expanded[item.path] = true; // 모든 서브메뉴 자동 확장
+      }
+    });
+    return expanded;
+  }, []);
+
+  const [expandedMenus, setExpandedMenus] = React.useState<Record<string, boolean>>(initialExpandedState);
+
+  const toggleMenu = (key: string) => {
+    setExpandedMenus(prev => ({ ...prev, [key]: !prev[key] }));
+  };
 
   const filteredMenuItems = menuItems.filter((item) =>
     item.roles.includes((user?.role || '').toUpperCase())
