@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from '../components/common/Layout';
 import {
   DollarSign,
@@ -8,7 +8,6 @@ import {
   Calendar,
   Users,
   FileText,
-  FileSpreadsheet,
   CreditCard,
   ArrowUpRight,
   ArrowDownRight,
@@ -30,7 +29,6 @@ import {
   Legend,
   ResponsiveContainer
 } from 'recharts';
-import { exportFinancialDashboard } from '../api/billing-enhanced';
 import * as BillingEnhancedAPI from '../api/billing-enhanced';
 
 // Use types from billing-enhanced API
@@ -53,19 +51,6 @@ const FinancialDashboardPage: React.FC = () => {
   useEffect(() => {
     loadDashboardData();
   }, [dateRange, trendMonths]);
-
-
-  const handleDownload = async (format: 'excel' | 'pdf') => {
-    try {
-      setDownloading(true);
-      await exportFinancialDashboard(format, dateRange.start_date, dateRange.end_date);
-    } catch (err: any) {
-      console.error('Download failed:', err);
-      alert('다운로드 실패: ' + err.message);
-    } finally {
-      setDownloading(false);
-    }
-  };
 
   const loadDashboardData = async () => {
     setLoading(true);
@@ -100,6 +85,40 @@ const FinancialDashboardPage: React.FC = () => {
     }
   };
 
+  const handleDownloadExcel = async () => {
+    setDownloading(true);
+    try {
+      await BillingEnhancedAPI.downloadFinancialDashboardExcel(
+        dateRange.start_date,
+        dateRange.end_date,
+        trendMonths
+      );
+      alert('Excel 파일이 다운로드되었습니다.');
+    } catch (error) {
+      console.error('Excel 다운로드 실패:', error);
+      alert('Excel 다운로드에 실패했습니다. 다시 시도해주세요.');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const handleDownloadPDF = async () => {
+    setDownloading(true);
+    try {
+      await BillingEnhancedAPI.downloadFinancialDashboardPDF(
+        dateRange.start_date,
+        dateRange.end_date,
+        trendMonths
+      );
+      alert('PDF 파일이 다운로드되었습니다.');
+    } catch (error) {
+      console.error('PDF 다운로드 실패:', error);
+      alert('PDF 다운로드에 실패했습니다. 다시 시도해주세요.');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('ko-KR', {
       style: 'currency',
@@ -125,84 +144,51 @@ const FinancialDashboardPage: React.FC = () => {
             <p className="text-gray-600">청구/수금 현황 및 재무 분석</p>
           </div>
           <div className="flex gap-3">
-            <button onClick={loadDashboardData} disabled={loading} className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50">
-              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+            <button
+              onClick={loadDashboardData}
+              disabled={loading}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 flex items-center gap-2"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
               새로고침
+            </button>
+            <button
+              onClick={handleDownloadExcel}
+              disabled={downloading}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-400 flex items-center gap-2"
+            >
+              <FileText className="w-4 h-4" />
+              {downloading ? '다운로드 중...' : 'Excel 다운로드'}
+            </button>
+            <button
+              onClick={handleDownloadPDF}
+              disabled={downloading}
+              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:bg-gray-400 flex items-center gap-2"
+            >
+              <FileText className="w-4 h-4" />
+              {downloading ? '다운로드 중...' : 'PDF 다운로드'}
             </button>
           </div>
         </div>
 
         {/* Date Range Filter */}
         <div className="bg-white rounded-lg shadow p-4 mb-6">
-          <div className="flex flex-col gap-4">
-            {/* 빠른 선택 버튼 */}
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600 font-medium">빠른 선택:</span>
-              <button
-                onClick={() => handleQuickSelect(7)}
-                className={getButtonStyle(7)}
-              >
-                최근 7일
-              </button>
-              <button
-                onClick={() => handleQuickSelect(30)}
-                className={getButtonStyle(30, 2)}
-              >
-                1개월
-              </button>
-              <button
-                onClick={() => handleQuickSelect(90)}
-                className={getButtonStyle(90, 2)}
-              >
-                3개월
-              </button>
-              <button
-                onClick={() => handleQuickSelect(180)}
-                className={getButtonStyle(180, 2)}
-              >
-                6개월
-              </button>
-            </div>
-            
-            {/* 날짜 입력 */}
-            <div className="flex items-center gap-4">
-              <Calendar className="w-5 h-5 text-gray-500" />
-              <input
-                type="date"
-                value={dateRange.start_date}
-                onChange={(e) => setDateRange({ ...dateRange, start_date: e.target.value })}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-              <span className="text-gray-500">~</span>
-              <input
-                type="date"
-                value={dateRange.end_date}
-                onChange={(e) => setDateRange({ ...dateRange, end_date: e.target.value })}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
+          <div className="flex items-center gap-4">
+            <Calendar className="w-5 h-5 text-gray-500" />
+            <input
+              type="date"
+              value={dateRange.start_date}
+              onChange={(e) => setDateRange({ ...dateRange, start_date: e.target.value })}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            <span className="text-gray-500">~</span>
+            <input
+              type="date"
+              value={dateRange.end_date}
+              onChange={(e) => setDateRange({ ...dateRange, end_date: e.target.value })}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
           </div>
-        </div>
-
-
-        {/* Download Buttons */}
-        <div className="flex items-center gap-2 mb-6">
-          <button
-            onClick={() => handleDownload('excel')}
-            disabled={downloading}
-            className="flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg disabled:opacity-50"
-          >
-            <FileSpreadsheet className="w-4 h-4 mr-2" />
-            Excel 다운로드
-          </button>
-          <button
-            onClick={() => handleDownload('pdf')}
-            disabled={downloading}
-            className="flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg disabled:opacity-50"
-          >
-            <FileText className="w-4 h-4 mr-2" />
-            PDF 다운로드
-          </button>
         </div>
 
         {/* Summary Cards */}
