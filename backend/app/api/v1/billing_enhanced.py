@@ -737,19 +737,19 @@ async def export_financial_dashboard_excel(
     # Excel 파일 생성
     excel_file = financial_report_exporter.generate_excel(
         summary_data={
-            'total_revenue': summary.total_revenue,
-            'collected_amount': summary.collected_amount,
-            'collection_rate': summary.collection_rate,
-            'overdue_amount': summary.overdue_amount,
-            'overdue_count': summary.overdue_count,
-            'pending_settlement': summary.pending_settlement
+            'total_revenue': summary['total_revenue'],
+            'collected_amount': summary['collected_amount'],
+            'collection_rate': summary['collection_rate'],
+            'overdue_amount': summary['overdue_receivables'],
+            'overdue_count': summary['overdue_count'],
+            'pending_settlement': summary['pending_settlements']
         },
         monthly_trends=[
             {
-                'month': t.month,
-                'revenue': t.revenue,
-                'collected': t.collected,
-                'profit': t.profit
+                'month': t['month'],
+                'revenue': t['revenue'],
+                'collected': t['collected'],
+                'profit': t['net_profit']
             }
             for t in trends
         ],
@@ -834,19 +834,19 @@ async def export_financial_dashboard_pdf(
     # PDF 파일 생성
     pdf_file = financial_report_exporter.generate_pdf(
         summary_data={
-            'total_revenue': summary.total_revenue,
-            'collected_amount': summary.collected_amount,
-            'collection_rate': summary.collection_rate,
-            'overdue_amount': summary.overdue_amount,
-            'overdue_count': summary.overdue_count,
-            'pending_settlement': summary.pending_settlement
+            'total_revenue': summary['total_revenue'],
+            'collected_amount': summary['collected_amount'],
+            'collection_rate': summary['collection_rate'],
+            'overdue_amount': summary['overdue_receivables'],
+            'overdue_count': summary['overdue_count'],
+            'pending_settlement': summary['pending_settlements']
         },
         monthly_trends=[
             {
-                'month': t.month,
-                'revenue': t.revenue,
-                'collected': t.collected,
-                'profit': t.profit
+                'month': t['month'],
+                'revenue': t['revenue'],
+                'collected': t['collected'],
+                'profit': t['net_profit']
             }
             for t in trends
         ],
