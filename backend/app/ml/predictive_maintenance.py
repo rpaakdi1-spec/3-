@@ -122,8 +122,11 @@ class MaintenancePredictionModel:
             'DUAL': 2,         # 겸용
             'AMBIENT': 1       # 상온 (저부하)
         }
-        # Enum을 문자열로 변환
-        vehicle_type_str = str(vehicle.vehicle_type) if hasattr(vehicle.vehicle_type, 'value') else vehicle.vehicle_type
+        # Enum을 문자열로 변환 (.name 속성 사용)
+        if hasattr(vehicle.vehicle_type, 'name'):
+            vehicle_type_str = vehicle.vehicle_type.name  # "FROZEN"
+        else:
+            vehicle_type_str = str(vehicle.vehicle_type)
         vehicle_type_code = vehicle_type_map.get(vehicle_type_str, 1)
         
         # 최근 정비 이후 주행거리 추정
