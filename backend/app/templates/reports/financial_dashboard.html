@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ title }}</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 2cm;
+            @bottom-right {
+                content: "페이지 " counter(page) " / " counter(pages);
+                font-size: 10pt;
+                color: #666;
+            }
+        }
+        
+        body {
+            font-family: "Nanum Gothic", "맑은 고딕", "Malgun Gothic", sans-serif;
+            font-size: 11pt;
+            line-height: 1.6;
+            color: #333;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 3px solid #4472C4;
+            padding-bottom: 20px;
+        }
+        
+        .header h1 {
+            font-size: 24pt;
+            color: #4472C4;
+            margin: 0 0 10px 0;
+        }
+        
+        .header .period {
+            font-size: 12pt;
+            color: #666;
+            margin: 5px 0;
+        }
+        
+        .header .generated-at {
+            font-size: 10pt;
+            color: #999;
+        }
+        
+        .section {
+            margin-bottom: 30px;
+            page-break-inside: avoid;
+        }
+        
+        .section-title {
+            font-size: 16pt;
+            font-weight: bold;
+            color: #4472C4;
+            margin-bottom: 15px;
+            padding-bottom: 5px;
+            border-bottom: 2px solid #E7E6E6;
+        }
+        
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .metric-card {
+            background: #F9F9F9;
+            border: 1px solid #E0E0E0;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+        }
+        
+        .metric-label {
+            font-size: 10pt;
+            color: #666;
+            margin-bottom: 8px;
+        }
+        
+        .metric-value {
+            font-size: 18pt;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .chart-container {
+            text-align: center;
+            margin: 20px 0;
+            page-break-inside: avoid;
+        }
+        
+        .chart-container img {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #E0E0E0;
+            border-radius: 8px;
+        }
+        
+        .table-container {
+            margin: 20px 0;
+            page-break-inside: avoid;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 10pt;
+        }
+        
+        table thead {
+            background: #4472C4;
+            color: white;
+        }
+        
+        table th, table td {
+            padding: 10px;
+            text-align: left;
+            border: 1px solid #E0E0E0;
+        }
+        
+        table tbody tr:nth-child(even) {
+            background: #F9F9F9;
+        }
+        
+        table tbody tr:hover {
+            background: #F0F0F0;
+        }
+        
+        .text-right {
+            text-align: right;
+        }
+        
+        .text-center {
+            text-align: center;
+        }
+        
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #E0E0E0;
+            text-align: center;
+            font-size: 9pt;
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <h1>{{ title }}</h1>
+        <div class="period">기간: {{ start_date }} ~ {{ end_date }}</div>
+        <div class="generated-at">생성일: {{ generated_at }}</div>
+    </div>
+    
+    <!-- Section 1: 주요 지표 -->
+    <div class="section">
+        <div class="section-title">📊 주요 재무 지표</div>
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-label">총 수익</div>
+                <div class="metric-value">{{ "₩{:,.0f}".format(summary.total_revenue) }}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">청구액</div>
+                <div class="metric-value">{{ "₩{:,.0f}".format(summary.total_invoiced) }}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">수금액</div>
+                <div class="metric-value">{{ "₩{:,.0f}".format(summary.total_paid) }}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">미수금</div>
+                <div class="metric-value">{{ "₩{:,.0f}".format(summary.total_outstanding) }}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">수금률</div>
+                <div class="metric-value">{{ "{:.1f}%".format(summary.payment_rate) }}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">연체 건수</div>
+                <div class="metric-value">{{ summary.overdue_count }}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">연체 금액</div>
+                <div class="metric-value">{{ "₩{:,.0f}".format(summary.overdue_amount) }}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">정산 대기 금액</div>
+                <div class="metric-value">{{ "₩{:,.0f}".format(summary.pending_settlement_amount) }}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">현금 유입</div>
+                <div class="metric-value">{{ "₩{:,.0f}".format(summary.cash_in) }}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">현금 유출</div>
+                <div class="metric-value">{{ "₩{:,.0f}".format(summary.cash_out) }}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">순 현금 흐름</div>
+                <div class="metric-value">{{ "₩{:,.0f}".format(summary.net_cash_flow) }}</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Section 2: 월별 추이 차트 -->
+    <div class="section">
+        <div class="section-title">📈 월별 수익 추이</div>
+        <div class="chart-container">
+            <img src="{{ chart_image }}" alt="월별 수익 추이 차트">
+        </div>
+    </div>
+    
+    <!-- Section 3: 월별 데이터 테이블 -->
+    {% if monthly_trends %}
+    <div class="section">
+        <div class="section-title">📅 월별 상세 데이터</div>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>월</th>
+                        <th class="text-right">수익</th>
+                        <th class="text-right">청구액</th>
+                        <th class="text-right">수금액</th>
+                        <th class="text-right">미수금</th>
+                        <th class="text-center">수금률</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for trend in monthly_trends %}
+                    <tr>
+                        <td>{{ trend.month }}</td>
+                        <td class="text-right">{{ "₩{:,.0f}".format(trend.revenue) }}</td>
+                        <td class="text-right">{{ "₩{:,.0f}".format(trend.invoiced) }}</td>
+                        <td class="text-right">{{ "₩{:,.0f}".format(trend.paid) }}</td>
+                        <td class="text-right">{{ "₩{:,.0f}".format(trend.outstanding) }}</td>
+                        <td class="text-center">{{ "{:.1f}%".format(trend.payment_rate) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Section 4: Top 고객 -->
+    {% if top_clients %}
+    <div class="section">
+        <div class="section-title">👥 Top 10 고객</div>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th class="text-center">순위</th>
+                        <th>고객명</th>
+                        <th class="text-right">총 매출</th>
+                        <th class="text-right">청구액</th>
+                        <th class="text-right">수금액</th>
+                        <th class="text-right">미수금</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for client in top_clients %}
+                    <tr>
+                        <td class="text-center">{{ loop.index }}</td>
+                        <td>{{ client.client_name }}</td>
+                        <td class="text-right">{{ "₩{:,.0f}".format(client.total_revenue) }}</td>
+                        <td class="text-right">{{ "₩{:,.0f}".format(client.invoiced) }}</td>
+                        <td class="text-right">{{ "₩{:,.0f}".format(client.paid) }}</td>
+                        <td class="text-right">{{ "₩{:,.0f}".format(client.outstanding) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Footer -->
+    <div class="footer">
+        <p>Cold Chain Dispatch System - 재무 대시보드 리포트</p>
+        <p>본 리포트는 자동 생성되었습니다.</p>
+    </div>
+</body>
+</html>

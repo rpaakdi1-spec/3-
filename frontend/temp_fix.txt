@@ -1,0 +1,10 @@
+
+  // Vehicle Tracking (Phase 12)
+  async getVehiclesMap() {
+    const response = await this.client.get('/vehicles/map');
+    return response.data;
+  }
+}
+
+export const apiClient = new ApiClient();
+export default apiClient;
