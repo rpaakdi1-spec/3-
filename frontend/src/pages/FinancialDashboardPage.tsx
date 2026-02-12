@@ -30,35 +30,10 @@ import {
 } from 'recharts';
 import * as BillingEnhancedAPI from '../api/billing-enhanced';
 
-interface FinancialSummary {
-  total_revenue: number;
-  total_invoiced: number;
-  total_paid: number;
-  total_outstanding: number;
-  payment_rate: number;
-  overdue_count: number;
-  overdue_amount: number;
-  pending_settlements: number;
-  pending_settlement_amount: number;
-}
-
-interface MonthlyTrend {
-  month: string;
-  revenue: number;
-  paid: number;
-  outstanding: number;
-  payment_rate: number;
-}
-
-interface TopClient {
-  client_id: number;
-  client_name: string;
-  total_amount: number;
-  paid_amount: number;
-  outstanding_amount: number;
-  invoice_count: number;
-  payment_rate: number;
-}
+// Use types from billing-enhanced API
+type FinancialSummary = BillingEnhancedAPI.FinancialSummary;
+type MonthlyTrend = BillingEnhancedAPI.MonthlyTrend;
+type TopClient = BillingEnhancedAPI.TopClient;
 
 const FinancialDashboardPage: React.FC = () => {
   const [summary, setSummary] = useState<FinancialSummary | null>(null);
@@ -188,9 +163,9 @@ const FinancialDashboardPage: React.FC = () => {
                 <span className="text-sm font-medium text-gray-600">수금액</span>
                 <CreditCard className="w-5 h-5 text-green-500" />
               </div>
-              <p className="text-2xl font-bold text-green-600">{formatCurrency(summary.total_paid)}</p>
+              <p className="text-2xl font-bold text-green-600">{formatCurrency(summary.collected_amount)}</p>
               <p className="text-xs text-gray-500 mt-2">
-                회수율: {formatPercent(summary.payment_rate)}
+                회수율: {formatPercent(summary.collection_rate)}
               </p>
             </div>
 
@@ -200,9 +175,9 @@ const FinancialDashboardPage: React.FC = () => {
                 <span className="text-sm font-medium text-gray-600">미수금</span>
                 <AlertCircle className="w-5 h-5 text-orange-500" />
               </div>
-              <p className="text-2xl font-bold text-orange-600">{formatCurrency(summary.total_outstanding)}</p>
+              <p className="text-2xl font-bold text-orange-600">{formatCurrency(summary.total_receivables)}</p>
               <p className="text-xs text-gray-500 mt-2">
-                연체: {formatCurrency(summary.overdue_amount)} ({summary.overdue_count}건)
+                연체: {formatCurrency(summary.overdue_receivables)} ({summary.overdue_count}건)
               </p>
             </div>
 
@@ -212,9 +187,9 @@ const FinancialDashboardPage: React.FC = () => {
                 <span className="text-sm font-medium text-gray-600">미지급 정산</span>
                 <Users className="w-5 h-5 text-purple-500" />
               </div>
-              <p className="text-2xl font-bold text-purple-600">{formatCurrency(summary.pending_settlement_amount)}</p>
+              <p className="text-2xl font-bold text-purple-600">{formatCurrency(summary.pending_settlements)}</p>
               <p className="text-xs text-gray-500 mt-2">
-                {summary.pending_settlements}건 대기중
+                정산 대기중
               </p>
             </div>
           </div>
@@ -247,15 +222,15 @@ const FinancialDashboardPage: React.FC = () => {
                 />
                 <Legend />
                 <Line type="monotone" dataKey="revenue" stroke="#3B82F6" strokeWidth={2} name="매출" />
-                <Line type="monotone" dataKey="paid" stroke="#10B981" strokeWidth={2} name="수금" />
-                <Line type="monotone" dataKey="outstanding" stroke="#F59E0B" strokeWidth={2} name="미수" />
+                <Line type="monotone" dataKey="collected" stroke="#10B981" strokeWidth={2} name="수금" />
+                <Line type="monotone" dataKey="settlements" stroke="#8B5CF6" strokeWidth={2} name="정산" />
               </LineChart>
             </ResponsiveContainer>
           </div>
 
           {/* Payment Rate Trend */}
           <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">월별 회수율</h2>
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">월별 순이익</h2>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={trends}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
@@ -263,10 +238,10 @@ const FinancialDashboardPage: React.FC = () => {
                 <YAxis stroke="#6B7280" style={{ fontSize: '12px' }} />
                 <Tooltip
                   contentStyle={{ backgroundColor: '#FFF', border: '1px solid #E5E7EB', borderRadius: '8px' }}
-                  formatter={(value: number) => formatPercent(value)}
+                  formatter={(value: number) => formatCurrency(value)}
                 />
                 <Legend />
-                <Bar dataKey="payment_rate" fill="#10B981" name="회수율 (%)" />
+                <Bar dataKey="net_profit" fill="#10B981" name="순이익" />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -288,13 +263,7 @@ const FinancialDashboardPage: React.FC = () => {
                     거래처명
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    총 청구액
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    수금액
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    미수금
+                    총 매출
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     청구 건수
@@ -323,24 +292,18 @@ const FinancialDashboardPage: React.FC = () => {
                       <div className="text-sm font-medium text-gray-900">{client.client_name}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
-                      <div className="text-sm font-semibold text-gray-900">{formatCurrency(client.total_amount)}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right">
-                      <div className="text-sm text-green-600">{formatCurrency(client.paid_amount)}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right">
-                      <div className="text-sm text-orange-600">{formatCurrency(client.outstanding_amount)}</div>
+                      <div className="text-sm font-semibold text-gray-900">{formatCurrency(client.total_revenue)}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
                       <div className="text-sm text-gray-900">{client.invoice_count}건</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
                       <div className={`text-sm font-medium ${
-                        client.payment_rate >= 90 ? 'text-green-600' :
-                        client.payment_rate >= 70 ? 'text-yellow-600' :
+                        client.collection_rate >= 90 ? 'text-green-600' :
+                        client.collection_rate >= 70 ? 'text-yellow-600' :
                         'text-red-600'
                       }`}>
-                        {formatPercent(client.payment_rate)}
+                        {formatPercent(client.collection_rate)}
                       </div>
                     </td>
                   </tr>
