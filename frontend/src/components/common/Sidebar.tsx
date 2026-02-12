@@ -109,7 +109,7 @@ const Sidebar: React.FC = () => {
     const Icon = item.icon;
     const isActive = location.pathname === item.path;
     const hasChildren = item.children && item.children.length > 0;
-    const isExpanded = expandedMenus[item.path] || expandedMenus['billing'];
+    const isExpanded = expandedMenus[item.path] || false;
     const ChevronIcon = isExpanded ? ChevronDown : ChevronRight;
 
     return (
