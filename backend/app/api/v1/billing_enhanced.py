@@ -2,6 +2,7 @@
 Phase 8: 결제/정산 시스템 강화 - API 엔드포인트
 """
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import Optional, List
 from datetime import date, datetime, timedelta
@@ -20,6 +21,7 @@ from app.schemas.billing_enhanced import (
     BillingStatisticsResponse, SettlementStatisticsResponse
 )
 from app.services.billing_enhanced_service import BillingEnhancedService
+from app.services.export_service import financial_report_exporter
 from app.models.billing_enhanced import PaymentReminderType
 
 router = APIRouter(prefix="/billing/enhanced", tags=["Billing Enhanced"])
@@ -667,3 +669,199 @@ async def get_settlement_statistics(
         'approved_count': approved_count,
         'approval_rate': round(approval_rate, 2)
     }
+
+
+# ============= 재무 대시보드 보고서 다운로드 =============
+
+@router.get("/export/financial-dashboard/excel")
+async def export_financial_dashboard_excel(
+    start_date: Optional[date] = Query(None),
+    end_date: Optional[date] = Query(None),
+    months: int = Query(12, ge=1, le=24),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    재무 대시보드 Excel 다운로드
+    
+    현재 대시보드에 표시된 모든 데이터를 Excel 파일로 내보냅니다.
+    - 재무 요약 (4개 카드)
+    - 월별 추이 (차트 데이터)
+    - TOP 10 거래처
+    """
+    # 날짜 기본값 설정
+    if start_date is None:
+        start_date = date.today().replace(day=1)  # 이번 달 1일
+    if end_date is None:
+        end_date = date.today()
+    
+    service = BillingEnhancedService(db)
+    
+    # 1. 재무 요약 데이터
+    summary = service.get_financial_summary(start_date, end_date)
+    
+    # 2. 월별 추이 데이터
+    trends = service.get_monthly_trends(start_date, end_date, months)
+    
+    # 3. TOP 10 거래처 데이터
+    from app.models.billing import Invoice
+    from app.models.client import Client
+    from sqlalchemy import func, and_
+    
+    top_clients_query = db.query(
+        Client.id,
+        Client.name,
+        func.sum(Invoice.total_amount).label('total_revenue'),
+        func.count(Invoice.id).label('invoice_count'),
+        (func.sum(Invoice.paid_amount) / func.sum(Invoice.total_amount) * 100).label('collection_rate')
+    ).join(Invoice).filter(
+        and_(
+            Invoice.issue_date >= start_date,
+            Invoice.issue_date <= end_date
+        )
+    ).group_by(Client.id, Client.name).order_by(
+        func.sum(Invoice.total_amount).desc()
+    ).limit(10).all()
+    
+    top_clients = [
+        {
+            'client_id': r[0],
+            'client_name': r[1],
+            'total_revenue': round(r[2], 2),
+            'invoice_count': r[3],
+            'collection_rate': round(r[4], 2) if r[4] else 0.0
+        }
+        for r in top_clients_query
+    ]
+    
+    # Excel 파일 생성
+    excel_file = financial_report_exporter.generate_excel(
+        summary_data={
+            'total_revenue': summary.total_revenue,
+            'collected_amount': summary.collected_amount,
+            'collection_rate': summary.collection_rate,
+            'overdue_amount': summary.overdue_amount,
+            'overdue_count': summary.overdue_count,
+            'pending_settlement': summary.pending_settlement
+        },
+        monthly_trends=[
+            {
+                'month': t.month,
+                'revenue': t.revenue,
+                'collected': t.collected,
+                'profit': t.profit
+            }
+            for t in trends
+        ],
+        top_clients=top_clients,
+        start_date=start_date,
+        end_date=end_date
+    )
+    
+    # 파일명 생성
+    filename = f"재무대시보드_{start_date.strftime('%Y%m%d')}_{end_date.strftime('%Y%m%d')}.xlsx"
+    
+    return StreamingResponse(
+        excel_file,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": f"attachment; filename*=UTF-8''{filename}"
+        }
+    )
+
+
+@router.get("/export/financial-dashboard/pdf")
+async def export_financial_dashboard_pdf(
+    start_date: Optional[date] = Query(None),
+    end_date: Optional[date] = Query(None),
+    months: int = Query(12, ge=1, le=24),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    재무 대시보드 PDF 다운로드
+    
+    현재 대시보드에 표시된 모든 데이터를 PDF 파일로 내보냅니다.
+    - 재무 요약 (4개 카드)
+    - 월별 추이 (테이블)
+    - TOP 10 거래처
+    """
+    # 날짜 기본값 설정
+    if start_date is None:
+        start_date = date.today().replace(day=1)
+    if end_date is None:
+        end_date = date.today()
+    
+    service = BillingEnhancedService(db)
+    
+    # 1. 재무 요약 데이터
+    summary = service.get_financial_summary(start_date, end_date)
+    
+    # 2. 월별 추이 데이터
+    trends = service.get_monthly_trends(start_date, end_date, months)
+    
+    # 3. TOP 10 거래처 데이터
+    from app.models.billing import Invoice
+    from app.models.client import Client
+    from sqlalchemy import func, and_
+    
+    top_clients_query = db.query(
+        Client.id,
+        Client.name,
+        func.sum(Invoice.total_amount).label('total_revenue'),
+        func.count(Invoice.id).label('invoice_count'),
+        (func.sum(Invoice.paid_amount) / func.sum(Invoice.total_amount) * 100).label('collection_rate')
+    ).join(Invoice).filter(
+        and_(
+            Invoice.issue_date >= start_date,
+            Invoice.issue_date <= end_date
+        )
+    ).group_by(Client.id, Client.name).order_by(
+        func.sum(Invoice.total_amount).desc()
+    ).limit(10).all()
+    
+    top_clients = [
+        {
+            'client_id': r[0],
+            'client_name': r[1],
+            'total_revenue': round(r[2], 2),
+            'invoice_count': r[3],
+            'collection_rate': round(r[4], 2) if r[4] else 0.0
+        }
+        for r in top_clients_query
+    ]
+    
+    # PDF 파일 생성
+    pdf_file = financial_report_exporter.generate_pdf(
+        summary_data={
+            'total_revenue': summary.total_revenue,
+            'collected_amount': summary.collected_amount,
+            'collection_rate': summary.collection_rate,
+            'overdue_amount': summary.overdue_amount,
+            'overdue_count': summary.overdue_count,
+            'pending_settlement': summary.pending_settlement
+        },
+        monthly_trends=[
+            {
+                'month': t.month,
+                'revenue': t.revenue,
+                'collected': t.collected,
+                'profit': t.profit
+            }
+            for t in trends
+        ],
+        top_clients=top_clients,
+        start_date=start_date,
+        end_date=end_date
+    )
+    
+    # 파일명 생성
+    filename = f"재무대시보드_{start_date.strftime('%Y%m%d')}_{end_date.strftime('%Y%m%d')}.pdf"
+    
+    return StreamingResponse(
+        pdf_file,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename*=UTF-8''{filename}"
+        }
+    )

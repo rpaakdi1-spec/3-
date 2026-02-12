@@ -41,6 +41,7 @@ const FinancialDashboardPage: React.FC = () => {
   const [trends, setTrends] = useState<MonthlyTrend[]>([]);
   const [topClients, setTopClients] = useState<TopClient[]>([]);
   const [loading, setLoading] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [dateRange, setDateRange] = useState({
     start_date: new Date(new Date().setMonth(new Date().getMonth() - 3)).toISOString().split('T')[0],
     end_date: new Date().toISOString().split('T')[0]
@@ -84,6 +85,40 @@ const FinancialDashboardPage: React.FC = () => {
     }
   };
 
+  const handleDownloadExcel = async () => {
+    setDownloading(true);
+    try {
+      await BillingEnhancedAPI.downloadFinancialDashboardExcel(
+        dateRange.start_date,
+        dateRange.end_date,
+        trendMonths
+      );
+      alert('Excel 파일이 다운로드되었습니다.');
+    } catch (error) {
+      console.error('Excel 다운로드 실패:', error);
+      alert('Excel 다운로드에 실패했습니다. 다시 시도해주세요.');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const handleDownloadPDF = async () => {
+    setDownloading(true);
+    try {
+      await BillingEnhancedAPI.downloadFinancialDashboardPDF(
+        dateRange.start_date,
+        dateRange.end_date,
+        trendMonths
+      );
+      alert('PDF 파일이 다운로드되었습니다.');
+    } catch (error) {
+      console.error('PDF 다운로드 실패:', error);
+      alert('PDF 다운로드에 실패했습니다. 다시 시도해주세요.');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('ko-KR', {
       style: 'currency',
@@ -117,10 +152,33 @@ const FinancialDashboardPage: React.FC = () => {
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
               새로고침
             </button>
-            <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2">
-              <Download className="w-4 h-4" />
-              보고서 다운로드
-            </button>
+            <div className="relative group">
+              <button 
+                disabled={downloading}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-400 flex items-center gap-2"
+              >
+                <Download className="w-4 h-4" />
+                {downloading ? '다운로드 중...' : '보고서 다운로드'}
+              </button>
+              {!downloading && (
+                <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+                  <button
+                    onClick={handleDownloadExcel}
+                    className="w-full px-4 py-3 text-left hover:bg-gray-50 rounded-t-lg flex items-center gap-2 text-gray-700"
+                  >
+                    <FileText className="w-4 h-4" />
+                    Excel 다운로드
+                  </button>
+                  <button
+                    onClick={handleDownloadPDF}
+                    className="w-full px-4 py-3 text-left hover:bg-gray-50 rounded-b-lg flex items-center gap-2 text-gray-700"
+                  >
+                    <FileText className="w-4 h-4" />
+                    PDF 다운로드
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
