@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import Layout from '../components/common/Layout';
 import { Settings, User, Bell, Shield, Save } from 'lucide-react';
+import Layout from '../components/common/Layout';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
@@ -146,6 +148,7 @@ const SettingsPage: React.FC = () => {
   ];
 
   return (
+    <Layout>
     <div className="flex h-screen bg-gray-100">
       <Sidebar />
       <div className="flex-1 overflow-auto">
@@ -445,6 +448,7 @@ const SettingsPage: React.FC = () => {
         </div>
       </div>
     </div>
+    </Layout>
   );
 };
 

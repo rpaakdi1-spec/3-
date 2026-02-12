@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import Layout from '../components/common/Layout';
 import { toast } from 'react-hot-toast';
+import Layout from '../components/common/Layout';
 import axios from 'axios';
 import type { RecurringOrder, RecurringOrderCreate, Client } from '../types';
 import { recurringOrdersAPI } from '../api/recurringOrders';
@@ -142,6 +144,7 @@ export const RecurringOrdersPage: React.FC = () => {
   };
 
   return (
+    <Layout>
     <div className="container mx-auto px-4 py-8 max-w-7xl">
       {/* Header */}
       <div className="mb-8">
@@ -291,6 +294,7 @@ export const RecurringOrdersPage: React.FC = () => {
         </div>
       )}
     </div>
+    </Layout>
   );
 };
 

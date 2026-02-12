@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
+import Layout from '../components/common/Layout';
 import {
+import Layout from '../components/common/Layout';
   Calculator,
   DollarSign,
   TrendingUp,
@@ -101,6 +103,7 @@ const ChargePreviewPage: React.FC = () => {
   };
 
   return (
+    <Layout>
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-5xl mx-auto">
         {/* Header */}
@@ -456,6 +459,7 @@ const ChargePreviewPage: React.FC = () => {
         </div>
       </div>
     </div>
+    </Layout>
   );
 };
 
