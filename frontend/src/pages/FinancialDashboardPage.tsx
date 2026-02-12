@@ -152,30 +152,33 @@ const FinancialDashboardPage: React.FC = () => {
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
               새로고침
             </button>
-            <button
-              onClick={loadDashboardData}
-              disabled={loading}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 flex items-center gap-2"
-            >
-              <RefreshCw className="w-4 h-4" />
-              새로고침
-            </button>
-            <button
-              onClick={handleDownloadExcel}
-              disabled={downloading}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-400 flex items-center gap-2"
-            >
-              <Download className="w-4 h-4" />
-              Excel 다운로드
-            </button>
-            <button
-              onClick={handleDownloadPDF}
-              disabled={downloading}
-              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:bg-gray-400 flex items-center gap-2"
-            >
-              <FileText className="w-4 h-4" />
-              PDF 다운로드
-            </button>
+            <div className="relative group">
+              <button 
+                disabled={downloading}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-400 flex items-center gap-2"
+              >
+                <Download className="w-4 h-4" />
+                {downloading ? '다운로드 중...' : '보고서 다운로드'}
+              </button>
+              {!downloading && (
+                <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+                  <button
+                    onClick={handleDownloadExcel}
+                    className="w-full px-4 py-3 text-left hover:bg-gray-50 rounded-t-lg flex items-center gap-2 text-gray-700"
+                  >
+                    <FileText className="w-4 h-4" />
+                    Excel 다운로드
+                  </button>
+                  <button
+                    onClick={handleDownloadPDF}
+                    className="w-full px-4 py-3 text-left hover:bg-gray-50 rounded-b-lg flex items-center gap-2 text-gray-700"
+                  >
+                    <FileText className="w-4 h-4" />
+                    PDF 다운로드
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
