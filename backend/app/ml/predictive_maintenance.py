@@ -7,6 +7,7 @@ Phase 4 Week 1-2: 예측 정비 시스템
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
+from pytz import UTC
 from typing import Dict, List, Optional, Tuple
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingRegressor
 from sklearn.preprocessing import StandardScaler
@@ -77,7 +78,8 @@ class MaintenancePredictionModel:
         """차량별 특징 추출"""
         
         # 기본 차량 정보
-        vehicle_age_days = (datetime.now() - vehicle.created_at).days if vehicle.created_at else 0
+        now = datetime.now(UTC)
+        vehicle_age_days = (now - vehicle.created_at).days if vehicle.created_at else 0
         vehicle_age_years = vehicle_age_days / 365.25
         
         # 정비 이력
@@ -92,7 +94,7 @@ class MaintenancePredictionModel:
         # 최근 정비
         recent_maintenances = [r for r in maintenance_records if r.completed_at]
         last_maintenance_date = max([r.completed_at for r in recent_maintenances]) if recent_maintenances else None
-        days_since_last_maintenance = (datetime.now() - last_maintenance_date).days if last_maintenance_date else 999
+        days_since_last_maintenance = (now - last_maintenance_date).days if last_maintenance_date else 999
         
         # 긴급 정비 비율
         emergency_maintenances = len([r for r in maintenance_records if r.priority == 'CRITICAL'])
