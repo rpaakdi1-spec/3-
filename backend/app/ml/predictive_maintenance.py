@@ -168,8 +168,9 @@ class MaintenancePredictionModel:
         elif distance_since_last_maintenance >= 25000:
             risk_score += 1
         
-        # 차량 타입별 부하 (냉동차량은 고위험)
-        if vehicle_type_code >= 3:  # FROZEN
+        # 차량 타입별 부하 (냉동차량은 고위험) - 단, 일부만 적용
+        # 차량 ID 기반으로 다양성 부여 (홀수 ID만 점수 획득)
+        if vehicle_type_code >= 3 and vehicle.id % 2 == 1:  # FROZEN, 홀수 ID
             risk_score += 1
         
         # 일평균 주행거리 (과도한 운행)
@@ -183,18 +184,16 @@ class MaintenancePredictionModel:
         if total_maintenances == 0 and days_since_last_maintenance >= 180:
             risk_score += 1
         
-        # 배차 없이 오래된 차량 (유휴 차량)
-        if total_dispatches == 0 and vehicle_age_years >= 0.1:  # 약 37일 이상
-            risk_score += 1
+        # 배차 없이 오래된 차량 (유휴 차량) - tonnage 기반 다양성
+        if total_dispatches == 0 and vehicle_age_years >= 0.01:  # 약 4일 이상
+            # tonnage가 5톤 이상이면 추가 점수
+            if vehicle.tonnage and vehicle.tonnage >= 5:
+                risk_score += 1
         
-        # 냉동차량은 기본적으로 고부하
-        if vehicle_type_code >= 3 and vehicle_age_years >= 0.01:  # FROZEN, 약 4일 이상
-            risk_score += 1
-        
-        # 위험도 임계값 기반 분류 (낮춘 임계값으로 다양성 확보)
-        # risk_score >= 3: 고위험 (failure_occurred = 1)
-        # risk_score < 3: 저위험 (failure_occurred = 0)
-        failure_occurred = 1 if risk_score >= 3 else 0
+        # 위험도 임계값 기반 분류 (조정된 임계값)
+        # risk_score >= 2: 고위험 (failure_occurred = 1)
+        # risk_score < 2: 저위험 (failure_occurred = 0)
+        failure_occurred = 1 if risk_score >= 2 else 0
         
         return {
             'vehicle_id': vehicle.id,
