@@ -758,14 +758,14 @@ async def export_financial_dashboard_excel(
         end_date=end_date
     )
     
-    # 파일명 생성
-    filename = f"재무대시보드_{start_date.strftime('%Y%m%d')}_{end_date.strftime('%Y%m%d')}.xlsx"
+    # 파일명 생성 (영문)
+    filename = f"Financial_Dashboard_{start_date.strftime('%Y%m%d')}_{end_date.strftime('%Y%m%d')}.xlsx"
     
     return StreamingResponse(
         excel_file,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={
-            "Content-Disposition": f"attachment; filename*=UTF-8''{filename}"
+            "Content-Disposition": f"attachment; filename={filename}"
         }
     )
 
@@ -855,13 +855,13 @@ async def export_financial_dashboard_pdf(
         end_date=end_date
     )
     
-    # 파일명 생성
-    filename = f"재무대시보드_{start_date.strftime('%Y%m%d')}_{end_date.strftime('%Y%m%d')}.pdf"
+    # 파일명 생성 (영문)
+    filename = f"Financial_Dashboard_{start_date.strftime('%Y%m%d')}_{end_date.strftime('%Y%m%d')}.pdf"
     
     return StreamingResponse(
         pdf_file,
         media_type="application/pdf",
         headers={
-            "Content-Disposition": f"attachment; filename*=UTF-8''{filename}"
+            "Content-Disposition": f"attachment; filename={filename}"
         }
     )
