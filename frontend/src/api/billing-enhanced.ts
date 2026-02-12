@@ -662,46 +662,47 @@ export const deleteAutoInvoiceSchedule = async (scheduleId: number): Promise<voi
   await apiClient.delete(`${API_BASE_URL}/auto-schedule/${scheduleId}`);
 };
 
+// ============= 재무 대시보드 보고서 다운로드 =============
 
 /**
-/**
- * Export Financial Dashboard to Excel or PDF
+ * 재무 대시보드 Excel 다운로드
  */
-export const exportFinancialDashboard = async (
-  format: 'excel' | 'pdf',
-  startDate: string,
-  endDate: string
+export const downloadFinancialDashboardExcel = async (
+  startDate?: string,
+  endDate?: string,
+  months: number = 12
 ): Promise<void> => {
   try {
-    apiLog('Exporting financial dashboard:', format, startDate, endDate);
-    
+    const params: Record<string, any> = { months };
+    if (startDate) params.start_date = startDate;
+    if (endDate) params.end_date = endDate;
+
     const response = await apiClient.get(
-      `${API_BASE_URL}/export/financial-dashboard/${format}`,
+      `${API_BASE_URL}/export/financial-dashboard/excel`,
       {
-        params: {
-          start_date: startDate,
-          end_date: endDate,
-        },
-        responseType: 'blob',
+        params,
+        responseType: 'blob' // 파일 다운로드를 위해 blob 타입으로 요청
       }
     );
 
+    // Blob으로 파일 생성
     const blob = new Blob([response.data], {
-      type: format === 'excel'
-        ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        : 'application/pdf',
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     });
 
+    // 파일명 추출 (Content-Disposition 헤더에서)
     const contentDisposition = response.headers['content-disposition'];
-    let filename = `Financial_Dashboard_${startDate.replace(/-/g, '')}_${endDate.replace(/-/g, '')}.${format === 'excel' ? 'xlsx' : 'pdf'}`;
+    let filename = 'Financial_Dashboard.xlsx';
     
     if (contentDisposition) {
-      const filenameMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+)|filename="?([^";\n]+)"?/);
-      if (filenameMatch) {
-        filename = decodeURIComponent(filenameMatch[1] || filenameMatch[2]);
+      // 새 형식: filename=Financial_Dashboard_20260101_20260212.xlsx
+      const filenameMatch = contentDisposition.match(/filename=([^;]+)/);
+      if (filenameMatch && filenameMatch[1]) {
+        filename = filenameMatch[1].trim();
       }
     }
 
+    // 다운로드 링크 생성 및 클릭
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -711,9 +712,63 @@ export const exportFinancialDashboard = async (
     document.body.removeChild(link);
     window.URL.revokeObjectURL(url);
 
-    apiLog('Export successful:', filename);
+    apiLog('Excel 파일 다운로드 완료:', filename);
   } catch (error) {
-    apiError('Export failed:', error);
+    apiError('Excel 다운로드 실패:', error);
     throw error;
   }
 };
+
+/**
+ * 재무 대시보드 PDF 다운로드
+ */
+export const downloadFinancialDashboardPDF = async (
+  startDate?: string,
+  endDate?: string,
+  months: number = 12
+): Promise<void> => {
+  try {
+    const params: Record<string, any> = { months };
+    if (startDate) params.start_date = startDate;
+    if (endDate) params.end_date = endDate;
+
+    const response = await apiClient.get(
+      `${API_BASE_URL}/export/financial-dashboard/pdf`,
+      {
+        params,
+        responseType: 'blob' // 파일 다운로드를 위해 blob 타입으로 요청
+      }
+    );
+
+    // Blob으로 파일 생성
+    const blob = new Blob([response.data], { type: 'application/pdf' });
+
+    // 파일명 추출
+    const contentDisposition = response.headers['content-disposition'];
+    let filename = 'Financial_Dashboard.pdf';
+    
+    if (contentDisposition) {
+      // 새 형식: filename=Financial_Dashboard_20260101_20260212.pdf
+      const filenameMatch = contentDisposition.match(/filename=([^;]+)/);
+      if (filenameMatch && filenameMatch[1]) {
+        filename = filenameMatch[1].trim();
+      }
+    }
+
+    // 다운로드 링크 생성 및 클릭
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+
+    apiLog('PDF 파일 다운로드 완료:', filename);
+  } catch (error) {
+    apiError('PDF 다운로드 실패:', error);
+    throw error;
+  }
+};
+
