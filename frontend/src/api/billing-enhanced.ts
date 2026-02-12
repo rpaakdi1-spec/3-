@@ -662,3 +662,112 @@ export const deleteAutoInvoiceSchedule = async (scheduleId: number): Promise<voi
   await apiClient.delete(`${API_BASE_URL}/auto-schedule/${scheduleId}`);
 };
 
+
+/**
+ * Export Financial Dashboard to Excel or PDF
+ */
+export const exportFinancialDashboard = async (
+  format: 'excel' | 'pdf',
+  startDate: string,
+  endDate: string
+): Promise<void> => {
+  try {
+    const response = await apiClient.get(
+      `${API_BASE_URL}/export/financial-dashboard/${format}`,
+      {
+        params: {
+          start_date: startDate,
+          end_date: endDate,
+        },
+        responseType: 'blob', // Important for file download
+      }
+    );
+
+    // Create blob and download
+    const blob = new Blob([response.data], {
+      type: format === 'excel'
+        ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        : 'application/pdf',
+    });
+
+    // Extract filename from Content-Disposition header
+    const contentDisposition = response.headers['content-disposition'];
+    let filename = `Financial_Dashboard_${startDate}_${endDate}.${format === 'excel' ? 'xlsx' : 'pdf'}`;
+    
+    if (contentDisposition) {
+      const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+      if (filenameMatch && filenameMatch[1]) {
+        filename = filenameMatch[1].replace(/['"]/g, '');
+      }
+    }
+
+    // Create download link
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+
+    apiLog('Export successful:', filename);
+  } catch (error) {
+    apiError('Export failed:', error);
+    throw error;
+  }
+};
+
+/**
+ * Export Financial Dashboard to Excel or PDF
+ */
+export const exportFinancialDashboard = async (
+  format: 'excel' | 'pdf',
+  startDate: string,
+  endDate: string
+): Promise<void> => {
+  try {
+    apiLog('Exporting financial dashboard:', format, startDate, endDate);
+    
+    const response = await apiClient.get(
+      `${API_BASE_URL}/export/financial-dashboard/${format}`,
+      {
+        params: {
+          start_date: startDate,
+          end_date: endDate,
+        },
+        responseType: 'blob',
+      }
+    );
+
+    const blob = new Blob([response.data], {
+      type: format === 'excel'
+        ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        : 'application/pdf',
+    });
+
+    const contentDisposition = response.headers['content-disposition'];
+    let filename = `Financial_Dashboard_${startDate.replace(/-/g, '')}_${endDate.replace(/-/g, '')}.${format === 'excel' ? 'xlsx' : 'pdf'}`;
+    
+    if (contentDisposition) {
+      const filenameMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+)|filename="?([^";\n]+)"?/);
+      if (filenameMatch) {
+        filename = decodeURIComponent(filenameMatch[1] || filenameMatch[2]);
+      }
+    }
+
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+
+    apiLog('Export successful:', filename);
+  } catch (error) {
+    apiError('Export failed:', error);
+    throw error;
+  }
+};
