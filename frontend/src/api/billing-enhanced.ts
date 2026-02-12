@@ -17,8 +17,14 @@ const getAuthHeaders = () => {
   };
 };
 
-// Create axios instance with auth interceptor
-const apiClient = axios.create();
+// Create axios instance with baseURL and auth interceptor
+const apiClient = axios.create({
+  baseURL: '',  // Use empty string since we're using full paths with API_BASE_URL
+  timeout: 30000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
 
 // Add auth header to all requests
 apiClient.interceptors.request.use(
@@ -26,10 +32,35 @@ apiClient.interceptors.request.use(
     const token = localStorage.getItem('access_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+      console.log('🔐 [Billing API] Token attached:', token.substring(0, 20) + '...');
+    } else {
+      console.error('❌ [Billing API] No token found in localStorage');
     }
+    console.log('📤 [Billing API] Request:', config.method?.toUpperCase(), config.url);
     return config;
   },
   (error) => {
+    console.error('❌ [Billing API] Request error:', error);
+    return Promise.reject(error);
+  }
+);
+
+// Add response interceptor for better error logging
+apiClient.interceptors.response.use(
+  (response) => {
+    console.log('✅ [Billing API] Response:', response.status, response.config.url);
+    return response;
+  },
+  (error) => {
+    if (error.response) {
+      console.error('❌ [Billing API] Response error:', {
+        status: error.response.status,
+        url: error.config?.url,
+        data: error.response.data
+      });
+    } else {
+      console.error('❌ [Billing API] Network error:', error.message);
+    }
     return Promise.reject(error);
   }
 );
