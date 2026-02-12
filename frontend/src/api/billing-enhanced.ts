@@ -18,7 +18,7 @@ const getAuthHeaders = () => {
 };
 
 // Create axios instance with auth interceptor
-const apiClient = apiClient.create();
+const apiClient = axios.create();
 
 // Add auth header to all requests
 apiClient.interceptors.request.use(
