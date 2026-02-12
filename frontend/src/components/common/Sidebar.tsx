@@ -101,15 +101,31 @@ const Sidebar: React.FC = () => {
     setExpandedMenus(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const filteredMenuItems = menuItems.filter((item) =>
-    item.roles.includes((user?.role || '').toUpperCase())
-  ).map(item => {
+  const filteredMenuItems = menuItems.filter((item) => {
+    const userRole = (user?.role || '').toUpperCase();
+    const hasAccess = item.roles.includes(userRole);
+    
+    // 디버그 로그 (개발 환경에서만)
+    if (!hasAccess && process.env.NODE_ENV === 'development') {
+      console.log(`❌ 메뉴 필터링: "${item.label}" - 사용자 role: "${userRole}", 필요 role: [${item.roles.join(', ')}]`);
+    }
+    
+    return hasAccess;
+  }).map(item => {
     if (item.children) {
+      const userRole = (user?.role || '').toUpperCase();
       return {
         ...item,
-        children: item.children.filter(child => 
-          child.roles.includes((user?.role || '').toUpperCase())
-        )
+        children: item.children.filter(child => {
+          const hasAccess = child.roles.includes(userRole);
+          
+          // 디버그 로그 (개발 환경에서만)
+          if (!hasAccess && process.env.NODE_ENV === 'development') {
+            console.log(`❌ 서브메뉴 필터링: "${child.label}" - 사용자 role: "${userRole}", 필요 role: [${child.roles.join(', ')}]`);
+          }
+          
+          return hasAccess;
+        })
       };
     }
     return item;
