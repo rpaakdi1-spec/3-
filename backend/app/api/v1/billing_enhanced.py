@@ -758,7 +758,7 @@ async def export_financial_dashboard_excel(
         end_date=end_date
     )
     
-    # 파일명 생성 (영문)
+    # 파일명 생성
     filename = f"Financial_Dashboard_{start_date.strftime('%Y%m%d')}_{end_date.strftime('%Y%m%d')}.xlsx"
     
     return StreamingResponse(
@@ -855,7 +855,7 @@ async def export_financial_dashboard_pdf(
         end_date=end_date
     )
     
-    # 파일명 생성 (영문)
+    # 파일명 생성
     filename = f"Financial_Dashboard_{start_date.strftime('%Y%m%d')}_{end_date.strftime('%Y%m%d')}.pdf"
     
     return StreamingResponse(

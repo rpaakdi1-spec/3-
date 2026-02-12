@@ -101,7 +101,7 @@ class Order(Base, IDMixin, TimestampMixin):
     pickup_client = relationship("Client", foreign_keys=[pickup_client_id], back_populates="pickup_orders")
     delivery_client = relationship("Client", foreign_keys=[delivery_client_id], back_populates="delivery_orders")
     dispatch_routes = relationship("DispatchRoute", back_populates="order")
-    delivery_proofs = relationship("DeliveryProof", back_populates="order", lazy="dynamic")
+    # delivery_proofs = relationship("DeliveryProof", back_populates="order", lazy="dynamic")
     
     def __repr__(self):
         return f"<Order(number={self.order_number}, temp={self.temperature_zone}, pallets={self.pallet_count})>"
