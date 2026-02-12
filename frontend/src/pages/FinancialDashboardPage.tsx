@@ -30,7 +30,6 @@ import {
   ResponsiveContainer
 } from 'recharts';
 import * as BillingEnhancedAPI from '../api/billing-enhanced';
-import { debugAuth, testBillingAPI } from '../utils/authDebug';
 
 // Use types from billing-enhanced API
 type FinancialSummary = BillingEnhancedAPI.FinancialSummary;
@@ -54,14 +53,6 @@ const FinancialDashboardPage: React.FC = () => {
 
   const loadDashboardData = async () => {
     setLoading(true);
-    
-    // Debug authentication
-    const authInfo = debugAuth();
-    if (!authInfo.hasToken) {
-      console.error('❌ No authentication token found!');
-      setLoading(false);
-      return;
-    }
     
     try {
       // Load financial summary

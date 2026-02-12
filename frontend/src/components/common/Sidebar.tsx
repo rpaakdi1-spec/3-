@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
+import { isDevelopment } from '../../config/api';
 import {
   Home,
   Package,
@@ -105,8 +106,10 @@ const Sidebar: React.FC = () => {
     const userRole = (user?.role || '').toUpperCase();
     const hasAccess = item.roles.includes(userRole);
     
-    // 디버그 로그 추가
-    console.log(`메뉴 체크: "${item.label}" - 사용자 role: "${userRole}", 필요 role: [${item.roles.join(', ')}], 접근: ${hasAccess ? '✅' : '❌'}`);
+    // Debug log (development only)
+    if (isDevelopment) {
+      console.log(`메뉴 체크: "${item.label}" - 사용자 role: "${userRole}", 필요 role: [${item.roles.join(', ')}], 접근: ${hasAccess ? '✅' : '❌'}`);
+    }
     
     return hasAccess;
   }).map(item => {
@@ -117,8 +120,10 @@ const Sidebar: React.FC = () => {
         children: item.children.filter(child => {
           const hasAccess = child.roles.includes(userRole);
           
-          // 디버그 로그 추가
-          console.log(`  └─ 서브메뉴: "${child.label}" - 접근: ${hasAccess ? '✅' : '❌'}`);
+          // Debug log (development only)
+          if (isDevelopment) {
+            console.log(`  └─ 서브메뉴: "${child.label}" - 접근: ${hasAccess ? '✅' : '❌'}`);
+          }
           
           return hasAccess;
         })
@@ -127,9 +132,11 @@ const Sidebar: React.FC = () => {
     return item;
   });
 
-  // 필터링된 메뉴 수 로그
-  console.log(`\n📋 총 메뉴 수: ${filteredMenuItems.length}개`);
-  console.log(`👤 사용자: ${user?.username}, 권한: ${user?.role?.toUpperCase()}\n`);
+  // Debug log filtered menu count (development only)
+  if (isDevelopment) {
+    console.log(`\n📋 총 메뉴 수: ${filteredMenuItems.length}개`);
+    console.log(`👤 사용자: ${user?.username}, 권한: ${user?.role?.toUpperCase()}\n`);
+  }
 
   const renderMenuItem = (item: MenuItem, index: number) => {
     const Icon = item.icon;

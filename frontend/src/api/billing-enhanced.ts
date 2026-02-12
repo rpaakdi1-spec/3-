@@ -4,23 +4,14 @@
  */
 
 import axios from 'axios';
+import { API_CONFIG, getAuthHeaders, apiLog, apiError, isDevelopment } from '../config/api';
 
-const API_BASE_URL = '/api/v1/billing/enhanced';
-
-// Get auth token
-const getAuthHeaders = () => {
-  const token = localStorage.getItem('access_token');
-  return {
-    headers: {
-      Authorization: `Bearer ${token}`
-    }
-  };
-};
+const API_BASE_URL = API_CONFIG.BILLING_URL;
 
 // Create axios instance with baseURL and auth interceptor
 const apiClient = axios.create({
-  baseURL: '',  // Use empty string since we're using full paths with API_BASE_URL
-  timeout: 30000,
+  baseURL: '',
+  timeout: API_CONFIG.TIMEOUT,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -32,15 +23,15 @@ apiClient.interceptors.request.use(
     const token = localStorage.getItem('access_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
-      console.log('🔐 [Billing API] Token attached:', token.substring(0, 20) + '...');
+      apiLog('Token attached:', token.substring(0, 20) + '...');
     } else {
-      console.error('❌ [Billing API] No token found in localStorage');
+      apiError('No token found in localStorage');
     }
-    console.log('📤 [Billing API] Request:', config.method?.toUpperCase(), config.url);
+    apiLog('Request:', config.method?.toUpperCase(), config.url);
     return config;
   },
   (error) => {
-    console.error('❌ [Billing API] Request error:', error);
+    apiError('Request error:', error);
     return Promise.reject(error);
   }
 );
@@ -48,18 +39,18 @@ apiClient.interceptors.request.use(
 // Add response interceptor for better error logging
 apiClient.interceptors.response.use(
   (response) => {
-    console.log('✅ [Billing API] Response:', response.status, response.config.url);
+    apiLog('Response:', response.status, response.config.url);
     return response;
   },
   (error) => {
     if (error.response) {
-      console.error('❌ [Billing API] Response error:', {
+      apiError('Response error:', {
         status: error.response.status,
         url: error.config?.url,
         data: error.response.data
       });
     } else {
-      console.error('❌ [Billing API] Network error:', error.message);
+      apiError('Network error:', error.message);
     }
     return Promise.reject(error);
   }

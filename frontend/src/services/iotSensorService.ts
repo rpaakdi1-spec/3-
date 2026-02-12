@@ -4,9 +4,10 @@
  */
 
 import axios from 'axios';
+import { API_CONFIG } from '../config/api';
 
 // IoT 센서 API 기본 URL (포트 8001)
-const IOT_API_BASE_URL = import.meta.env.VITE_IOT_API_URL || 'http://localhost:8001';
+const IOT_API_BASE_URL = API_CONFIG.IOT_URL;
 
 const iotApi = axios.create({
   baseURL: IOT_API_BASE_URL,

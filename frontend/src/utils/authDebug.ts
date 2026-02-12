@@ -1,8 +1,13 @@
 /**
  * Authentication debugging utilities
+ * Development environment only
  */
 
+import { isDevelopment } from '../config/api';
+
 export const debugAuth = () => {
+  if (!isDevelopment) return null;
+  
   const token = localStorage.getItem('access_token');
   const user = localStorage.getItem('user');
   
@@ -20,9 +25,14 @@ export const debugAuth = () => {
 };
 
 export const testBillingAPI = async () => {
+  if (!isDevelopment) {
+    console.warn('testBillingAPI is only available in development mode');
+    return;
+  }
+  
   const authInfo = debugAuth();
   
-  if (!authInfo.hasToken) {
+  if (!authInfo?.hasToken) {
     console.error('❌ No token found! User must login first.');
     return;
   }

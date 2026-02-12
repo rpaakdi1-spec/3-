@@ -2,17 +2,37 @@
 
 > **최종 업데이트:** 2026-02-12  
 > **브랜치:** genspark_ai_developer  
-> **최근 커밋:** 4cbfb4f
+> **최근 커밋:** 5887b82
 
 ---
 
 ## 🎯 즉시 확인할 사항
 
-### 1️⃣ 재무 대시보드 UI 확인
+### 1️⃣ 재무 대시보드 UI 확인 ⚠️ **데이터 생성 필요**
+**현재 상태**: API는 200 OK를 반환하지만 모든 값이 0 (데이터베이스 비어있음)
+
+**해결 방법**: 테스트 데이터 생성 스크립트 실행
+```bash
+ssh root@139.150.11.99
+cd /root/uvis
+git pull origin genspark_ai_developer
+docker exec -it uvis-backend python /app/scripts/generate_billing_test_data.py
+```
+
+**생성되는 데이터**:
+- 청구서 50-150개 (거래처당 5-15개)
+- 결제 기록
+- 기사 정산 20-80개
+- 테스트 거래처 10개 (기존 거래처 없는 경우)
+
+**확인 사항**:
+- [ ] 테스트 데이터 생성 스크립트 실행
 - [ ] 4개 요약 카드에 실제 데이터 표시되는지
 - [ ] 차트 2개가 정상적으로 렌더링되는지
 - [ ] TOP 10 거래처 테이블에 데이터가 있는지
 - [ ] 로딩 상태가 정상적으로 작동하는지
+
+**참고 문서**: [TEST_DATA_GENERATION.md](docs/TEST_DATA_GENERATION.md)
 
 ### 2️⃣ 다른 청구/정산 메뉴 테스트
 각 메뉴 클릭 후 정상 작동 여부 확인:
@@ -38,7 +58,7 @@ Layout이 추가된 18개 페이지 모두 확인:
 
 ## 🔧 코드 정리 및 최적화
 
-### 4️⃣ API 클라이언트 통합
+### 4️⃣ API 클라이언트 통합 ✅ **완료 (2026-02-12, 커밋 d29e9d1)**
 현재 여러 파일에 API URL이 중복 정의되어 있습니다:
 
 **확인된 중복:**
@@ -50,33 +70,45 @@ frontend/src/services/analyticsService.ts → API_BASE_URL = import.meta.env.VIT
 frontend/src/api/billing-enhanced.ts → API_BASE_URL = '/api/v1/billing/enhanced'
 ```
 
-**해야 할 작업:**
-- [ ] 단일 API 설정 파일 생성 (`src/config/api.ts`)
-- [ ] 모든 API 클라이언트가 이 설정을 사용하도록 수정
-- [ ] 환경변수 통일 (`VITE_API_URL` vs `VITE_API_BASE_URL`)
+**완료된 작업:**
+- [x] 단일 API 설정 파일 생성 (`src/config/api.ts`)
+- [x] 모든 API 클라이언트가 이 설정을 사용하도록 수정 (8개 파일)
+- [x] 환경변수 통일 (`VITE_API_URL` 사용)
+- [x] API_ENDPOINTS 정의로 엔드포인트 관리 개선
 
-**예시 구조:**
+**생성된 파일:**
 ```typescript
-// src/config/api.ts
+// frontend/src/config/api.ts
 export const API_CONFIG = {
   BASE_URL: import.meta.env.VITE_API_URL || '/api/v1',
   BILLING_URL: '/api/v1/billing/enhanced',
+  IOT_URL: import.meta.env.VITE_IOT_API_URL || 'http://localhost:8001',
+  WS_URL: import.meta.env.VITE_WS_URL || 'ws://localhost:8000/ws',
   TIMEOUT: 30000,
 };
+
+export const API_ENDPOINTS = { /* 모든 엔드포인트 정의 */ };
 ```
 
-### 5️⃣ 디버그 로그 제거 (프로덕션 준비)
+### 5️⃣ 디버그 로그 제거 (프로덕션 준비) ✅ **완료 (2026-02-12, 커밋 d29e9d1)**
 개발용 로그들을 제거하거나 환경별 분기 처리:
-- [ ] `billing-enhanced.ts`의 console.log 제거/조건부 처리
-- [ ] `authDebug.ts` 유틸리티를 개발 환경에서만 활성화
-- [ ] Sidebar의 디버그 로그 제거
+- [x] `billing-enhanced.ts`의 console.log 조건부 처리
+- [x] `authDebug.ts` 유틸리티를 개발 환경에서만 활성화
+- [x] Sidebar의 디버그 로그 조건부 처리
+- [x] apiLog/apiError 헬퍼 함수 추가
 
-**예시:**
+**구현 방법:**
 ```typescript
-const isDev = import.meta.env.DEV;
-if (isDev) {
-  console.log('🔐 [Billing API] Token attached:', token);
+import { isDevelopment, apiLog, apiError } from '../config/api';
+
+// 개발 환경에서만 로그 출력
+if (isDevelopment) {
+  console.log('Debug info');
 }
+
+// 또는 헬퍼 함수 사용
+apiLog('Token attached:', token);
+apiError('Request failed:', error);
 ```
 
 ---
@@ -301,8 +333,8 @@ git push -f origin genspark_ai_developer
 4. 다른 청구/정산 메뉴 정상 작동 확인
 
 ### 🟡 중요 (이번 주 내)
-5. API 클라이언트 통합 및 중복 제거
-6. 디버그 로그 정리
+5. ✅ ~~API 클라이언트 통합 및 중복 제거~~ → **완료! (2026-02-12)**
+6. ✅ ~~디버그 로그 정리~~ → **완료! (2026-02-12)**
 7. Pull Request 생성
 8. 다른 18개 페이지 사이드바 확인
 
@@ -330,6 +362,17 @@ git push -f origin genspark_ai_developer
   - 19개 페이지에 Layout 컴포넌트 추가
   - 중복 import 제거
 - [x] 인증 디버깅 유틸리티 추가
+  - authDebug.ts 생성
+  - 상세 로깅 추가
+- [x] **API 클라이언트 통합** (2026-02-12, 커밋 d29e9d1)
+  - config/api.ts 생성으로 중앙 집중식 설정
+  - 8개 파일의 중복 API_BASE_URL 제거
+  - 환경변수 통일 (VITE_API_URL)
+  - API_ENDPOINTS 정의로 엔드포인트 관리
+- [x] **디버그 로그 최적화** (2026-02-12, 커밋 d29e9d1)
+  - 개발/프로덕션 환경 분기 처리
+  - apiLog/apiError 헬퍼 함수 추가
+  - 프로덕션 빌드에서 디버그 로그 제거
   - authDebug.ts 생성
   - 상세 로깅 추가
 
