@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_URL = import.meta.env.VITE_API_URL || '/api/v1';
 const WS_URL = API_URL.replace('http', 'ws');
 
 interface VehicleStatus {
