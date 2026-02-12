@@ -122,7 +122,9 @@ class MaintenancePredictionModel:
             'DUAL': 2,         # 겸용
             'AMBIENT': 1       # 상온 (저부하)
         }
-        vehicle_type_code = vehicle_type_map.get(vehicle.vehicle_type, 1)
+        # Enum을 문자열로 변환
+        vehicle_type_str = str(vehicle.vehicle_type) if hasattr(vehicle.vehicle_type, 'value') else vehicle.vehicle_type
+        vehicle_type_code = vehicle_type_map.get(vehicle_type_str, 1)
         
         # 최근 정비 이후 주행거리 추정
         if last_maintenance_date:
@@ -194,6 +196,16 @@ class MaintenancePredictionModel:
         # risk_score >= 2: 고위험 (failure_occurred = 1)
         # risk_score < 2: 저위험 (failure_occurred = 0)
         failure_occurred = 1 if risk_score >= 2 else 0
+        
+        # 디버그: 첫 5대 차량의 risk_score 로그
+        if vehicle.id <= 5:
+            logger.info(f"🔍 Vehicle {vehicle.id} ({vehicle.plate_number}): "
+                       f"risk_score={risk_score}, "
+                       f"type_code={vehicle_type_code}, "
+                       f"type_str={vehicle_type_str}, "
+                       f"id_mod_2={vehicle.id % 2}, "
+                       f"tonnage={vehicle.tonnage}, "
+                       f"failure={failure_occurred}")
         
         return {
             'vehicle_id': vehicle.id,
