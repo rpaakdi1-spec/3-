@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Layout from '../components/common/Layout';
 import {
   BarChart3,
   TrendingUp,
@@ -35,7 +36,7 @@ import {
   Cell
 } from 'recharts';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
 interface KPI {
   name: string;
@@ -163,6 +164,7 @@ const AnalyticsDashboardPage: React.FC = () => {
   const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
 
   return (
+    <Layout>
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
@@ -482,6 +484,7 @@ const AnalyticsDashboardPage: React.FC = () => {
         )}
       </div>
     </div>
+    </Layout>
   );
 };
 

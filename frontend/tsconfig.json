@@ -14,18 +14,8 @@
     "strict": false,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
-    "noFallthroughCasesInSwitch": false,
-    "allowSyntheticDefaultImports": true,
-    "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": false,
-    "noImplicitAny": false
+    "noFallthroughCasesInSwitch": true
   },
   "include": ["src"],
-  "exclude": [
-    "src/**/__tests__",
-    "src/**/*.test.ts",
-    "src/**/*.test.tsx",
-    "src/setupTests.ts"
-  ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

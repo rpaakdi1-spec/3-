@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Layout from '../components/common/Layout';
 import {
   Truck,
   MapPin,
@@ -31,7 +32,7 @@ import {
   Cell
 } from 'recharts';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
 interface OptimizationConstraints {
   max_vehicles: number;
@@ -247,6 +248,7 @@ const DispatchOptimizationPage: React.FC = () => {
   };
 
   return (
+    <Layout>
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
@@ -748,6 +750,7 @@ const DispatchOptimizationPage: React.FC = () => {
         )}
       </div>
     </div>
+    </Layout>
   );
 };
 

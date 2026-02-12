@@ -5,9 +5,10 @@
  */
 
 import axios from 'axios';
+import { API_CONFIG } from '../config/api';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-const API_PREFIX = '/api/v1/delivery-tracking';
+const API_BASE_URL = API_CONFIG.BASE_URL;
+const API_PREFIX = '/delivery-tracking';
 
 export interface PublicTrackingInfo {
   tracking_number: string;

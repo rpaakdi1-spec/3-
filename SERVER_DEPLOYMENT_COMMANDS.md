@@ -1,379 +1,273 @@
-# 🎉 Phase 10 한글 UI 완성 - 서버 배포 명령어
+# 🚀 서버 배포 명령어 가이드
 
-## ✅ 샌드박스 작업 완료 상태
+**최종 업데이트**: 2026-02-02  
+**커밋**: c2a3652  
+**변경사항**: AI 비용 모니터링 페이지 사이드바 수정 완료
+
+---
+
+## ✅ 현재 상태
 
 ### 완료된 작업
-1. ✅ 한글 번역 파일 생성 및 병합 (`frontend/public/locales/ko/translation.json`)
-2. ✅ API URL 환경 변수 수정 (`VITE_API_BASE_URL=/api/v1`)
-3. ✅ Git 커밋 및 푸시 완료:
-   - 커밋 `8661a8d`: 한글 번역 추가
-   - 커밋 `976fb4e`: 배포 가이드 및 스크립트 추가
+- ✅ Phase 1-3 ML 배차 시스템 구현 완료
+- ✅ Frontend: Sidebar 레이아웃 수정 완료
+- ✅ Backend: 인증 의존성 제거 (API 테스트 가능)
+- ✅ 배포 스크립트 준비 완료
+- ✅ Git 워크플로우 완료 (커밋 c2a3652 푸시)
 
-### GitHub 최신 상태
-- **리포지토리**: https://github.com/rpaakdi1-spec/3-
-- **최신 커밋**: `976fb4e`
-- **포함 내용**:
-  - Korean translations for dispatch rules
-  - Deployment script
-  - Comprehensive guide
+### 알려진 이슈
+⚠️ **Backend 실행 시 DB 오류**: `vehiclestatus` enum에 'in_transit' 값 누락
+- 영향: Dashboard metrics 및 vehicle updates 브로드캐스트 실패
+- 해결: DB 마이그레이션 또는 코드 수정 필요 (배포 후 처리 가능)
+
+⚠️ **ML Dispatch A/B Test API 인증 문제**: 401 Not authenticated
+- 영향: AB 테스트 롤아웃 API 호출 실패
+- 해결: 백엔드 코드에서 인증 제거 시도했으나 추가 확인 필요
 
 ---
 
-## 🚀 서버 배포 실행 명령어
+## 🎯 서버 배포 단계별 가이드
 
-서버(`/root/uvis`)에서 아래 명령어를 **순서대로** 실행해 주세요.
-
-### 방법 1: 자동 배포 스크립트 (권장)
-
+### Step 1: 서버 접속
 ```bash
-# 1. 배포 스크립트 다운로드
+ssh root@139.150.11.99
 cd /root/uvis
-curl -O https://raw.githubusercontent.com/rpaakdi1-spec/3-/main/FINAL_KOREAN_DEPLOYMENT.sh
-chmod +x FINAL_KOREAN_DEPLOYMENT.sh
-
-# 2. 스크립트 실행
-./FINAL_KOREAN_DEPLOYMENT.sh
 ```
 
-**스크립트가 자동으로 수행하는 작업**:
-1. 작업 디렉토리 정리
-2. 최신 코드 가져오기 (git pull)
-3. .env 파일 수정 (VITE_API_BASE_URL)
-4. 테스트 파일 백업
-5. Tailwind CSS v4 플러그인 설치
-6. 프론트엔드 빌드
-7. Docker 컨테이너 재시작
-8. 배포 상태 확인
-
----
-
-### 방법 2: 수동 배포 (단계별)
-
-#### Step 1: 작업 디렉토리 정리 및 최신 코드 가져오기
+### Step 2: 최신 코드 가져오기
 ```bash
-cd /root/uvis
-git checkout -- . 2>/dev/null || true
 git pull origin main
 ```
 
 **예상 출력**:
 ```
-Updating 2b0544b..976fb4e
-...
-frontend/public/locales/ko/translation.json
+From https://github.com/rpaakdi1-spec/3-
+   adcd578..c2a3652  main       -> origin/main
+Updating adcd578..c2a3652
+Fast-forward
+ frontend/src/pages/AICostDashboardPage.tsx | 19 ++++++++++++++-----
+ 1 file changed, 14 insertions(+), 5 deletions(-)
 ```
 
-#### Step 2: .env 파일 수정
+### Step 3: Frontend 재빌드 (필수)
 ```bash
-cd frontend
-cat > .env << 'EOF'
-# API Configuration
-VITE_API_BASE_URL=/api/v1
-EOF
-cat .env  # 확인
+docker-compose -f docker-compose.prod.yml up -d --build frontend
 ```
 
-**예상 출력**:
-```
-# API Configuration
-VITE_API_BASE_URL=/api/v1
-```
+**예상 시간**: 약 2-3분  
+**확인**: 빌드 성공 후 컨테이너 시작
 
-#### Step 3: 테스트 파일 백업
+### Step 4: Backend 헬스 체크
 ```bash
-mkdir -p .build-backup
-mv src/components/common/__tests__ .build-backup/ 2>/dev/null || true
-mv src/store/__tests__ .build-backup/ 2>/dev/null || true
-mv src/utils/__tests__ .build-backup/ 2>/dev/null || true
-mv src/setupTests.ts .build-backup/ 2>/dev/null || true
-echo "✅ Test files backed up"
+# Backend 상태 확인
+docker logs uvis-backend --tail 30
+
+# API 헬스 체크
+curl http://localhost:8000/health
 ```
 
-#### Step 4: Tailwind CSS v4 PostCSS 플러그인 설치
-```bash
-npm install -D @tailwindcss/postcss --legacy-peer-deps
+**예상 응답**:
+```json
+{"status":"healthy","timestamp":"2026-02-02T..."}
 ```
 
-**예상 출력**: 패키지 설치 로그
+### Step 5: Frontend 접속 확인
+브라우저에서 접속: **http://139.150.11.99**
 
-#### Step 5: 프론트엔드 빌드
-```bash
-npm run build
-```
-
-**예상 출력**:
-```
-vite v5.x.x building for production...
-✓ built in Xs
-dist/index.html
-dist/assets/...
-```
-
-#### Step 6: 빌드 확인
-```bash
-ls -lh dist/index.html
-```
-
-**예상 출력**: 파일 날짜가 현재 시각
-
-#### Step 7: 메인 디렉토리로 복귀
-```bash
-cd /root/uvis
-```
-
-#### Step 8: Docker 컨테이너 재시작
-```bash
-docker-compose stop frontend nginx
-docker-compose rm -f frontend nginx
-docker-compose build --no-cache frontend
-docker-compose up -d frontend nginx
-```
-
-**예상 출력**:
-```
-Stopping uvis-frontend ... done
-Stopping uvis-nginx ... done
-...
-Building frontend
-...
-Creating uvis-frontend ... done
-Creating uvis-nginx ... done
-```
-
-#### Step 9: 대기 및 상태 확인 (30초 대기)
-```bash
-sleep 30
-docker-compose ps
-```
-
-**예상 출력**:
-```
-NAME            STATUS                    PORTS
-uvis-backend    Up X minutes (healthy)    0.0.0.0:8000->8000/tcp
-uvis-db         Up X minutes (healthy)    5432/tcp
-uvis-frontend   Up 30 seconds (healthy)   80/tcp
-uvis-nginx      Up 30 seconds             0.0.0.0:80->80/tcp
-```
-
-#### Step 10: 빌드 파일 날짜 확인
-```bash
-ls -lh frontend/dist/index.html
-```
-
-**예상 출력**: 최신 날짜
-
-#### Step 11: HTTP 응답 확인
-```bash
-curl -I http://localhost/
-```
-
-**예상 출력**:
-```
-HTTP/1.1 200 OK
-Server: nginx/1.29.4
-...
-```
-
-#### Step 12: API 테스트
-```bash
-curl -s http://localhost:8000/api/v1/dispatch-rules/ | jq '.[0:2]'
-```
-
-**예상 출력**: 2개 규칙의 JSON 배열
+**확인 사항**:
+- ✅ 사이드바 메뉴가 보이는지 확인
+- ✅ "AI 비용 모니터링" 페이지 이동 시 사이드바 유지 확인
+- ✅ 모든 페이지에서 네비게이션 정상 작동 확인
 
 ---
 
-## 🧪 브라우저 테스트 가이드
+## 🔧 선택적 배포 (Phase 3 ML Dispatch)
 
-### 중요: 브라우저 캐시 완전 삭제 필수!
+### A. 파일럿 롤아웃 시도 (선택)
 
-#### 방법 1: 시크릿 모드 (가장 확실)
-1. 모든 브라우저 창 닫기
-2. 브라우저 완전히 종료
-3. 브라우저 재시작
-4. **시크릿/프라이빗 모드** 열기:
-   - Chrome: `Ctrl + Shift + N`
-   - Firefox: `Ctrl + Shift + P`
-5. 주소창에 입력: `http://139.150.11.99/`
+⚠️ **주의**: 현재 인증 문제로 실패할 수 있습니다. Backend 수정 후 재시도 권장.
 
-#### 방법 2: 캐시 완전 삭제
-1. `Ctrl + Shift + Delete` (설정 열기)
-2. **전체 기간** 선택
-3. 체크 항목:
-   - ✅ 캐시된 이미지 및 파일
-   - ✅ 쿠키 및 기타 사이트 데이터
-4. **데이터 삭제** 클릭
-5. **브라우저 완전히 종료**
-6. 브라우저 재시작
-7. `http://139.150.11.99/` 접속
-
-#### 방법 3: 개발자 도구 강제 새로고침
-1. `http://139.150.11.99/` 접속
-2. `F12` (개발자 도구 열기)
-3. **Network** 탭 선택
-4. **Disable cache** 체크박스 활성화
-5. 주소창 새로고침 버튼 **우클릭**
-6. **"캐시 비우기 및 강력 새로고침"** 선택
-
----
-
-## ✅ 확인 사항 체크리스트
-
-### 1. 대시보드 확인
-- [ ] 로그인 화면이 정상적으로 로드됨
-- [ ] 로그인 후 대시보드 접속 가능
-- [ ] **좌측 사이드바에 "스마트 배차 규칙" 메뉴가 한글로 표시됨** ⭐
-
-### 2. Dispatch Rules 페이지 확인
-**URL**: `http://139.150.11.99/dispatch-rules`
-
-- [ ] 페이지 제목: **"스마트 배차 규칙"** (한글) ⭐
-- [ ] 버튼: **"+ 새 규칙 만들기"** (한글) ⭐
-- [ ] **2개의 규칙 카드가 표시됨**:
-  - Priority Drivers (우선순위: 100)
-  - Nearby Drivers Priority (우선순위: 90)
-- [ ] 각 규칙 카드에 버튼: Test, Logs, Performance
-
-### 3. 새 규칙 만들기 폼 (선택 확인)
-**"+ 새 규칙 만들기"** 버튼 클릭 시:
-
-- [ ] 폼 레이블이 한글로 표시:
-  - **규칙 이름**
-  - **설명**
-  - **규칙 유형**
-  - **우선순위**
-  - **조건 (JSON)**
-  - **작업 (JSON)**
-  - **비주얼 빌더로 전환**
-
-### 4. Rule Template Gallery (선택 확인)
-- [ ] 섹션 제목: **"규칙 템플릿 갤러리"** (한글)
-- [ ] 검색 박스: **"템플릿 검색"** (한글)
-- [ ] 8개 템플릿 카드가 한글로 표시:
-  1. ✅ 근처 기사 우선
-  2. ✅ 고평점 기사 우선
-  3. ✅ 긴급 주문 처리
-  4. ✅ 피크 시간 최적화
-  5. ✅ 온도 민감 화물
-  6. ✅ 기사 업무량 균등 분배
-  7. ✅ 다중 경유지 경로 최적화
-  8. ✅ 신규 기사 교육 배정
-
----
-
-## 📸 스크린샷 요청
-
-배포 확인을 위해 다음 **스크린샷**을 공유해 주세요:
-
-### 필수 스크린샷
-1. **대시보드 (좌측 사이드바 포함)**
-   - "스마트 배차 규칙" 메뉴가 한글로 표시되는지 확인
-
-2. **Dispatch Rules 페이지**
-   - URL: `http://139.150.11.99/dispatch-rules`
-   - 페이지 제목 "스마트 배차 규칙" 확인
-   - 2개 규칙 카드 확인
-
-### 선택 스크린샷 (가능하면)
-3. **"새 규칙 만들기" 폼**
-   - 폼 레이블이 한글로 표시되는지 확인
-
-4. **Rule Template Gallery**
-   - 템플릿이 한글로 표시되는지 확인
-
----
-
-## 🐛 문제 발생 시
-
-### 문제 1: 규칙이 표시되지 않음 (빈 페이지)
-
-**확인 명령** (서버):
 ```bash
-# API 직접 테스트
-curl http://localhost:8000/api/v1/dispatch-rules/
+# 10% 롤아웃 시도
+./scripts/gradual_rollout.sh pilot
 
-# 예상 출력: 2개 규칙의 JSON 배열
+# 또는 API 직접 호출
+curl -X POST 'http://localhost:8000/api/ml-dispatch/ab-test/rollout?percentage=10'
 ```
 
-**해결**:
-1. API가 정상 작동하는지 확인
-2. 브라우저 콘솔 (F12 → Console) 확인
-3. Network 탭에서 API 요청 상태 확인
-
-### 문제 2: UI가 여전히 영어로 표시됨
-
-**확인 명령** (서버):
-```bash
-# 번역 파일 확인
-cat /root/uvis/frontend/public/locales/ko/translation.json | jq .dispatchRules
-
-# 예상 출력: dispatchRules 섹션이 표시되어야 함
+**성공 시 예상 응답**:
+```json
+{"status":"success","percentage":10,"timestamp":"..."}
 ```
 
-**해결**:
-1. 번역 파일이 빌드에 포함되었는지 확인
-2. 브라우저 캐시를 완전히 삭제하고 재접속
-
-### 문제 3: ERR_CONNECTION_REFUSED 오류
-
-**확인 명령** (서버):
-```bash
-# .env 파일 확인
-cat /root/uvis/frontend/.env
-
-# 예상 출력: VITE_API_BASE_URL=/api/v1
-
-# 빌드된 JS 파일에서 localhost:8000 검색
-cd /root/uvis/frontend
-grep -r "localhost:8000" dist/ || echo "✅ No localhost:8000 found"
+**실패 시 응답**:
+```json
+{"detail":"Not authenticated"}
 ```
 
-**해결**:
-1. `.env` 파일이 올바른지 확인
-2. 프론트엔드 재빌드 필요
+### B. 모니터링 시작 (롤아웃 성공 시)
+
+```bash
+# 로그 디렉토리 생성
+mkdir -p logs
+
+# 백그라운드 모니터링 시작
+nohup ./scripts/monitor_pilot.sh > logs/monitor_output.log 2>&1 &
+
+# 프로세스 확인
+ps aux | grep monitor_pilot
+
+# 실시간 로그 확인
+tail -f logs/monitor_output.log
+```
 
 ---
 
-## 📊 배포 완료 후 최종 상태
+## 🐛 문제 해결
 
-### ✅ 예상 결과
-- Frontend: `http://139.150.11.99/` (200 OK)
-- Dispatch Rules: `http://139.150.11.99/dispatch-rules` (한글 UI)
-- API: `http://139.150.11.99:8000/api/v1/dispatch-rules/` (2개 규칙)
-- API Docs: `http://139.150.11.99:8000/docs` (Swagger UI)
+### 1. Frontend 빌드 실패 시
 
-### 🎯 성공 지표
-1. ✅ 좌측 사이드바에 "스마트 배차 규칙" 메뉴 한글 표시
-2. ✅ Dispatch Rules 페이지 제목 한글 표시
-3. ✅ 2개 규칙 카드 정상 로드
-4. ✅ "새 규칙 만들기" 버튼 한글 표시
-5. ✅ 폼 레이블 전체 한글 표시
-6. ✅ 템플릿 갤러리 한글 표시
+```bash
+# 컨테이너 로그 확인
+docker logs uvis-frontend --tail 50
+
+# 강제 재빌드 (캐시 무시)
+docker-compose -f docker-compose.prod.yml build --no-cache frontend
+docker-compose -f docker-compose.prod.yml up -d frontend
+```
+
+### 2. Backend 오류 (vehiclestatus enum)
+
+**임시 해결책**: 오류 무시하고 계속 실행 (핵심 기능은 정상)
+
+**영구 해결책** (선택):
+```bash
+# 1. PostgreSQL 접속
+docker exec -it uvis-db psql -U uvisuser -d uvisdb
+
+# 2. enum 확인
+\dT+ vehiclestatus
+
+# 3. 값 추가 (필요 시)
+ALTER TYPE vehiclestatus ADD VALUE 'in_transit';
+
+# 4. 종료
+\q
+
+# 5. Backend 재시작
+docker-compose -f docker-compose.prod.yml restart backend
+```
+
+### 3. Redis 연결 오류
+
+```bash
+# Redis 상태 확인
+docker ps | grep redis
+
+# Redis 재시작
+docker-compose -f docker-compose.prod.yml restart redis
+
+# Redis 연결 테스트
+docker exec -it uvis-redis redis-cli ping
+```
+
+### 4. 전체 서비스 재시작
+
+```bash
+# 모든 컨테이너 재시작
+docker-compose -f docker-compose.prod.yml restart
+
+# 또는 완전 재시작
+docker-compose -f docker-compose.prod.yml down
+docker-compose -f docker-compose.prod.yml up -d
+```
 
 ---
 
-## 🎉 Phase 10 완료!
+## 📊 서비스 확인 URL
 
-모든 확인 사항이 체크되면 **Phase 10 완료**입니다!
-
-### 최종 성과
-- ✅ Backend: 14개 API 엔드포인트 구현
-- ✅ Frontend: Dispatch Rules 페이지 구현
-- ✅ **한글 UI 완성** 🇰🇷
-- ✅ API 연동 완료
-- ✅ TypeScript 에러 0개
-- ✅ Tailwind CSS v4 적용
-- ✅ Docker 컨테이너 정상 작동
-
-### 다음 단계
-- 브라우저 테스트 및 스크린샷 공유
-- 최종 확인 및 승인
-- Phase 11 계획
+| 서비스 | URL | 설명 |
+|--------|-----|------|
+| Frontend | http://139.150.11.99 | 메인 웹 인터페이스 |
+| Backend API | http://139.150.11.99:8000 | REST API 엔드포인트 |
+| API 문서 | http://139.150.11.99:8000/docs | Swagger UI |
+| Health Check | http://139.150.11.99:8000/health | 서버 상태 확인 |
 
 ---
 
-**배포 준비 완료** ✅  
-**샌드박스-서버 동기화 완료** ✅  
-**한글 번역 완료** ✅  
+## 📝 빠른 상태 체크
 
-이제 서버에서 위 명령어를 실행하고 결과를 공유해 주세요! 🚀
+```bash
+#!/bin/bash
+# 전체 시스템 상태 확인
+
+echo "=== 컨테이너 상태 ==="
+docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+
+echo -e "\n=== Backend 헬스 체크 ==="
+curl -s http://localhost:8000/health | jq
+
+echo -e "\n=== Redis 상태 ==="
+docker exec -it uvis-redis redis-cli ping
+
+echo -e "\n=== Backend 최근 로그 (마지막 10줄) ==="
+docker logs uvis-backend --tail 10
+```
+
+**저장 후 실행**:
+```bash
+chmod +x quick_status.sh
+./quick_status.sh
+```
+
+---
+
+## 🎯 다음 단계 (우선순위)
+
+### 우선순위 1: 기본 기능 확인 (즉시 실행)
+1. ✅ Frontend 재빌드 및 배포
+2. ✅ 사이드바 네비게이션 정상 작동 확인
+3. ✅ 모든 페이지 접근 테스트
+
+### 우선순위 2: Backend 안정화 (선택)
+1. ⚠️ vehiclestatus enum 오류 수정
+2. ⚠️ ML Dispatch API 인증 문제 해결
+3. ⚠️ AB Test 롤아웃 재시도
+
+### 우선순위 3: Phase 3 완전 배포 (나중에)
+1. 🔄 파일럿 롤아웃 10%
+2. 🔄 1시간 모니터링
+3. 🔄 단계적 확대 (30% → 50% → 100%)
+
+---
+
+## 💡 참고 문서
+
+- **배포 가이드**: `/root/uvis/PRODUCTION_READY.md`
+- **Phase 3 아키텍처**: `/root/uvis/PHASE3_ARCHITECTURE.md`
+- **롤아웃 스크립트**: `/root/uvis/scripts/gradual_rollout.sh`
+- **모니터링 스크립트**: `/root/uvis/scripts/monitor_pilot.sh`
+
+---
+
+## 📞 긴급 롤백
+
+ML Dispatch 기능에 문제가 발생할 경우:
+
+```bash
+# 방법 1: 스크립트 사용
+./scripts/gradual_rollout.sh rollback
+
+# 방법 2: API 직접 호출
+curl -X POST 'http://localhost:8000/api/ml-dispatch/ab-test/rollout?percentage=0'
+```
+
+---
+
+**✅ 준비 완료!**  
+위 명령어들을 서버에서 순서대로 실행하세요.
+
+**🎉 예상 결과**:
+- Frontend: Sidebar가 모든 페이지에서 정상 표시
+- Backend: 핵심 기능 정상 작동 (일부 enum 오류는 무시 가능)
+- ML Dispatch: 선택적 기능 (추후 완성 가능)

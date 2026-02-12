@@ -1,11 +1,10 @@
 import axios from 'axios';
 import type { RecurringOrder, RecurringOrderCreate, RecurringOrderListResponse } from '../types';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+import { API_CONFIG } from '../config/api';
 
 const api = axios.create({
-  baseURL: `${API_BASE_URL}/recurring-orders`,
-  timeout: 30000,
+  baseURL: `${API_CONFIG.BASE_URL}/recurring-orders`,
+  timeout: API_CONFIG.TIMEOUT,
   headers: {
     'Content-Type': 'application/json',
   },

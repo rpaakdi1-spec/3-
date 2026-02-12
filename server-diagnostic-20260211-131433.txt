@@ -1,0 +1,277 @@
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1️⃣  System Resources
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📊 Memory Usage:
+              total        used        free      shared  buff/cache   available
+Mem:          3.6Gi       1.8Gi       122Mi        17Mi       1.7Gi       1.6Gi
+Swap:            0B          0B          0B
+
+💾 Disk Usage:
+Filesystem      Size  Used Avail Use% Mounted on
+tmpfs           1.8G     0  1.8G   0% /dev/shm
+/dev/vda5       199G  160G   40G  81% /
+/dev/vda2       994M  664M  331M  67% /boot
+/dev/vda1        99M  5.8M   94M   6% /boot/efi
+
+⚙️  CPU Info:
+CPU(s):              2
+On-line CPU(s) list: 0,1
+Thread(s) per core:  1
+Model name:          INTEL(R) XEON(R) SILVER 4510
+BIOS Model name:     pc-i440fx-6.2
+NUMA node0 CPU(s):   0,1
+
+📈 Load Average:
+ 13:14:33 up 8 min,  1 user,  load average: 0.11, 0.45, 0.30
+
+🔄 Swap:
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2️⃣  Docker Environment
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🐳 Docker Version:
+Docker version 26.1.3, build b72abbb
+Docker Compose version v2.24.5
+
+📦 Docker Containers:
+NAME                   IMAGE                    COMMAND                  SERVICE      CREATED         STATUS                   PORTS
+coldchain-grafana      grafana/grafana:latest   "/run.sh"                grafana      5 days ago      Up 7 minutes             0.0.0.0:3001->3000/tcp, :::3001->3000/tcp
+coldchain-prometheus   prom/prometheus:latest   "/bin/prometheus --c…"   prometheus   5 days ago      Up 7 minutes             0.0.0.0:9090->9090/tcp, :::9090->9090/tcp
+uvis-backend           uvis-backend             "uvicorn main:app --…"   backend      4 minutes ago   Up 3 minutes (healthy)   0.0.0.0:8000->8000/tcp, :::8000->8000/tcp
+uvis-db                postgres:15-alpine       "docker-entrypoint.s…"   db           2 days ago      Up 7 minutes (healthy)   0.0.0.0:5432->5432/tcp, :::5432->5432/tcp
+uvis-frontend          uvis-frontend            "/docker-entrypoint.…"   frontend     4 minutes ago   Up 3 minutes (healthy)   0.0.0.0:80->80/tcp, :::80->80/tcp
+uvis-redis             redis:7-alpine           "docker-entrypoint.s…"   redis        2 days ago      Up 7 minutes (healthy)   0.0.0.0:6379->6379/tcp, :::6379->6379/tcp
+
+📊 Docker Stats:
+CONTAINER ID   NAME                   CPU %     MEM USAGE / LIMIT     MEM %     NET I/O           BLOCK I/O         PIDS
+b0468adc4bb9   uvis-frontend          0.00%     4.445MiB / 3.578GiB   0.12%     30.3kB / 527kB    1.23MB / 0B       3
+0b6377b9fb30   uvis-backend           1.39%     1.192GiB / 3.578GiB   33.31%    448kB / 435kB     27.5MB / 160kB    17
+e290ab61aa8e   uvis-db                0.28%     44.23MiB / 3.578GiB   1.21%     809kB / 831kB     47.1MB / 199kB    10
+a752c19ed6a3   uvis-redis             1.02%     12.25MiB / 3.578GiB   0.33%     1.88kB / 0B       32.9MB / 13.3kB   6
+5f820a6e181e   coldchain-grafana      0.49%     109.6MiB / 3.578GiB   2.99%     48.7kB / 10.4kB   472MB / 580kB     14
+7bd176792202   coldchain-prometheus   0.00%     35.57MiB / 3.578GiB   0.97%     126kB / 70.7kB    179MB / 168kB     8
+
+🔍 Docker Networks:
+NETWORK ID     NAME                     DRIVER    SCOPE
+846fc689f3d5   bridge                   bridge    local
+ec5923dbadf3   host                     host      local
+20796a6bb951   none                     null      local
+f7a1e8b6b9d0   uvis_coldchain-network   bridge    local
+1438c93d5840   uvis_uvis-network        bridge    local
+
+💾 Docker Volumes:
+DRIVER    VOLUME NAME
+local     9c8f0aa4fd8a24da0e8f520ca59531a240d57ef0b4c411f64c8d0908458867fd
+local     36c70000204083150e458efee73c377f8e481a04be701c454af95256089ad98b
+local     8333aed269f95dbc28e4b89c4ceb39ce4b3b0f1996da14d50ef7e64e5b3efc05
+local     de043a74ef425eb9775b8fe859ef77f5d933e09962abb905c45d867f2b4c29af
+local     df39d2be957b5a1afd6825d20fa6c88c747c5c85575329093721cdc3bca6fc77
+local     efd7dd94356945fa5830322cb29b8917055d4db138d9b3bf28f37ca01b13e1a7
+local     uvis_backend_uploads
+local     uvis_grafana_data
+local     uvis_postgres_data
+local     uvis_prometheus_data
+local     uvis_redis_data
+
+🖼️  Docker Images:
+REPOSITORY        TAG           IMAGE ID       CREATED         SIZE
+uvis-backend      latest        5b06cfb370fe   15 hours ago    1.55GB
+uvis-frontend     latest        c06f7b2d4a7e   2 days ago      63.9MB
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+3️⃣  Service Status
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🌐 Port Listening:
+tcp        0      0 0.0.0.0:8000            0.0.0.0:*               LISTEN      4088/docker-proxy   
+tcp        0      0 0.0.0.0:9090            0.0.0.0:*               LISTEN      1743/docker-proxy   
+tcp        0      0 0.0.0.0:6379            0.0.0.0:*               LISTEN      1745/docker-proxy   
+tcp        0      0 0.0.0.0:111             0.0.0.0:*               LISTEN      1/systemd           
+tcp        0      0 0.0.0.0:80              0.0.0.0:*               LISTEN      3906/docker-proxy   
+tcp        0      0 0.0.0.0:22              0.0.0.0:*               LISTEN      1010/sshd           
+tcp        0      0 0.0.0.0:5432            0.0.0.0:*               LISTEN      1810/docker-proxy   
+tcp        0      0 0.0.0.0:3001            0.0.0.0:*               LISTEN      1811/docker-proxy   
+tcp6       0      0 :::8000                 :::*                    LISTEN      4094/docker-proxy   
+tcp6       0      0 :::9090                 :::*                    LISTEN      1755/docker-proxy   
+tcp6       0      0 :::6379                 :::*                    LISTEN      1756/docker-proxy   
+tcp6       0      0 :::111                  :::*                    LISTEN      1/systemd           
+tcp6       0      0 :::80                   :::*                    LISTEN      3913/docker-proxy   
+tcp6       0      0 :::22                   :::*                    LISTEN      1010/sshd           
+tcp6       0      0 :::5432                 :::*                    LISTEN      1831/docker-proxy   
+tcp6       0      0 :::3001                 :::*                    LISTEN      1821/docker-proxy   
+
+🔌 HTTP Services:
+Frontend (port 80):
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0  0   478    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+HTTP/1.1 200 OK
+Server: nginx/1.29.4
+
+Backend (port 8000):
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0  0   958    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+HTTP/1.1 200 OK
+date: Wed, 11 Feb 2026 04:14:36 GMT
+
+Backend API:
+[{"id":1,"name":"기본 거리 우선 배차","description":"5km 이내 가까운 기사에게 우선 배정하는 시나리오","category":"distance","difficulty":"easy","complexity_score":2.0,"usage_count":0,"avg_success_rate":null},{"id":2,"name":"고평점 기사 우선","description":"평점 4.5 이상 고평점 기사 우선 배정","category":"quality","difficulty":"easy","complexity_score":2.5,"usage_count":0,"avg_success_rate":null},{"id":3,"name":"피크 시간대 시뮬레이션","description":"주문 10건, 기사 5명 - 피크 시간 상황","category":"peak_hours","difficulty":"medium","complexity_score":5.0,"usage_count":0,"avg_success_rate":null},{"id":4,"name":"복합 조건 테스트","description":"거리 + 평점 + 차량 타입 복합 조건","category":"complex","difficulty":"hard","complexity_score":7.5,"usage_count":0,"avg_success_rate":null},{"id":5,"name":"긴급 주문 우선 처리","description":"긴급(high priority) 주문 최우선 배정","category":"priority","difficulty":"medium","complexity_score":4.0,"usage_count":0,"avg_success_rate":null},{"id":6,"name":"차량 타입 매칭","description":"냉동/냉장 화물에 맞는 차량 타입 매칭","category":"vehicle_type","difficulty":"easy","complexity_score":3.0,"usage_count":0,"avg_success_rate":null}]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4️⃣  Project Status
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📂 Project Directory:
+total 5.7M
+-rw-r--r--  1 root root  14K Jan 30 22:47 ACTION_ITEMS.md
+-rw-r--r--  1 root root  347 Jan 28 23:36 add_driver_fields.sql
+-rw-r--r--  1 root root  12K Jan 28 23:36 ADMIN_GUIDE.md
+-rw-r--r--  1 root root 9.7K Feb  4 23:34 AI_API_SETUP_GUIDE.md
+-rw-r--r--  1 root root 7.2K Feb  4 23:34 AI_CHAT_GUIDE.md
+-rw-r--r--  1 root root  11K Feb  4 23:34 AI_DISPATCH_FIX_COMPLETE.md
+-rw-r--r--  1 root root  11K Jan 29 21:21 AI_DISPATCH_GUIDE.md
+-rw-r--r--  1 root root  18K Feb  5 23:32 ALERT_SYSTEM_INTEGRATION_COMPLETE.md
+-rw-r--r--  1 root root 5.9K Feb  4 23:34 ALL_PAGES_LAYOUT_COMPLETE.md
+-rw-r--r--  1 root root 4.9K Feb  7 02:14 API_URL_FIX_SUMMARY.md
+-rw-r--r--  1 root root  14K Jan 28 23:36 API_USAGE_GUIDE.md
+-rw-r--r--  1 root root  15K Jan 28 23:36 ARCHITECTURE.md
+-rw-r--r--  1 root root 9.4K Jan 28 23:36 AUTOMATIC_PROGRESS_COMPLETE.md
+drwxr-xr-x 12 root root 4.0K Feb 10 16:31 backend
+-rw-r--r--  1 root root 6.0K Feb  7 02:14 BACKEND_FIX_DEPLOYMENT.md
+-rw-r--r--  1 root root 7.0K Feb  4 23:34 BACKUP_GUIDE.md
+drwxr-xr-x  6 root root 4.0K Feb  7 02:14 backups
+-rw-r--r--  1 root root 9.4K Jan 28 23:36 BAND_MESSAGE_SYSTEM.md
+-rw-r--r--  1 root root 4.6K Feb  4 23:34 BROWSER_CACHE_GUIDE.md
+
+🔀 Git Status:
+On branch main
+Your branch is up to date with 'origin/main'.
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	docker-compose.yml.backup
+	frontend/.build-backup/
+	frontend/Dockerfile.prebuild
+	server-diagnostic-20260211-131433.txt
+
+nothing added to commit but untracked files present (use "git add" to track)
+
+📝 Git Log (last 5):
+03f4f8b feat: Add comprehensive server health check script
+e942c3d docs: Add no-build deployment strategy documentation
+b8ce223 feat: Add no-build deployment scripts for server efficiency
+858eeea build(phase11c): Add pre-built frontend dist package for server deployment
+3ce7ebb docs(phase11c): Add improved process documentation
+
+🔧 Docker Compose Config:
+db
+redis
+backend
+frontend
+
+📄 Frontend dist:
+total 44K
+drwxr-xr-x 2 rocky rocky 8.0K Feb 10 17:48 assets
+-rw-r--r-- 1 rocky rocky 2.6K Feb 10 17:48 firebase-messaging-sw.js
+-rw-r--r-- 1 rocky rocky  478 Feb 10 17:48 index.html
+drwxr-xr-x 6 rocky rocky   46 Feb 10 17:48 locales
+-rw-r--r-- 1 rocky rocky 1.7K Feb 10 17:48 manifest.json
+-rw-r--r-- 1 rocky rocky 4.3K Feb 10 17:48 service-worker.js
+-rw-r--r-- 1 rocky rocky 5.8K Feb 10 17:48 test-images.html
+-rw-r--r-- 1 rocky rocky 1.6K Feb 10 17:48 vite.svg
+✅ dist exists
+
+📄 Environment Files:
+-rw-r--r-- 1 root root  850 Feb  6 03:02 backend/.env
+-rw-r--r-- 1 root root 2423 Feb  6 00:25 .env
+-rw-r--r-- 1 root root  142 Feb  9 20:56 frontend/.env
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+5️⃣  Recent Logs
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔴 Backend Errors (last 20 lines):
+uvis-backend  | 2026-02-11 04:13:43 | INFO     | app.middleware.security:dispatch | Response: 200 in 0.440s
+uvis-backend  | INFO:     192.168.112.5:37018 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
+uvis-backend  | 2026-02-11 04:13:43 | INFO     | app.middleware.security:dispatch | Request: GET /api/v1/dispatches/stats/summary from 192.168.112.5
+uvis-backend  | 2026-02-11 04:13:44 | INFO     | app.middleware.security:dispatch | Response: 200 in 0.012s
+uvis-backend  | INFO:     192.168.112.5:37028 - "GET /api/v1/dispatches/stats/summary HTTP/1.1" 200 OK
+uvis-backend  | 2026-02-11 04:13:45 | INFO     | app.middleware.security:dispatch | Request: GET /health from 127.0.0.1
+uvis-backend  | 2026-02-11 04:13:45 | INFO     | app.middleware.security:dispatch | Response: 200 in 0.001s
+uvis-backend  | INFO:     127.0.0.1:43954 - "GET /health HTTP/1.1" 200 OK
+uvis-backend  | 2026-02-11 04:14:14 | INFO     | app.middleware.security:dispatch | Request: GET /api/v1/dispatches/stats/summary from 192.168.112.5
+uvis-backend  | 2026-02-11 04:14:14 | INFO     | app.middleware.security:dispatch | Response: 200 in 0.011s
+uvis-backend  | INFO:     192.168.112.5:36800 - "GET /api/v1/dispatches/stats/summary HTTP/1.1" 200 OK
+uvis-backend  | 2026-02-11 04:14:15 | INFO     | app.middleware.security:dispatch | Request: GET /health from 127.0.0.1
+uvis-backend  | 2026-02-11 04:14:15 | INFO     | app.middleware.security:dispatch | Response: 200 in 0.002s
+uvis-backend  | INFO:     127.0.0.1:42870 - "GET /health HTTP/1.1" 200 OK
+uvis-backend  | 2026-02-11 04:14:36 | INFO     | app.middleware.security:dispatch | Request: HEAD /docs from 192.168.112.1
+uvis-backend  | 2026-02-11 04:14:36 | INFO     | app.middleware.security:dispatch | Response: 200 in 0.004s
+uvis-backend  | INFO:     192.168.112.1:37324 - "HEAD /docs HTTP/1.1" 200 OK
+uvis-backend  | 2026-02-11 04:14:36 | INFO     | app.middleware.security:dispatch | Request: GET /api/v1/simulations/templates from 192.168.112.1
+uvis-backend  | 2026-02-11 04:14:36 | INFO     | app.middleware.security:dispatch | Response: 200 in 0.008s
+uvis-backend  | INFO:     192.168.112.1:37326 - "GET /api/v1/simulations/templates HTTP/1.1" 200 OK
+
+🔵 Frontend Logs (last 10 lines):
+uvis-frontend  | 211.223.31.60 - - [11/Feb/2026:04:13:43 +0000] "GET /assets/brain-BT-kJAZk.js HTTP/1.1" 200 750 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36" "-"
+uvis-frontend  | 211.223.31.60 - - [11/Feb/2026:04:13:43 +0000] "GET /assets/Card-BZBkuSEa.js HTTP/1.1" 200 469 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36" "-"
+uvis-frontend  | 211.223.31.60 - - [11/Feb/2026:04:13:43 +0000] "GET /assets/index-BvcQtAB6.js HTTP/1.1" 200 8510 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36" "-"
+uvis-frontend  | 211.223.31.60 - - [11/Feb/2026:04:13:43 +0000] "GET /assets/chevron-down-DjioDqHQ.js HTTP/1.1" 200 301 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36" "-"
+uvis-frontend  | 211.223.31.60 - - [11/Feb/2026:04:13:43 +0000] "GET /assets/circle-check-big-CgFKxf-k.js HTTP/1.1" 200 362 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36" "-"
+uvis-frontend  | 211.223.31.60 - - [11/Feb/2026:04:13:43 +0000] "GET /assets/index-8f5neQgV.js HTTP/1.1" 200 185410 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36" "-"
+uvis-frontend  | 211.223.31.60 - - [11/Feb/2026:04:13:43 +0000] "GET /assets/trending-up-B_M0jfMY.js HTTP/1.1" 200 348 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36" "-"
+uvis-frontend  | 211.223.31.60 - - [11/Feb/2026:04:13:44 +0000] "GET /api/v1/dispatches/stats/summary HTTP/1.1" 200 221 "http://139.150.11.99/dashboard" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36" "-"
+uvis-frontend  | 211.223.31.60 - - [11/Feb/2026:04:14:14 +0000] "GET /api/v1/dispatches/stats/summary HTTP/1.1" 200 221 "http://139.150.11.99/dashboard" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36" "-"
+uvis-frontend  | 192.168.112.1 - - [11/Feb/2026:04:14:36 +0000] "HEAD / HTTP/1.1" 200 0 "-" "curl/7.61.1" "-"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+6️⃣  Network Diagnostics
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🌐 Public IP:
+139.150.11.99
+🔌 Active Connections:
+tcp        0      0 0.0.0.0:8000            0.0.0.0:*               LISTEN     
+tcp        0      0 0.0.0.0:6379            0.0.0.0:*               LISTEN     
+tcp        0      0 0.0.0.0:80              0.0.0.0:*               LISTEN     
+tcp        0      0 0.0.0.0:5432            0.0.0.0:*               LISTEN     
+tcp6       0      0 :::8000                 :::*                    LISTEN     
+tcp6       0      0 :::6379                 :::*                    LISTEN     
+tcp6       0      0 :::80                   :::*                    LISTEN     
+tcp6       0      0 :::5432                 :::*                    LISTEN     
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+7️⃣  Problem Diagnosis
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ Memory usage OK (49%)
+⚠️  WARNING: Disk usage > 80% (81%)
+✅ All containers running (6/6)
+✅ Frontend responding (HTTP 200)
+✅ Backend responding (HTTP 200)
+✅ Git working tree clean
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+8️⃣  Recommended Actions
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚠️  Found 1 problem(s). Recommendations:
+
+💡 Disk issue:
+   - Clean Docker: docker system prune -a
+   - Remove old logs: find /var/log -type f -name '*.log' -mtime +30 -delete
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+9️⃣  Summary
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📊 Problems Found: 1
+📄 Report saved: server-diagnostic-20260211-131433.txt
+
+⚠️  Please review and fix the issues above.
+
+====================================
+✅ Health Check Complete!
+====================================

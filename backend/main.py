@@ -61,11 +61,6 @@ async def lifespan(app: FastAPI):
     from app.services.scheduler_service import scheduler_service
     await scheduler_service.start()
     
-    # Start vehicle tracking service
-    logger.info("Starting vehicle tracking service...")
-    from app.services.vehicle_tracking_service import vehicle_tracking_service
-    await vehicle_tracking_service.start()
-    
     logger.info("Application startup complete!")
     
     yield
@@ -73,9 +68,7 @@ async def lifespan(app: FastAPI):
     # Shutdown
     logger.info("Shutting down application...")
     from app.services.scheduler_service import scheduler_service
-    from app.services.vehicle_tracking_service import vehicle_tracking_service
     await scheduler_service.stop()
-    await vehicle_tracking_service.stop()
     await metrics_service.stop()
     await manager.shutdown()
 
@@ -160,24 +153,10 @@ async def internal_error_handler(request, exc):
     )
 
 
-# Health check endpoint
-@app.get(f"{settings.API_PREFIX}/health")
-async def health_check():
-    """Health check endpoint for monitoring"""
-    from datetime import datetime
-    return {
-        "status": "healthy",
-        "timestamp": datetime.utcnow().isoformat(),
-        "service": "Cold Chain Dispatch System",
-        "version": "1.0.0"
-    }
-
-
 # Import and include routers
 # from app.api import auth, clients, vehicles, orders, dispatches, tracking, uvis, redispatch, notices, purchase_orders, band_messages, uvis_gps, analytics, delivery_tracking, traffic, monitoring, cache
-from app.api import auth, clients, vehicles, orders, dispatches, tracking, uvis, redispatch, notices, purchase_orders, band_messages, uvis_gps, delivery_tracking, traffic, monitoring, cache, emergency, ml_training, ai_chat, ai_usage, ml_dispatch, ab_test, recurring_orders, order_templates, driver_schedules, urgent_dispatches, notifications, temperature_monitoring, temperature_analytics, billing, vehicle_maintenance, ml_predictions, telemetry, dispatch_optimization, analytics, mobile, integrated_dispatch, ml_autolearning, iot_maintenance, driver_app, traffic_info
+from app.api import auth, clients, vehicles, orders, dispatches, tracking, uvis, redispatch, notices, purchase_orders, band_messages, uvis_gps, delivery_tracking, traffic, monitoring, cache, emergency, ml_training, ai_chat, ai_usage, ml_dispatch, ab_test, recurring_orders, order_templates, driver_schedules, urgent_dispatches, notifications, temperature_monitoring, temperature_analytics, billing, vehicle_maintenance, ml_predictions, telemetry, dispatch_optimization, analytics, mobile
 from app.api.v1 import reports, realtime_monitoring, ml_models, fcm_notifications, performance, security, websocket, mobile_enhanced, billing_enhanced
-from app.api.v1.endpoints import dispatch_rules, simulations
 app.include_router(auth.router, prefix=f"{settings.API_PREFIX}/auth", tags=["Authentication"])
 app.include_router(clients.router, prefix=f"{settings.API_PREFIX}/clients", tags=["Clients"])
 app.include_router(vehicles.router, prefix=f"{settings.API_PREFIX}/vehicles", tags=["Vehicles"])
@@ -205,6 +184,7 @@ app.include_router(emergency.router, prefix=f"{settings.API_PREFIX}", tags=["Eme
 app.include_router(ml_training.router, prefix=f"{settings.API_PREFIX}/ml", tags=["ML Training"])
 app.include_router(ml_dispatch.router, tags=["ML Dispatch"])
 # app.include_router(analytics.router, prefix=f"{settings.API_PREFIX}", tags=["Analytics"])  # Temporarily disabled due to Pydantic recursion issue
+app.include_router(reports.router, prefix=f"{settings.API_PREFIX}/reports", tags=["Reports"])
 app.include_router(realtime_monitoring.router, prefix=f"{settings.API_PREFIX}/realtime", tags=["Realtime Monitoring"])
 app.include_router(ml_models.router, prefix=f"{settings.API_PREFIX}/ml-models", tags=["ML Models"])
 app.include_router(fcm_notifications.router, prefix=f"{settings.API_PREFIX}/notifications", tags=["Push Notifications"])
@@ -220,17 +200,9 @@ app.include_router(ml_predictions.router, prefix=f"{settings.API_PREFIX}", tags=
 app.include_router(telemetry.router, prefix=f"{settings.API_PREFIX}", tags=["Real-time Telemetry"])  # Phase 4 Week 3-4
 app.include_router(dispatch_optimization.router, prefix=f"{settings.API_PREFIX}", tags=["Dispatch Optimization"])  # Phase 4 Week 5-6
 app.include_router(analytics.router, prefix=f"{settings.API_PREFIX}", tags=["Analytics & BI"])  # Phase 4 Week 7-8
-app.include_router(reports.router, prefix=f"{settings.API_PREFIX}")
 app.include_router(mobile.router, prefix=f"{settings.API_PREFIX}/mobile", tags=["Mobile App"])  # Phase 4 Week 9-10
 app.include_router(mobile_enhanced.router, prefix=f"{settings.API_PREFIX}", tags=["Mobile App Enhanced"])  # Phase 7: Mobile API Enhancements
 app.include_router(billing_enhanced.router, prefix=f"{settings.API_PREFIX}", tags=["Billing Enhanced"])  # Phase 8: Billing Enhanced
-app.include_router(dispatch_rules.router, prefix=f"{settings.API_PREFIX}/dispatch-rules", tags=["Dispatch Rules"])  # Phase 10: Smart Dispatch Rule Engine
-app.include_router(simulations.router, prefix=f"{settings.API_PREFIX}/simulations", tags=["Simulations"])  # Phase 11-C: Rule Simulation
-app.include_router(integrated_dispatch.router, prefix=f"{settings.API_PREFIX}", tags=["Integrated Dispatch"])  # Phase 12: 핵심 통합 (Naver Map + GPS + AI)
-app.include_router(iot_maintenance.router, prefix=f"{settings.API_PREFIX}/iot", tags=["IoT & Predictive Maintenance"])  # Phase 13-14: IoT 센서 모니터링 + 예측 유지보수
-app.include_router(ml_autolearning.router, prefix=f"{settings.API_PREFIX}", tags=["ML Auto-Learning"])  # Phase 15: AI 자동 학습
-app.include_router(driver_app.router, prefix=f"{settings.API_PREFIX}/driver", tags=["Driver App"])  # Phase 16: 드라이버 앱 고도화
-app.include_router(traffic_info.router, prefix=f"{settings.API_PREFIX}", tags=["Traffic Information"])  # Phase 11-B: 교통 정보 연동
 
 # Mount static files for uploads
 import os

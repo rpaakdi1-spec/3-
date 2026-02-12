@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Layout from '../components/common/Layout';
 import {
   DollarSign,
   TrendingUp,
@@ -29,61 +30,11 @@ import {
   ResponsiveContainer
 } from 'recharts';
 import * as BillingEnhancedAPI from '../api/billing-enhanced';
-import ReportDownloadModal from '../components/billing/ReportDownloadModal';
 
-// Backend response structure
-interface BackendFinancialSummary {
-  period_start: string;
-  period_end: string;
-  total_revenue: number;
-  invoiced_amount: number;
-  collected_amount: number;
-  collection_rate: number;
-  total_receivables: number;
-  current_receivables: number;
-  overdue_receivables: number;
-  overdue_count: number;
-  total_settlements: number;
-  pending_settlements: number;
-  paid_settlements: number;
-  cash_in: number;
-  cash_out: number;
-  net_cash_flow: number;
-}
-
-// Frontend display structure
-interface FinancialSummary {
-  total_revenue: number;
-  total_invoiced: number;
-  total_paid: number;
-  total_outstanding: number;
-  payment_rate: number;
-  overdue_count: number;
-  overdue_amount: number;
-  pending_settlements: number;
-  pending_settlement_amount: number;
-  cash_in: number;
-  cash_out: number;
-  net_cash_flow: number;
-}
-
-interface MonthlyTrend {
-  month: string;
-  revenue: number;
-  paid: number;
-  outstanding: number;
-  payment_rate: number;
-}
-
-interface TopClient {
-  client_id: number;
-  client_name: string;
-  total_amount: number;
-  paid_amount: number;
-  outstanding_amount: number;
-  invoice_count: number;
-  payment_rate: number;
-}
+// Use types from billing-enhanced API
+type FinancialSummary = BillingEnhancedAPI.FinancialSummary;
+type MonthlyTrend = BillingEnhancedAPI.MonthlyTrend;
+type TopClient = BillingEnhancedAPI.TopClient;
 
 const FinancialDashboardPage: React.FC = () => {
   const [summary, setSummary] = useState<FinancialSummary | null>(null);
@@ -95,47 +46,26 @@ const FinancialDashboardPage: React.FC = () => {
     end_date: new Date().toISOString().split('T')[0]
   });
   const [trendMonths, setTrendMonths] = useState(12);
-  const [showReportModal, setShowReportModal] = useState(false);
 
   useEffect(() => {
     loadDashboardData();
   }, [dateRange, trendMonths]);
 
-  // Transform backend response to frontend structure
-  const transformFinancialSummary = (backendData: BackendFinancialSummary): FinancialSummary => {
-    return {
-      total_revenue: backendData.total_revenue || 0,
-      total_invoiced: backendData.invoiced_amount || 0,
-      total_paid: backendData.collected_amount || 0,
-      total_outstanding: backendData.total_receivables || 0,
-      payment_rate: backendData.collection_rate || 0,
-      overdue_count: backendData.overdue_count || 0,
-      overdue_amount: backendData.overdue_receivables || 0,
-      pending_settlements: backendData.pending_settlements || 0,
-      pending_settlement_amount: backendData.total_settlements || 0,
-      cash_in: backendData.cash_in || 0,
-      cash_out: backendData.cash_out || 0,
-      net_cash_flow: backendData.net_cash_flow || 0
-    };
-  };
-
   const loadDashboardData = async () => {
     setLoading(true);
+    
     try {
-      // Load financial summary - pass individual parameters, not nested object
-      const backendData = await BillingEnhancedAPI.getFinancialDashboard(
-        dateRange.start_date, 
+      // Load financial summary
+      const summaryData = await BillingEnhancedAPI.getFinancialDashboard(
+        dateRange.start_date,
         dateRange.end_date
-      ) as unknown as BackendFinancialSummary;
-      
-      // Transform backend data to frontend structure
-      const transformedData = transformFinancialSummary(backendData);
-      setSummary(transformedData);
+      );
+      setSummary(summaryData);
 
       // Load monthly trends
       const trendsData = await BillingEnhancedAPI.getMonthlyTrends(
-        dateRange.start_date,
-        dateRange.end_date,
+        undefined,
+        undefined,
         trendMonths
       );
       setTrends(trendsData);
@@ -169,6 +99,7 @@ const FinancialDashboardPage: React.FC = () => {
   const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
 
   return (
+    <Layout>
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
@@ -186,10 +117,7 @@ const FinancialDashboardPage: React.FC = () => {
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
               새로고침
             </button>
-            <button
-              onClick={() => setShowReportModal(true)}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
-            >
+            <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2">
               <Download className="w-4 h-4" />
               보고서 다운로드
             </button>
@@ -238,9 +166,9 @@ const FinancialDashboardPage: React.FC = () => {
                 <span className="text-sm font-medium text-gray-600">수금액</span>
                 <CreditCard className="w-5 h-5 text-green-500" />
               </div>
-              <p className="text-2xl font-bold text-green-600">{formatCurrency(summary.total_paid)}</p>
+              <p className="text-2xl font-bold text-green-600">{formatCurrency(summary.collected_amount)}</p>
               <p className="text-xs text-gray-500 mt-2">
-                회수율: {formatPercent(summary.payment_rate)}
+                회수율: {formatPercent(summary.collection_rate)}
               </p>
             </div>
 
@@ -250,9 +178,9 @@ const FinancialDashboardPage: React.FC = () => {
                 <span className="text-sm font-medium text-gray-600">미수금</span>
                 <AlertCircle className="w-5 h-5 text-orange-500" />
               </div>
-              <p className="text-2xl font-bold text-orange-600">{formatCurrency(summary.total_outstanding)}</p>
+              <p className="text-2xl font-bold text-orange-600">{formatCurrency(summary.total_receivables)}</p>
               <p className="text-xs text-gray-500 mt-2">
-                연체: {formatCurrency(summary.overdue_amount)} ({summary.overdue_count}건)
+                연체: {formatCurrency(summary.overdue_receivables)} ({summary.overdue_count}건)
               </p>
             </div>
 
@@ -262,9 +190,9 @@ const FinancialDashboardPage: React.FC = () => {
                 <span className="text-sm font-medium text-gray-600">미지급 정산</span>
                 <Users className="w-5 h-5 text-purple-500" />
               </div>
-              <p className="text-2xl font-bold text-purple-600">{formatCurrency(summary.pending_settlement_amount)}</p>
+              <p className="text-2xl font-bold text-purple-600">{formatCurrency(summary.pending_settlements)}</p>
               <p className="text-xs text-gray-500 mt-2">
-                {summary.pending_settlements}건 대기중
+                정산 대기중
               </p>
             </div>
           </div>
@@ -297,15 +225,15 @@ const FinancialDashboardPage: React.FC = () => {
                 />
                 <Legend />
                 <Line type="monotone" dataKey="revenue" stroke="#3B82F6" strokeWidth={2} name="매출" />
-                <Line type="monotone" dataKey="paid" stroke="#10B981" strokeWidth={2} name="수금" />
-                <Line type="monotone" dataKey="outstanding" stroke="#F59E0B" strokeWidth={2} name="미수" />
+                <Line type="monotone" dataKey="collected" stroke="#10B981" strokeWidth={2} name="수금" />
+                <Line type="monotone" dataKey="settlements" stroke="#8B5CF6" strokeWidth={2} name="정산" />
               </LineChart>
             </ResponsiveContainer>
           </div>
 
           {/* Payment Rate Trend */}
           <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">월별 회수율</h2>
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">월별 순이익</h2>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={trends}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
@@ -313,10 +241,10 @@ const FinancialDashboardPage: React.FC = () => {
                 <YAxis stroke="#6B7280" style={{ fontSize: '12px' }} />
                 <Tooltip
                   contentStyle={{ backgroundColor: '#FFF', border: '1px solid #E5E7EB', borderRadius: '8px' }}
-                  formatter={(value: number) => formatPercent(value)}
+                  formatter={(value: number) => formatCurrency(value)}
                 />
                 <Legend />
-                <Bar dataKey="payment_rate" fill="#10B981" name="회수율 (%)" />
+                <Bar dataKey="net_profit" fill="#10B981" name="순이익" />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -338,13 +266,7 @@ const FinancialDashboardPage: React.FC = () => {
                     거래처명
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    총 청구액
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    수금액
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    미수금
+                    총 매출
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     청구 건수
@@ -373,24 +295,18 @@ const FinancialDashboardPage: React.FC = () => {
                       <div className="text-sm font-medium text-gray-900">{client.client_name}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
-                      <div className="text-sm font-semibold text-gray-900">{formatCurrency(client.total_amount)}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right">
-                      <div className="text-sm text-green-600">{formatCurrency(client.paid_amount)}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right">
-                      <div className="text-sm text-orange-600">{formatCurrency(client.outstanding_amount)}</div>
+                      <div className="text-sm font-semibold text-gray-900">{formatCurrency(client.total_revenue)}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
                       <div className="text-sm text-gray-900">{client.invoice_count}건</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
                       <div className={`text-sm font-medium ${
-                        client.payment_rate >= 90 ? 'text-green-600' :
-                        client.payment_rate >= 70 ? 'text-yellow-600' :
+                        client.collection_rate >= 90 ? 'text-green-600' :
+                        client.collection_rate >= 70 ? 'text-yellow-600' :
                         'text-red-600'
                       }`}>
-                        {formatPercent(client.payment_rate)}
+                        {formatPercent(client.collection_rate)}
                       </div>
                     </td>
                   </tr>
@@ -421,14 +337,8 @@ const FinancialDashboardPage: React.FC = () => {
           </button>
         </div>
       </div>
-
-      {/* Report Download Modal */}
-      <ReportDownloadModal
-        isOpen={showReportModal}
-        onClose={() => setShowReportModal(false)}
-        dateRange={dateRange}
-      />
     </div>
+    </Layout>
   );
 };
 

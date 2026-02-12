@@ -1,313 +1,288 @@
-"""
-Phase 16: Notification Service
-드라이버 알림 및 Push 알림 서비스
-"""
-from datetime import datetime, timedelta
-from typing import List, Optional, Dict, Any
+from typing import Optional, Dict, Any, List
+from datetime import datetime
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, or_, desc
+from loguru import logger
 
-from app.models.driver_app import (
-    DriverNotification,
-    PushToken,
-    NotificationType
+from app.models.notification import (
+    Notification,
+    NotificationTemplate,
+    NotificationType,
+    NotificationChannel,
+    NotificationStatus
 )
+from app.schemas.notification import (
+    NotificationSendRequest,
+    TemplateNotificationRequest
+)
+from app.services.sms_service import sms_service
+from app.services.fcm_service import fcm_service
 
 
 class NotificationService:
-    """알림 서비스"""
+    """통합 알림 서비스"""
     
     def __init__(self, db: Session):
         self.db = db
     
     async def send_notification(
         self,
-        driver_id: int,
-        notification_type: NotificationType,
-        title: str,
-        message: str,
-        dispatch_id: Optional[int] = None,
-        action_required: bool = False,
-        action_url: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None
-    ) -> DriverNotification:
+        request: NotificationSendRequest
+    ) -> Notification:
         """
-        드라이버에게 알림 발송
+        알림 발송
         
         Args:
-            driver_id: 드라이버 ID
-            notification_type: 알림 타입
-            title: 알림 제목
-            message: 알림 내용
-            dispatch_id: 배차 ID (선택)
-            action_required: 액션 필요 여부
-            action_url: 액션 URL
-            metadata: 추가 메타데이터
+            request: 알림 발송 요청
         
         Returns:
             생성된 알림 객체
         """
-        # 드라이버의 Push 토큰 조회
-        push_token = self.db.query(PushToken).filter(
-            and_(
-                PushToken.driver_id == driver_id,
-                PushToken.is_active == True
-            )
-        ).first()
-        
-        # 알림 생성
-        notification = DriverNotification(
-            driver_id=driver_id,
-            dispatch_id=dispatch_id,
-            notification_type=notification_type,
-            title=title,
-            message=message,
-            push_token=push_token.token if push_token else None,
-            action_required=action_required,
-            action_url=action_url,
-            notification_metadata=metadata or {}
+        # 알림 레코드 생성
+        notification = Notification(
+            notification_type=request.notification_type,
+            channel=request.channel,
+            status=NotificationStatus.PENDING,
+            recipient_name=request.recipient_name,
+            recipient_phone=request.recipient_phone,
+            recipient_email=request.recipient_email,
+            recipient_device_token=request.recipient_device_token,
+            title=request.title,
+            message=request.message,
+            template_code=request.template_code,
+            metadata=request.metadata,
+            order_id=request.order_id,
+            dispatch_id=request.dispatch_id,
+            vehicle_id=request.vehicle_id,
+            driver_id=request.driver_id
         )
         
         self.db.add(notification)
         self.db.commit()
         self.db.refresh(notification)
         
-        # TODO: 실제 FCM Push 알림 발송
-        # await self._send_fcm_push(notification)
+        logger.info(f"📧 Created notification: ID={notification.id}, Type={notification.notification_type}, Channel={notification.channel}")
+        
+        # 채널별 발송
+        if request.channel == NotificationChannel.SMS:
+            await self._send_sms(notification)
+        elif request.channel == NotificationChannel.KAKAO:
+            await self._send_kakao(notification)
+        elif request.channel == NotificationChannel.PUSH:
+            await self._send_push(notification)
+        elif request.channel == NotificationChannel.EMAIL:
+            await self._send_email(notification)
         
         return notification
     
-    async def send_dispatch_assigned_notification(
+    async def send_from_template(
         self,
-        driver_id: int,
-        dispatch_id: int,
-        order_info: Dict[str, Any]
-    ) -> DriverNotification:
-        """배차 배정 알림"""
-        title = "🚚 새로운 배차가 배정되었습니다"
-        message = f"주문 #{order_info.get('order_number')} - {order_info.get('customer_name')}"
+        request: TemplateNotificationRequest
+    ) -> Notification:
+        """
+        템플릿 기반 알림 발송
         
-        return await self.send_notification(
-            driver_id=driver_id,
-            notification_type=NotificationType.DISPATCH_ASSIGNED,
+        Args:
+            request: 템플릿 알림 요청
+        
+        Returns:
+            생성된 알림 객체
+        """
+        # 템플릿 조회
+        template = self.db.query(NotificationTemplate).filter(
+            NotificationTemplate.template_code == request.template_code,
+            NotificationTemplate.channel == request.channel,
+            NotificationTemplate.is_active == True
+        ).first()
+        
+        if not template:
+            raise ValueError(f"템플릿을 찾을 수 없습니다: {request.template_code}")
+        
+        # 변수 치환
+        title = self._replace_variables(template.title_template, request.variables)
+        message = self._replace_variables(template.message_template, request.variables)
+        
+        # 알림 발송 요청 생성
+        send_request = NotificationSendRequest(
+            notification_type=template.notification_type,
+            channel=request.channel,
+            recipient_name=request.recipient_name,
+            recipient_phone=request.recipient_phone,
+            recipient_email=request.recipient_email,
+            recipient_device_token=request.recipient_device_token,
             title=title,
             message=message,
-            dispatch_id=dispatch_id,
-            action_required=True,
-            action_url=f"/dispatch/{dispatch_id}",
-            metadata={"order_info": order_info}
-        )
-    
-    async def send_route_optimized_notification(
-        self,
-        driver_id: int,
-        dispatch_id: int,
-        optimization_info: Dict[str, Any]
-    ) -> DriverNotification:
-        """경로 최적화 알림"""
-        title = "🗺️ 경로가 최적화되었습니다"
-        message = f"예상 시간: {optimization_info.get('estimated_time')}분 단축"
-        
-        return await self.send_notification(
-            driver_id=driver_id,
-            notification_type=NotificationType.ROUTE_OPTIMIZED,
-            title=title,
-            message=message,
-            dispatch_id=dispatch_id,
-            action_required=False,
-            metadata={"optimization_info": optimization_info}
-        )
-    
-    async def send_chat_message_notification(
-        self,
-        driver_id: int,
-        sender_name: str,
-        message: str,
-        room_id: int
-    ) -> DriverNotification:
-        """채팅 메시지 알림"""
-        title = f"💬 {sender_name}님의 메시지"
-        
-        return await self.send_notification(
-            driver_id=driver_id,
-            notification_type=NotificationType.CHAT_MESSAGE,
-            title=title,
-            message=message[:100],  # 메시지 미리보기
-            action_required=False,
-            action_url=f"/chat/{room_id}",
-            metadata={"sender_name": sender_name, "room_id": room_id}
-        )
-    
-    def get_driver_notifications(
-        self,
-        driver_id: int,
-        unread_only: bool = False,
-        limit: int = 50
-    ) -> List[DriverNotification]:
-        """
-        드라이버 알림 목록 조회
-        
-        Args:
-            driver_id: 드라이버 ID
-            unread_only: 읽지 않은 알림만 조회
-            limit: 조회 개수
-        
-        Returns:
-            알림 목록
-        """
-        query = self.db.query(DriverNotification).filter(
-            DriverNotification.driver_id == driver_id
+            template_code=request.template_code,
+            metadata=request.variables,
+            order_id=request.order_id,
+            dispatch_id=request.dispatch_id,
+            vehicle_id=request.vehicle_id,
+            driver_id=request.driver_id
         )
         
-        if unread_only:
-            query = query.filter(DriverNotification.is_read == False)
-        
-        notifications = query.order_by(
-            desc(DriverNotification.created_at)
-        ).limit(limit).all()
-        
-        return notifications
+        return await self.send_notification(send_request)
     
-    def mark_as_read(
+    async def send_bulk_notifications(
         self,
-        notification_id: int,
-        driver_id: int
-    ) -> Optional[DriverNotification]:
-        """
-        알림을 읽음으로 표시
+        notifications: List[NotificationSendRequest]
+    ) -> List[Notification]:
+        """일괄 알림 발송"""
+        results = []
         
-        Args:
-            notification_id: 알림 ID
-            driver_id: 드라이버 ID
+        for notif_request in notifications:
+            try:
+                notification = await self.send_notification(notif_request)
+                results.append(notification)
+            except Exception as e:
+                logger.error(f"❌ Bulk notification failed: {str(e)}")
+                # 실패해도 계속 진행
+                continue
         
-        Returns:
-            업데이트된 알림 객체
-        """
-        notification = self.db.query(DriverNotification).filter(
-            and_(
-                DriverNotification.id == notification_id,
-                DriverNotification.driver_id == driver_id
-            )
-        ).first()
-        
-        if notification:
-            notification.is_read = True
-            notification.read_at = datetime.utcnow()
+        logger.info(f"✅ Bulk notifications sent: {len(results)}/{len(notifications)}")
+        return results
+    
+    async def _send_sms(self, notification: Notification):
+        """SMS 발송"""
+        if not notification.recipient_phone:
+            notification.status = NotificationStatus.FAILED
+            notification.error_message = "수신자 전화번호가 없습니다"
             self.db.commit()
-            self.db.refresh(notification)
+            return
         
-        return notification
-    
-    def mark_action_taken(
-        self,
-        notification_id: int,
-        driver_id: int
-    ) -> Optional[DriverNotification]:
-        """
-        알림 액션 수행 표시
-        
-        Args:
-            notification_id: 알림 ID
-            driver_id: 드라이버 ID
-        
-        Returns:
-            업데이트된 알림 객체
-        """
-        notification = self.db.query(DriverNotification).filter(
-            and_(
-                DriverNotification.id == notification_id,
-                DriverNotification.driver_id == driver_id
+        try:
+            # Twilio SMS 발송
+            result = sms_service.send_sms(
+                to_number=notification.recipient_phone,
+                message=notification.message,
+                metadata=notification.metadata
             )
-        ).first()
-        
-        if notification:
-            notification.action_taken = True
-            notification.action_taken_at = datetime.utcnow()
+            
+            if result["success"]:
+                notification.status = NotificationStatus.SENT
+                notification.sent_at = datetime.utcnow()
+                notification.external_id = result.get("message_sid")
+                notification.external_response = result
+                logger.info(f"✅ SMS sent: Notification ID={notification.id}, SID={result.get('message_sid')}")
+            else:
+                notification.status = NotificationStatus.FAILED
+                notification.error_message = result.get("error")
+                notification.external_response = result
+                logger.error(f"❌ SMS failed: Notification ID={notification.id}, Error={result.get('error')}")
+            
             self.db.commit()
-            self.db.refresh(notification)
-        
-        return notification
+            
+        except Exception as e:
+            logger.error(f"❌ SMS send error: {str(e)}")
+            notification.status = NotificationStatus.FAILED
+            notification.error_message = str(e)
+            self.db.commit()
     
-    def get_unread_count(self, driver_id: int) -> int:
-        """
-        읽지 않은 알림 개수
-        
-        Args:
-            driver_id: 드라이버 ID
-        
-        Returns:
-            읽지 않은 알림 개수
-        """
-        count = self.db.query(DriverNotification).filter(
-            and_(
-                DriverNotification.driver_id == driver_id,
-                DriverNotification.is_read == False
-            )
-        ).count()
-        
-        return count
-    
-    # Push Token 관리
-    
-    def register_push_token(
-        self,
-        driver_id: int,
-        token: str,
-        device_type: Optional[str] = None,
-        device_id: Optional[str] = None
-    ) -> PushToken:
-        """
-        Push 토큰 등록
-        
-        Args:
-            driver_id: 드라이버 ID
-            token: FCM 토큰
-            device_type: 디바이스 타입
-            device_id: 디바이스 ID
-        
-        Returns:
-            등록된 토큰 객체
-        """
-        # 기존 토큰 비활성화
-        self.db.query(PushToken).filter(
-            PushToken.driver_id == driver_id
-        ).update({"is_active": False})
-        
-        # 새 토큰 등록
-        push_token = PushToken(
-            driver_id=driver_id,
-            token=token,
-            device_type=device_type,
-            device_id=device_id,
-            is_active=True
-        )
-        
-        self.db.add(push_token)
+    async def _send_kakao(self, notification: Notification):
+        """카카오톡 발송 (구현 예정)"""
+        logger.warning("⚠️ KakaoTalk notification not implemented yet")
+        notification.status = NotificationStatus.FAILED
+        notification.error_message = "카카오톡 발송 기능 준비 중"
         self.db.commit()
-        self.db.refresh(push_token)
-        
-        return push_token
     
-    def update_push_token_usage(self, token: str):
-        """Push 토큰 사용 시각 업데이트"""
-        push_token = self.db.query(PushToken).filter(
-            PushToken.token == token
-        ).first()
+    async def _send_push(self, notification: Notification):
+        """푸시 알림 발송"""
+        if not notification.recipient_device_token:
+            notification.status = NotificationStatus.FAILED
+            notification.error_message = "기기 토큰이 없습니다"
+            self.db.commit()
+            return
         
-        if push_token:
-            push_token.last_used_at = datetime.utcnow()
+        try:
+            # FCM 푸시 발송
+            result = fcm_service.send_push(
+                token=notification.recipient_device_token,
+                title=notification.title,
+                body=notification.message,
+                data={
+                    "notification_id": str(notification.id),
+                    "notification_type": notification.notification_type.value,
+                    "order_id": str(notification.order_id) if notification.order_id else "",
+                    "dispatch_id": str(notification.dispatch_id) if notification.dispatch_id else "",
+                }
+            )
+            
+            if result["success"]:
+                notification.status = NotificationStatus.SENT
+                notification.sent_at = datetime.utcnow()
+                notification.external_id = result.get("message_id")
+                notification.external_response = result
+                logger.info(f"✅ Push sent: Notification ID={notification.id}, FCM ID={result.get('message_id')}")
+            else:
+                notification.status = NotificationStatus.FAILED
+                notification.error_message = result.get("error")
+                notification.external_response = result
+                logger.error(f"❌ Push failed: Notification ID={notification.id}, Error={result.get('error')}")
+            
+            self.db.commit()
+            
+        except Exception as e:
+            logger.error(f"❌ Push send error: {str(e)}")
+            notification.status = NotificationStatus.FAILED
+            notification.error_message = str(e)
             self.db.commit()
     
-    async def _send_fcm_push(self, notification: DriverNotification):
-        """
-        FCM Push 알림 발송 (구현 필요)
-        
-        TODO: Firebase Cloud Messaging 연동
-        """
-        # FCM 발송 로직
-        # ...
-        
-        # 발송 완료 표시
-        notification.push_sent = True
-        notification.push_sent_at = datetime.utcnow()
+    async def _send_email(self, notification: Notification):
+        """이메일 발송 (구현 예정)"""
+        logger.warning("⚠️ Email notification not implemented yet")
+        notification.status = NotificationStatus.FAILED
+        notification.error_message = "이메일 발송 기능 준비 중"
         self.db.commit()
+    
+    def _replace_variables(self, template: str, variables: Dict[str, Any]) -> str:
+        """
+        템플릿 변수 치환
+        
+        Args:
+            template: 템플릿 문자열 (예: "안녕하세요 {{name}}님")
+            variables: 변수 딕셔너리 (예: {"name": "홍길동"})
+        
+        Returns:
+            치환된 문자열
+        """
+        result = template
+        for key, value in variables.items():
+            result = result.replace(f"{{{{{key}}}}}", str(value))
+        return result
+    
+    def get_notification_stats(
+        self,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None
+    ) -> Dict[str, Any]:
+        """알림 통계 조회"""
+        query = self.db.query(Notification)
+        
+        if start_date:
+            query = query.filter(Notification.created_at >= start_date)
+        if end_date:
+            query = query.filter(Notification.created_at <= end_date)
+        
+        notifications = query.all()
+        
+        total_sent = sum(1 for n in notifications if n.status == NotificationStatus.SENT)
+        total_delivered = sum(1 for n in notifications if n.status == NotificationStatus.DELIVERED)
+        total_failed = sum(1 for n in notifications if n.status == NotificationStatus.FAILED)
+        total_pending = sum(1 for n in notifications if n.status == NotificationStatus.PENDING)
+        
+        by_channel = {}
+        by_type = {}
+        by_status = {}
+        
+        for n in notifications:
+            by_channel[n.channel.value] = by_channel.get(n.channel.value, 0) + 1
+            by_type[n.notification_type.value] = by_type.get(n.notification_type.value, 0) + 1
+            by_status[n.status.value] = by_status.get(n.status.value, 0) + 1
+        
+        return {
+            "total_sent": total_sent,
+            "total_delivered": total_delivered,
+            "total_failed": total_failed,
+            "total_pending": total_pending,
+            "by_channel": by_channel,
+            "by_type": by_type,
+            "by_status": by_status
+        }

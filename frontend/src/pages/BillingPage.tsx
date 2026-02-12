@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Layout from '../components/common/Layout';
 import {
   Calendar,
   DollarSign,
@@ -18,7 +19,7 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
 interface Invoice {
   id: number;
@@ -282,6 +283,7 @@ const BillingPage: React.FC = () => {
   });
 
   return (
+    <Layout>
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
@@ -595,6 +597,7 @@ const BillingPage: React.FC = () => {
         </div>
       </div>
     </div>
+    </Layout>
   );
 };
 

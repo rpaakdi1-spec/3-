@@ -11,10 +11,10 @@ from app.models.base import Base
 
 class UserRole(str, PyEnum):
     """사용자 역할"""
-    ADMIN = "admin"  # 관리자 (모든 권한)
-    DISPATCHER = "dispatcher"  # 배차 담당자 (배차 관리)
-    DRIVER = "driver"  # 기사 (배차 조회, 상태 업데이트)
-    VIEWER = "viewer"  # 조회자 (읽기 전용)
+    ADMIN = "ADMIN"  # 관리자 (모든 권한)
+    DISPATCHER = "DISPATCHER"  # 배차 담당자 (배차 관리)
+    DRIVER = "DRIVER"  # 기사 (배차 조회, 상태 업데이트)
+    VIEWER = "VIEWER"  # 조회자 (읽기 전용)
 
 
 class User(Base):

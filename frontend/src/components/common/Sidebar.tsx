@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
+import { isDevelopment } from '../../config/api';
 import {
   Home,
   Package,
@@ -29,10 +30,6 @@ import {
   Download,
   ChevronDown,
   ChevronRight,
-  GitBranch,
-  FlaskConical,
-  MapPin,
-  TrendingUp,
 } from 'lucide-react';
 
 interface MenuItem {
@@ -49,17 +46,6 @@ const Sidebar: React.FC = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
   const [isOpen, setIsOpen] = React.useState(false);
-  // 모든 메뉴를 기본으로 확장 (항상 펼쳐진 상태)
-  const [expandedMenus, setExpandedMenus] = React.useState<Record<string, boolean>>({
-    billing: true, // 청구/정산 메뉴 확장
-    // 추가 서브메뉴가 있는 경우 여기에 추가
-  });
-
-  // 메뉴 토글 비활성화 (항상 확장 상태 유지)
-  const toggleMenu = (key: string) => {
-    // 아무 동작도 하지 않음 - 항상 확장 상태 유지
-    // setExpandedMenus(prev => ({ ...prev, [key]: !prev[key] }));
-  };
 
   const menuItems: MenuItem[] = [
     { path: '/dashboard', label: '대시보드', icon: Home, roles: ['ADMIN', 'DISPATCHER'] },
@@ -67,16 +53,6 @@ const Sidebar: React.FC = () => {
     { path: '/calendar', label: '오더 캘린더', icon: Calendar, roles: ['ADMIN', 'DISPATCHER'] },
     { path: '/ai-chat', label: 'AI 주문 어시스턴트', icon: MessageSquare, roles: ['ADMIN', 'DISPATCHER'] },
     { path: '/optimization', label: 'AI 배차 최적화', icon: Zap, roles: ['ADMIN', 'DISPATCHER'] },
-    { path: '/dispatch-rules', label: '스마트 배차 규칙', icon: GitBranch, roles: ['ADMIN', 'DISPATCHER'], isNew: true },
-    { path: '/simulations', label: '규칙 시뮬레이션', icon: FlaskConical, roles: ['ADMIN', 'DISPATCHER'], isNew: true },
-    { path: '/vehicle-tracking', label: '실시간 차량 추적', icon: MapPin, roles: ['ADMIN', 'DISPATCHER'], isNew: true },
-    { path: '/auto-dispatch', label: 'AI 자동 배차', icon: Zap, roles: ['ADMIN', 'DISPATCHER'], isNew: true },
-    { path: '/dispatch-analytics', label: '배차 분석 대시보드', icon: TrendingUp, roles: ['ADMIN', 'DISPATCHER'], isNew: true },
-    { path: '/ml-autolearning', label: 'AI 자동 학습', icon: Brain, roles: ['ADMIN'], isNew: true },
-    { path: '/iot-sensor-monitoring', label: 'IoT 센서 모니터링', icon: Activity, roles: ['ADMIN', 'DISPATCHER'], isNew: true },
-    { path: '/predictive-maintenance', label: '예측 유지보수', icon: Wrench, roles: ['ADMIN', 'DISPATCHER'], isNew: true },
-    { path: '/driver-dashboard', label: '드라이버 대시보드', icon: Truck, roles: ['ADMIN', 'DRIVER'], isNew: true },
-    { path: '/driver-notifications', label: '드라이버 알림', icon: Bell, roles: ['ADMIN', 'DRIVER'], isNew: true },
     { path: '/ai-cost', label: 'AI 비용 모니터링', icon: DollarSign, roles: ['ADMIN'] },
     { path: '/ab-test', label: 'AB Test 모니터링', icon: Activity, roles: ['ADMIN'] },
     { path: '/dispatches', label: '배차 관리', icon: Truck, roles: ['ADMIN', 'DISPATCHER'] },
@@ -109,26 +85,65 @@ const Sidebar: React.FC = () => {
     { path: '/settings', label: '설정', icon: Settings, roles: ['ADMIN'] },
   ];
 
-  const filteredMenuItems = menuItems.filter((item) =>
-    item.roles.includes((user?.role || '').toUpperCase())
-  ).map(item => {
+  // 모든 서브메뉴를 기본적으로 확장 상태로 초기화
+  const initialExpandedState = React.useMemo(() => {
+    const expanded: Record<string, boolean> = {};
+    menuItems.forEach(item => {
+      if (item.children && item.children.length > 0) {
+        expanded[item.path] = true; // 모든 서브메뉴 자동 확장
+      }
+    });
+    return expanded;
+  }, []);
+
+  const [expandedMenus, setExpandedMenus] = React.useState<Record<string, boolean>>(initialExpandedState);
+
+  const toggleMenu = (key: string) => {
+    setExpandedMenus(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const filteredMenuItems = menuItems.filter((item) => {
+    const userRole = (user?.role || '').toUpperCase();
+    const hasAccess = item.roles.includes(userRole);
+    
+    // Debug log (development only)
+    if (isDevelopment) {
+      console.log(`메뉴 체크: "${item.label}" - 사용자 role: "${userRole}", 필요 role: [${item.roles.join(', ')}], 접근: ${hasAccess ? '✅' : '❌'}`);
+    }
+    
+    return hasAccess;
+  }).map(item => {
     if (item.children) {
+      const userRole = (user?.role || '').toUpperCase();
       return {
         ...item,
-        children: item.children.filter(child => 
-          child.roles.includes((user?.role || '').toUpperCase())
-        )
+        children: item.children.filter(child => {
+          const hasAccess = child.roles.includes(userRole);
+          
+          // Debug log (development only)
+          if (isDevelopment) {
+            console.log(`  └─ 서브메뉴: "${child.label}" - 접근: ${hasAccess ? '✅' : '❌'}`);
+          }
+          
+          return hasAccess;
+        })
       };
     }
     return item;
   });
 
+  // Debug log filtered menu count (development only)
+  if (isDevelopment) {
+    console.log(`\n📋 총 메뉴 수: ${filteredMenuItems.length}개`);
+    console.log(`👤 사용자: ${user?.username}, 권한: ${user?.role?.toUpperCase()}\n`);
+  }
+
   const renderMenuItem = (item: MenuItem, index: number) => {
     const Icon = item.icon;
     const isActive = location.pathname === item.path;
     const hasChildren = item.children && item.children.length > 0;
-    const isExpanded = true; // 항상 확장 상태
-    const ChevronIcon = ChevronDown; // 항상 아래 화살표 표시
+    const isExpanded = expandedMenus[item.path] || false;
+    const ChevronIcon = isExpanded ? ChevronDown : ChevronRight;
 
     return (
       <li key={item.path + index}>
@@ -141,8 +156,6 @@ const Sidebar: React.FC = () => {
                   ? 'bg-blue-600 text-white'
                   : 'text-gray-300 hover:bg-gray-800'
               }`}
-              disabled
-              style={{ cursor: 'default' }}
             >
               <div className="flex items-center space-x-3">
                 <Icon size={20} />
@@ -150,36 +163,37 @@ const Sidebar: React.FC = () => {
               </div>
               <ChevronIcon size={16} />
             </button>
-            {/* 항상 서브메뉴 표시 */}
-            <ul className="ml-4 mt-1 space-y-1 border-l-2 border-gray-700 pl-2">
-              {item.children!.map((child, childIndex) => {
-                const ChildIcon = child.icon;
-                const isChildActive = location.pathname === child.path;
-                return (
-                  <li key={child.path + childIndex}>
-                    <Link
-                      to={child.path}
-                      className={`flex items-center justify-between space-x-2 px-3 py-2 rounded-lg transition-colors text-sm ${
-                        isChildActive
-                          ? 'bg-blue-600 text-white'
-                          : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
-                      }`}
-                      onClick={() => setIsOpen(false)}
-                    >
-                      <div className="flex items-center space-x-2">
-                        <ChildIcon size={16} />
-                        <span>{child.label}</span>
-                      </div>
-                      {child.isNew && (
-                        <span className="px-2 py-0.5 text-xs font-bold bg-green-500 text-white rounded-full">
-                          NEW
-                        </span>
-                      )}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
+            {isExpanded && (
+              <ul className="ml-4 mt-1 space-y-1 border-l-2 border-gray-700 pl-2">
+                {item.children!.map((child, childIndex) => {
+                  const ChildIcon = child.icon;
+                  const isChildActive = location.pathname === child.path;
+                  return (
+                    <li key={child.path + childIndex}>
+                      <Link
+                        to={child.path}
+                        className={`flex items-center justify-between space-x-2 px-3 py-2 rounded-lg transition-colors text-sm ${
+                          isChildActive
+                            ? 'bg-blue-600 text-white'
+                            : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
+                        }`}
+                        onClick={() => setIsOpen(false)}
+                      >
+                        <div className="flex items-center space-x-2">
+                          <ChildIcon size={16} />
+                          <span>{child.label}</span>
+                        </div>
+                        {child.isNew && (
+                          <span className="px-2 py-0.5 text-xs font-bold bg-green-500 text-white rounded-full">
+                            NEW
+                          </span>
+                        )}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </>
         ) : (
           <Link
@@ -238,7 +252,14 @@ const Sidebar: React.FC = () => {
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 overflow-y-auto p-4">
+          <nav 
+            className="flex-1 overflow-y-auto p-4" 
+            style={{ 
+              maxHeight: 'calc(100vh - 200px)',
+              scrollbarWidth: 'thin',
+              scrollbarColor: '#4B5563 #1F2937'
+            }}
+          >
             <ul className="space-y-2">
               {filteredMenuItems.map((item, index) => renderMenuItem(item, index))}
             </ul>

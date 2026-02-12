@@ -1,15 +1,14 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
 import toast from 'react-hot-toast';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+import { API_CONFIG } from '../config/api';
 
 class ApiClient {
   private client: AxiosInstance;
 
   constructor() {
     this.client = axios.create({
-      baseURL: API_BASE_URL,
-      timeout: 30000,
+      baseURL: API_CONFIG.BASE_URL,
+      timeout: API_CONFIG.TIMEOUT,
       headers: {
         'Content-Type': 'application/json',
       },
@@ -193,7 +192,7 @@ class ApiClient {
 
   // Delivery Tracking (Public)
   async getTrackingInfo(trackingNumber: string) {
-    const response = await axios.get(`${API_BASE_URL}/delivery-tracking/${trackingNumber}`);
+    const response = await axios.get(`${API_CONFIG.BASE_URL}/delivery-tracking/${trackingNumber}`);
     return response.data;
   }
 

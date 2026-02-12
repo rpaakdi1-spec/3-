@@ -1,0 +1,296 @@
+"""
+ML Prediction API
+Phase 4 Week 1-2: AI/ML 예측 정비 시스템 API
+"""
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from sqlalchemy.orm import Session
+from typing import List, Optional
+from pydantic import BaseModel
+
+from app.core.database import get_db
+from app.api.auth import get_current_user
+from app.models.user import User, UserRole
+from app.ml.predictive_maintenance import get_ml_model, MaintenancePredictionModel
+
+router = APIRouter()
+
+
+# ============================================================================
+# Pydantic Schemas
+# ============================================================================
+
+class PredictionResponse(BaseModel):
+    vehicle_id: int
+    vehicle_plate: str
+    failure_probability: float
+    risk_level: str
+    estimated_cost: float
+    recommendation: str
+    days_until_recommended_maintenance: int
+    confidence_score: float
+    key_factors: List[dict]
+    current_stats: dict
+
+
+class ModelTrainResponse(BaseModel):
+    message: str
+    samples_count: int
+    accuracy: float
+    status: str
+
+
+# ============================================================================
+# ML Prediction Endpoints
+# ============================================================================
+
+@router.post("/ml/train", tags=["ML Predictions"])
+def train_ml_model(
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    ML 모델 학습 (백그라운드 작업)
+    
+    - 모든 차량 데이터를 사용하여 학습
+    - 고장 예측 분류 모델
+    - 비용 예측 회귀 모델
+    """
+        from app.models.user import UserRole
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="관리자 권한 필요")
+    
+    def train_task():
+        try:
+            ml_model = get_ml_model()
+            X, y_failure, y_cost = ml_model.prepare_training_data(db)
+            ml_model.train_models(X, y_failure, y_cost)
+            ml_model.save_model()
+        except Exception as e:
+            from loguru import logger
+            logger.error(f"Model training failed: {e}")
+    
+    background_tasks.add_task(train_task)
+    
+    return {
+        "message": "모델 학습이 백그라운드에서 시작되었습니다",
+        "status": "training"
+    }
+
+
+@router.get("/ml/predictions", tags=["ML Predictions"], response_model=List[PredictionResponse])
+def get_all_predictions(
+    risk_level: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    모든 차량에 대한 고장 예측
+    
+    - 활성 차량 전체 예측
+    - 위험도 기준 필터링
+    - 위험도 순으로 정렬
+    """
+    try:
+        ml_model = get_ml_model()
+        
+        # 모델 로드 시도
+        if not ml_model.model_trained:
+            try:
+                ml_model.load_model()
+            except:
+                raise HTTPException(
+                    status_code=400,
+                    detail="모델이 학습되지 않았습니다. /ml/train 엔드포인트를 먼저 호출하세요"
+                )
+        
+        predictions = ml_model.predict_all_vehicles(db)
+        
+        # 필터링
+        if risk_level:
+            predictions = [p for p in predictions if p['risk_level'] == risk_level.upper()]
+        
+        return predictions
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"예측 실패: {str(e)}")
+
+
+@router.get("/ml/predictions/{vehicle_id}", tags=["ML Predictions"], response_model=PredictionResponse)
+def get_vehicle_prediction(
+    vehicle_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    특정 차량의 고장 예측
+    
+    - 실시간 예측
+    - 상세 분석 결과
+    - 권장 조치 사항
+    """
+    from app.models.vehicle import Vehicle
+    
+    vehicle = db.query(Vehicle).filter(Vehicle.id == vehicle_id).first()
+    if not vehicle:
+        raise HTTPException(status_code=404, detail="차량을 찾을 수 없습니다")
+    
+    try:
+        ml_model = get_ml_model()
+        
+        # 모델 로드
+        if not ml_model.model_trained:
+            try:
+                ml_model.load_model()
+            except:
+                raise HTTPException(
+                    status_code=400,
+                    detail="모델이 학습되지 않았습니다"
+                )
+        
+        prediction = ml_model.predict_failure_probability(vehicle, db)
+        return prediction
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"예측 실패: {str(e)}")
+
+
+@router.get("/ml/high-risk-vehicles", tags=["ML Predictions"])
+def get_high_risk_vehicles(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    고위험 차량 목록
+    
+    - CRITICAL, HIGH 위험도 차량
+    - 즉시 조치 필요 차량
+    """
+    try:
+        ml_model = get_ml_model()
+        
+        if not ml_model.model_trained:
+            try:
+                ml_model.load_model()
+            except:
+                return {
+                    "critical_count": 0,
+                    "high_count": 0,
+                    "vehicles": [],
+                    "message": "모델이 학습되지 않았습니다"
+                }
+        
+        all_predictions = ml_model.predict_all_vehicles(db)
+        high_risk = [p for p in all_predictions if p['risk_level'] in ['CRITICAL', 'HIGH']]
+        
+        return {
+            "critical_count": len([p for p in high_risk if p['risk_level'] == 'CRITICAL']),
+            "high_count": len([p for p in high_risk if p['risk_level'] == 'HIGH']),
+            "total_high_risk": len(high_risk),
+            "vehicles": high_risk[:10],  # 상위 10대
+            "total_vehicles_analyzed": len(all_predictions)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"조회 실패: {str(e)}")
+
+
+@router.get("/ml/model-status", tags=["ML Predictions"])
+def get_model_status(
+    current_user: User = Depends(get_current_user)
+):
+    """
+    ML 모델 상태 확인
+    
+    - 학습 여부
+    - 모델 정보
+    """
+    ml_model = get_ml_model()
+    
+    # 모델 로드 시도
+    is_available = False
+    try:
+        if not ml_model.model_trained:
+            ml_model.load_model()
+        is_available = ml_model.model_trained
+    except:
+        pass
+    
+    return {
+        "is_trained": ml_model.model_trained,
+        "is_available": is_available,
+        "feature_count": len(ml_model.feature_names) if ml_model.feature_names else 0,
+        "features": ml_model.feature_names if ml_model.feature_names else [],
+        "status": "ready" if is_available else "not_trained"
+    }
+
+
+@router.get("/ml/statistics", tags=["ML Predictions"])
+def get_ml_statistics(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    ML 예측 통계
+    
+    - 위험도별 차량 수
+    - 평균 고장 확률
+    - 예상 총 정비 비용
+    """
+    try:
+        ml_model = get_ml_model()
+        
+        if not ml_model.model_trained:
+            try:
+                ml_model.load_model()
+            except:
+                return {
+                    "message": "모델이 학습되지 않았습니다",
+                    "statistics": None
+                }
+        
+        predictions = ml_model.predict_all_vehicles(db)
+        
+        # 통계 계산
+        critical = [p for p in predictions if p['risk_level'] == 'CRITICAL']
+        high = [p for p in predictions if p['risk_level'] == 'HIGH']
+        medium = [p for p in predictions if p['risk_level'] == 'MEDIUM']
+        low = [p for p in predictions if p['risk_level'] == 'LOW']
+        
+        total_estimated_cost = sum(p['estimated_cost'] for p in predictions)
+        avg_failure_prob = sum(p['failure_probability'] for p in predictions) / len(predictions) if predictions else 0
+        
+        return {
+            "total_vehicles": len(predictions),
+            "risk_distribution": {
+                "critical": len(critical),
+                "high": len(high),
+                "medium": len(medium),
+                "low": len(low)
+            },
+            "average_failure_probability": round(avg_failure_prob, 3),
+            "total_estimated_cost": round(total_estimated_cost, 2),
+            "urgent_action_needed": len(critical) + len(high),
+            "top_risk_vehicles": predictions[:5]  # 상위 5대
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"통계 조회 실패: {str(e)}")
+
+
+@router.get("/ml/debug-role", tags=["ML Predictions"])
+def debug_current_user_role(
+    current_user: User = Depends(get_current_user)
+):
+    """디버그: 현재 사용자 역할 확인"""
+    return {
+        "username": current_user.username,
+        "role": current_user.role,
+        "role_type": str(type(current_user.role)),
+        "role_value": str(current_user.role.value) if hasattr(current_user.role, 'value') else str(current_user.role),
+        "UserRole_ADMIN": UserRole.ADMIN,
+        "UserRole_ADMIN_value": UserRole.ADMIN.value if hasattr(UserRole.ADMIN, 'value') else str(UserRole.ADMIN),
+        "comparison": current_user.role != UserRole.ADMIN,
+        "comparison_str": str(current_user.role) != str(UserRole.ADMIN),
+        "equal": current_user.role == UserRole.ADMIN
+    }

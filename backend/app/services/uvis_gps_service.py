@@ -446,21 +446,6 @@ class UvisGPSService:
             print(f"⚠️ API 로그 저장 실패: {e}")
             self.db.rollback()
     
-    async def get_vehicle_location(self, vehicle_id: int) -> Optional[tuple]:
-        """
-        차량의 현재 위치 조회 (위도, 경도)
-        
-        Args:
-            vehicle_id: 차량 ID
-            
-        Returns:
-            (latitude, longitude) tuple 또는 None
-        """
-        latest_gps = self.get_latest_gps_by_vehicle(vehicle_id)
-        if latest_gps and latest_gps.latitude and latest_gps.longitude:
-            return (latest_gps.latitude, latest_gps.longitude)
-        return None
-    
     def get_latest_gps_by_vehicle(self, vehicle_id: int) -> Optional[VehicleGPSLog]:
         """차량의 최신 GPS 로그 조회"""
         return self.db.query(VehicleGPSLog).filter(

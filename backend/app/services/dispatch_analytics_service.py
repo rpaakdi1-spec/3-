@@ -94,7 +94,7 @@ class DispatchAnalyticsService:
         # 평균 거리/시간
         avg_stats = self.db.query(
             func.avg(Dispatch.estimated_distance_km).label('avg_distance'),
-            func.avg(Dispatch.estimated_duration_min).label('avg_duration')
+            func.avg(Dispatch.estimated_duration_minutes).label('avg_duration')
         ).filter(
             and_(
                 Dispatch.created_at >= start_date,
@@ -164,7 +164,7 @@ class DispatchAnalyticsService:
         query = self.db.query(
             Driver.id.label('driver_id'),
             Driver.name.label('driver_name'),
-            Driver.rating.label('avg_rating'),
+            # Driver.rating.label('avg_rating'),  # rating 컬럼 없음
             func.count(Dispatch.id).label('total_dispatches'),
             func.sum(
                 func.cast(Dispatch.status == 'completed', type_=int)
@@ -178,7 +178,7 @@ class DispatchAnalyticsService:
             query = query.filter(Driver.id == driver_id)
         
         query = query.group_by(
-            Driver.id, Driver.name, Driver.rating
+            Driver.id, Driver.name
         ).order_by(
             func.count(Dispatch.id).desc()
         ).limit(limit)
@@ -223,11 +223,11 @@ class DispatchAnalyticsService:
         # 1. 평균 배차 시간 체크
         recent_dispatches = self.db.query(Dispatch).filter(
             Dispatch.created_at >= datetime.utcnow() - timedelta(days=7),
-            Dispatch.estimated_duration_min.isnot(None)
+            Dispatch.estimated_duration_minutes.isnot(None)
         ).all()
         
         if recent_dispatches:
-            avg_duration = sum(d.estimated_duration_min for d in recent_dispatches) / len(recent_dispatches)
+            avg_duration = sum(d.estimated_duration_minutes for d in recent_dispatches) / len(recent_dispatches)
             
             if avg_duration > 45:
                 suggestions.append({
@@ -272,11 +272,12 @@ class DispatchAnalyticsService:
                 })
         
         # 4. 성과가 낮은 기사 체크
-        low_performers = self.db.query(Driver).filter(
-            Driver.is_active == True,
-            Driver.rating < 3.0,
-            Driver.rating.isnot(None)
-        ).count()
+        # low_performers = self.db.query(Driver).filter(
+        #     Driver.is_active == True,
+        #     Driver.rating < 3.0,
+        #     Driver.rating.isnot(None)
+        # ).count()
+        low_performers = 0  # rating 컬럼 없음
         
         if low_performers > 0:
             suggestions.append({

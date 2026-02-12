@@ -3,8 +3,9 @@
  * 배차 이력 분석 API 호출
  */
 import axios from 'axios';
+import { API_CONFIG } from '../config/api';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+const API_BASE_URL = API_CONFIG.BASE_URL;
 
 const analyticsApi = axios.create({
   baseURL: `${API_BASE_URL}/analytics`,

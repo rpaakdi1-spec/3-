@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Layout from '../components/common/Layout';
 import {
   CheckCircle,
   XCircle,
@@ -135,6 +136,7 @@ const SettlementApprovalPage: React.FC = () => {
   };
 
   return (
+    <Layout>
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
@@ -301,6 +303,7 @@ const SettlementApprovalPage: React.FC = () => {
         )}
       </div>
     </div>
+    </Layout>
   );
 };
 

@@ -1,343 +1,351 @@
----
-**프로덕션 배포 가이드: WebSocket 오류 수정**
----
+# Cold Chain Production Deployment Guide
 
-## 🚀 즉시 실행 가능한 명령 (프로덕션 서버)
-
-### 전체 과정 (자동화)
-
-```bash
-# SSH로 프로덕션 서버 접속
-ssh user@139.150.11.99
-
-# 프로젝트 디렉터리로 이동
-cd /root/uvis
-
-# 최신 코드 Pull
-git fetch origin phase8-verification
-git checkout phase8-verification
-git pull origin phase8-verification
-
-# 배포 스크립트 실행 (모든 과정 자동화)
-bash fix_websocket_production.sh
-```
-
-**예상 소요 시간**: 5-10분
+**Version**: 1.0.0  
+**Last Updated**: 2026-01-27  
+**Environment**: Production
 
 ---
 
-## 📋 단계별 실행 (수동)
+## 📋 Prerequisites
 
-원하시면 단계별로 실행할 수도 있습니다:
+### System Requirements
+- **OS**: Ubuntu 20.04 LTS or later (recommended)
+- **CPU**: 4+ cores
+- **RAM**: 8GB minimum (16GB recommended)
+- **Disk**: 100GB+ SSD
+- **Network**: Static IP, domain name, SSL certificate
 
-### Step 1: 코드 가져오기
-```bash
-cd /root/uvis
-git fetch origin phase8-verification
-git checkout phase8-verification
-git pull origin phase8-verification
-```
-
-### Step 2: 백엔드 중지 및 제거
-```bash
-docker-compose stop backend
-docker-compose rm -f backend
-```
-
-### Step 3: 변경사항 확인
-```bash
-# 수정된 파일 확인
-git log -1 --stat
-
-# realtime_metrics_service.py 변경사항 확인
-git diff HEAD~1 backend/app/services/realtime_metrics_service.py
-```
-
-### Step 4: Docker 이미지 재빌드
-```bash
-# 기존 이미지 제거
-docker rmi uvis-backend 2>/dev/null || true
-
-# 캐시 없이 재빌드
-docker-compose build --no-cache backend
-```
-
-### Step 5: 백엔드 시작
-```bash
-docker-compose up -d backend
-```
-
-### Step 6: 시작 대기 (30초)
-```bash
-sleep 30
-```
-
-### Step 7: 검증
-```bash
-# 헬스 체크 실행
-bash check_websocket_health.sh
-
-# 또는 수동 확인
-docker logs uvis-backend --since 5m 2>&1 | grep -i "error broadcasting"
-# 기대 결과: 출력 없음 (0건)
-```
+### Software Requirements
+- Docker 24.0+
+- Docker Compose 2.20+
+- Git 2.30+
+- Nginx 1.24+
+- PostgreSQL 15+ (or Docker)
+- Redis 7+ (or Docker)
 
 ---
 
-## ✅ 검증 체크리스트
+## 🚀 Quick Start Deployment
 
-### 1. 컨테이너 상태 확인
+### Step 1: Clone Repository
 ```bash
-docker ps | grep uvis-backend
+git clone https://github.com/rpaakdi1-spec/3-.git
+cd 3-
+git checkout main
 ```
-✅ **기대**: `uvis-backend`가 `Up` 상태
 
-### 2. WebSocket 오류 확인
+### Step 2: Configure Environment
 ```bash
-docker logs uvis-backend 2>&1 | grep -i "error broadcasting" | tail -20
-```
-✅ **기대**: 출력 없음 (오류 0건)
+# Copy production environment template
+cp .env.production.example .env.production
 
-### 3. 헬스 체크
+# Edit environment variables
+nano .env.production
+```
+
+**Critical Variables to Change**:
 ```bash
-curl -s http://localhost:8000/health | python3 -m json.tool
-```
-✅ **기대**:
-```json
-{
-  "status": "healthy",
-  "app_name": "Cold Chain Dispatch System",
-  "environment": "production"
-}
+# Database
+POSTGRES_PASSWORD=<strong-password>
+DATABASE_URL=postgresql://coldchain_user:<password>@postgres:5432/coldchain_prod
+
+# Redis
+REDIS_PASSWORD=<strong-redis-password>
+
+# Security
+SECRET_KEY=<generate-with-openssl-rand-hex-32>
+JWT_SECRET=<generate-with-openssl-rand-hex-32>
+
+# Domain
+DOMAIN=yourdomain.com
+VITE_API_URL=https://api.yourdomain.com/api/v1
+
+# Email
+SMTP_USER=your-email@gmail.com
+SMTP_PASSWORD=<app-specific-password>
 ```
 
-### 4. 실시간 로그 모니터링 (30초간)
+### Step 3: SSL Certificate Setup
+
+#### Option A: Let's Encrypt (Recommended)
 ```bash
-docker logs -f uvis-backend &
-PID=$!
-sleep 30
-kill $PID
+# Install certbot
+sudo apt-get install certbot
+
+# Generate certificate
+sudo certbot certonly --standalone -d yourdomain.com -d www.yourdomain.com
+
+# Copy certificates
+sudo cp /etc/letsencrypt/live/yourdomain.com/fullchain.pem ./ssl/certs/
+sudo cp /etc/letsencrypt/live/yourdomain.com/privkey.pem ./ssl/private/
 ```
-✅ **기대**: "Error broadcasting" 메시지 없음
 
-### 5. 프론트엔드 테스트
-```
-1. 브라우저에서 http://139.150.11.99/ 접속
-2. 로그인: admin / admin123
-3. 대시보드로 이동
-4. F12 → Network 탭 → WS 필터
-5. WebSocket 연결 확인
-6. 메시지 수신 확인 (5초마다)
-```
-✅ **기대**: WebSocket 정상 연결 및 메시지 수신
-
----
-
-## 🔍 문제 해결
-
-### 문제 1: "Error broadcasting" 메시지가 여전히 나타남
-
-**원인**: Docker 캐시 문제
-
-**해결**:
+#### Option B: Self-Signed (Development Only)
 ```bash
-cd /root/uvis
-docker-compose stop backend
-docker-compose rm -f backend
-docker rmi uvis-backend
-docker system prune -f
-docker-compose build --no-cache backend
-docker-compose up -d backend
-sleep 30
-docker logs uvis-backend --since 30s
+mkdir -p ssl/certs ssl/private
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+  -keyout ssl/private/privkey.pem \
+  -out ssl/certs/fullchain.pem
+```
+
+### Step 4: Deploy
+```bash
+# Make scripts executable
+chmod +x deploy-production.sh scripts/backup.sh docker/start-production.sh
+
+# Run deployment
+./deploy-production.sh
 ```
 
 ---
 
-### 문제 2: 백엔드 컨테이너가 시작되지 않음
+## 📦 Manual Deployment Steps
 
-**원인**: 설정 또는 의존성 문제
-
-**확인**:
+### 1. Create Data Directories
 ```bash
-# 컨테이너 상태 확인
-docker ps -a | grep backend
-
-# 전체 로그 확인
-docker logs uvis-backend 2>&1 | tail -100
-
-# 의존성 컨테이너 확인
-docker ps | grep -E "uvis-db|uvis-redis"
+sudo mkdir -p /var/lib/coldchain/{postgres,redis}
+sudo chown -R $USER:$USER /var/lib/coldchain
 ```
 
-**해결**:
+### 2. Build Docker Images
 ```bash
-# 전체 스택 재시작
-docker-compose down
-docker-compose up -d
-sleep 30
-docker-compose ps
+docker-compose -f docker-compose.production.yml build
 ```
 
----
-
-### 문제 3: WebSocket 연결은 되는데 메시지가 수신되지 않음
-
-**원인**: Redis 연결 문제
-
-**확인**:
+### 3. Start Infrastructure Services
 ```bash
-# Redis 상태 확인
-docker ps | grep redis
-docker logs uvis-redis --tail 20
-
-# Redis 연결 테스트
-docker exec uvis-redis redis-cli ping
-# 기대 출력: PONG
+docker-compose -f docker-compose.production.yml up -d postgres redis
 ```
 
-**해결**:
+### 4: Wait for Services
 ```bash
-# Redis 재시작
-docker-compose restart redis
-sleep 10
-docker-compose restart backend
+# Wait for PostgreSQL
+until docker exec coldchain-postgres-prod pg_isready; do sleep 1; done
+
+# Wait for Redis
+until docker exec coldchain-redis-prod redis-cli ping; do sleep 1; done
+```
+
+### 5. Deploy Backend
+```bash
+docker-compose -f docker-compose.production.yml up -d backend
+```
+
+### 6. Deploy Nginx
+```bash
+docker-compose -f docker-compose.production.yml up -d nginx
+```
+
+### 7. Start Monitoring
+```bash
+docker-compose -f docker-compose.production.yml up -d prometheus grafana
 ```
 
 ---
 
-## 📊 배포 후 모니터링
+## 🔍 Verification
 
-### 24시간 모니터링 스크립트
-
-파일: `/root/uvis/monitor_websocket.sh`
+### Health Checks
 ```bash
-#!/bin/bash
+# API health
+curl https://yourdomain.com/health
 
-echo "Starting 24-hour WebSocket monitoring..."
-echo "Log file: /tmp/websocket_monitor.log"
-echo ""
+# Backend health
+curl https://yourdomain.com/api/v1/health
 
-# 로그 파일 초기화
-> /tmp/websocket_monitor.log
-
-# 24시간 동안 5분마다 체크
-for i in {1..288}; do
-    echo "=== Check #$i at $(date) ===" >> /tmp/websocket_monitor.log
-    
-    # WebSocket 오류 확인
-    ERROR_COUNT=$(docker logs uvis-backend --since 5m 2>&1 | grep -c "Error broadcasting")
-    echo "WebSocket errors in last 5 minutes: $ERROR_COUNT" >> /tmp/websocket_monitor.log
-    
-    if [ "$ERROR_COUNT" -gt 0 ]; then
-        echo "❌ ALERT: WebSocket errors detected!" >> /tmp/websocket_monitor.log
-        docker logs uvis-backend --since 5m 2>&1 | grep "Error broadcasting" >> /tmp/websocket_monitor.log
-    else
-        echo "✅ No errors" >> /tmp/websocket_monitor.log
-    fi
-    
-    echo "" >> /tmp/websocket_monitor.log
-    
-    # 5분 대기
-    sleep 300
-done
-
-echo "Monitoring complete. Check /tmp/websocket_monitor.log for results."
+# Database connection
+docker exec coldchain-backend-prod python -c "from app.core.database import engine; engine.connect()"
 ```
 
-실행:
+### Service Status
 ```bash
-chmod +x /root/uvis/monitor_websocket.sh
-nohup /root/uvis/monitor_websocket.sh &
+docker-compose -f docker-compose.production.yml ps
 ```
 
-로그 확인:
+### Logs
 ```bash
-tail -f /tmp/websocket_monitor.log
+# All services
+docker-compose -f docker-compose.production.yml logs -f
+
+# Specific service
+docker-compose -f docker-compose.production.yml logs -f backend
+
+# Last 100 lines
+docker-compose -f docker-compose.production.yml logs --tail=100 backend
 ```
 
 ---
 
-## 📞 지원 연락처
+## 🔄 Updates & Rollback
 
-문제가 지속되면 다음 정보를 수집해주세요:
-
-### 1. 로그 수집
+### Update to New Version
 ```bash
-# 백엔드 로그
-docker logs uvis-backend > /tmp/backend_logs_$(date +%Y%m%d_%H%M%S).txt 2>&1
+# Pull latest code
+git pull origin main
 
-# Redis 로그
-docker logs uvis-redis > /tmp/redis_logs_$(date +%Y%m%d_%H%M%S).txt 2>&1
+# Rebuild images
+docker-compose -f docker-compose.production.yml build
 
-# 데이터베이스 로그
-docker logs uvis-db > /tmp/db_logs_$(date +%Y%m%d_%H%M%S).txt 2>&1
+# Rolling update
+./deploy-production.sh deploy
 ```
 
-### 2. 시스템 정보
+### Rollback
 ```bash
-# Docker 버전
-docker --version > /tmp/system_info.txt
+# Stop current version
+docker-compose -f docker-compose.production.yml down
 
-# 컨테이너 상태
-docker ps -a >> /tmp/system_info.txt
+# Restore from backup
+./scripts/restore.sh <backup-timestamp>
 
-# 이미지 정보
-docker images | grep uvis >> /tmp/system_info.txt
-
-# 네트워크 정보
-docker network inspect uvis_default >> /tmp/system_info.txt
-
-# 시스템 리소스
-free -h >> /tmp/system_info.txt
-df -h >> /tmp/system_info.txt
-```
-
-### 3. 설정 파일
-```bash
-# Docker Compose 설정
-cat docker-compose.yml > /tmp/docker-compose.txt
-
-# 환경 변수 (민감 정보 제외)
-env | grep -i uvis | grep -v PASSWORD | grep -v SECRET > /tmp/env.txt
+# Start services
+docker-compose -f docker-compose.production.yml up -d
 ```
 
 ---
 
-## ✅ 최종 체크리스트
+## 💾 Backup & Restore
 
-배포 완료 후 다음을 확인하세요:
-
-- [ ] Git 최신 코드 Pull 완료
-- [ ] Docker 이미지 재빌드 완료
-- [ ] 백엔드 컨테이너 실행 중
-- [ ] WebSocket 오류 0건 확인
-- [ ] 헬스 체크 통과
-- [ ] 프론트엔드 접속 가능
-- [ ] WebSocket 연결 정상
-- [ ] 실시간 메트릭 업데이트 확인
-- [ ] 24시간 모니터링 설정
-- [ ] PR #5 업데이트 (선택)
-
----
-
-## 🎉 성공 확인
-
-모든 체크리스트가 완료되면:
-
+### Manual Backup
 ```bash
-echo "🎉 WebSocket 오류 수정 완료!"
-echo "✅ 백엔드: 정상 작동"
-echo "✅ WebSocket: 오류 0건"
-echo "✅ 실시간 업데이트: 정상"
-echo ""
-echo "다음 24시간 동안 모니터링을 계속하세요."
-echo "로그: tail -f /tmp/websocket_monitor.log"
+./scripts/backup.sh
+```
+
+### Automated Backup (Cron)
+```bash
+# Edit crontab
+crontab -e
+
+# Add daily backup at 2 AM
+0 2 * * * /path/to/webapp/scripts/backup.sh >> /var/log/coldchain-backup.log 2>&1
+```
+
+### Restore from Backup
+```bash
+# List backups
+ls -lh /backups/database/
+
+# Restore database
+BACKUP_FILE="/backups/database/postgres_20260127_020000.dump.gz"
+gunzip -c $BACKUP_FILE | docker exec -i coldchain-postgres-prod \
+  pg_restore -U coldchain_user -d coldchain_prod --clean
+
+# Restore Redis
+gunzip -c /backups/redis/redis_20260127_020000.rdb.gz | \
+  docker cp - coldchain-redis-prod:/data/dump.rdb
+docker restart coldchain-redis-prod
 ```
 
 ---
 
-**작성일**: 2026-02-07  
-**커밋**: 8cbe2a9  
-**브랜치**: phase8-verification  
-**PR**: #5 (https://github.com/rpaakdi1-spec/3-/pull/5)
+## 📊 Monitoring
+
+### Grafana Dashboard
+- URL: `http://yourdomain.com:3001`
+- Username: `admin`
+- Password: (from .env.production)
+
+### Prometheus Metrics
+- URL: `http://yourdomain.com:9090`
+
+### Key Metrics to Monitor
+- API response time (p50, p95, p99)
+- Error rate
+- Request rate
+- Database connections
+- Redis memory usage
+- CPU & Memory usage
+- Disk I/O
+
+---
+
+## 🔒 Security Checklist
+
+- [ ] Change all default passwords
+- [ ] Use strong SECRET_KEY and JWT_SECRET
+- [ ] Enable HTTPS with valid SSL certificate
+- [ ] Configure firewall (allow only 80, 443)
+- [ ] Set up rate limiting
+- [ ] Enable Sentry error tracking
+- [ ] Configure CORS properly
+- [ ] Disable DEBUG mode
+- [ ] Set up automated backups
+- [ ] Configure log rotation
+- [ ] Enable security headers
+- [ ] Set up intrusion detection
+- [ ] Configure fail2ban
+
+---
+
+## 🐛 Troubleshooting
+
+### Backend Won't Start
+```bash
+# Check logs
+docker logs coldchain-backend-prod
+
+# Check database connection
+docker exec coldchain-backend-prod env | grep DATABASE
+
+# Restart service
+docker-compose -f docker-compose.production.yml restart backend
+```
+
+### Database Connection Errors
+```bash
+# Check PostgreSQL logs
+docker logs coldchain-postgres-prod
+
+# Check if PostgreSQL is accepting connections
+docker exec coldchain-postgres-prod pg_isready
+
+# Reset password
+docker exec -it coldchain-postgres-prod psql -U postgres
+ALTER USER coldchain_user PASSWORD 'new-password';
+```
+
+### High Memory Usage
+```bash
+# Check memory usage
+docker stats
+
+# Restart services with memory limits
+docker-compose -f docker-compose.production.yml up -d --force-recreate
+```
+
+### SSL Certificate Issues
+```bash
+# Check certificate validity
+openssl x509 -in ssl/certs/fullchain.pem -text -noout
+
+# Renew Let's Encrypt certificate
+sudo certbot renew
+```
+
+---
+
+## 📞 Support
+
+### Getting Help
+1. Check logs: `docker-compose logs`
+2. Review documentation
+3. Contact: admin@yourdomain.com
+
+### Emergency Contacts
+- DevOps Team: devops@yourdomain.com
+- System Admin: admin@yourdomain.com
+- On-call: +82-10-XXXX-XXXX
+
+---
+
+## 📚 Additional Resources
+
+- [Architecture Documentation](./docs/ARCHITECTURE.md)
+- [API Documentation](https://yourdomain.com/api/docs)
+- [User Manual](./docs/USER_MANUAL.md)
+- [Security Guide](./docs/SECURITY.md)
+
+---
+
+*Last Updated: 2026-01-27*  
+*Maintainer: Cold Chain DevOps Team*

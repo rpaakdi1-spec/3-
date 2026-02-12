@@ -44,26 +44,6 @@ const SettlementApprovalPage = lazy(() => import('./pages/SettlementApprovalPage
 const PaymentReminderPage = lazy(() => import('./pages/PaymentReminderPage'));
 const ExportTaskPage = lazy(() => import('./pages/ExportTaskPage'));
 
-// Phase 10: Dispatch Rules
-const DispatchRulesPage = lazy(() => import('./pages/DispatchRulesPage'));
-
-// Phase 11-C: Rule Simulation
-const SimulationPage = lazy(() => import('./pages/SimulationPage'));
-
-// Phase 12: Integrated Dispatch (Naver Map + GPS + AI)
-const VehicleTrackingPage = lazy(() => import('./pages/VehicleTrackingPage'));
-const AutoDispatchPage = lazy(() => import('./pages/AutoDispatchPage'));
-const DispatchAnalyticsDashboard = lazy(() => import('./pages/DispatchAnalyticsDashboard'));
-const MLAutoLearningDashboard = lazy(() => import('./pages/MLAutoLearningDashboard'));
-
-// Phase 13-14: IoT & Predictive Maintenance
-const IoTSensorMonitoring = lazy(() => import('./pages/IoTSensorMonitoring'));
-const PredictiveMaintenanceDashboard = lazy(() => import('./pages/PredictiveMaintenanceDashboard'));
-
-// Phase 16: Driver App
-const DriverDashboard = lazy(() => import('./pages/DriverDashboard'));
-const DriverNotifications = lazy(() => import('./pages/DriverNotifications'));
-
 // IoT Sensor Pages
 const IoTSensorsPage = lazy(() => import('./pages/IoTSensorsPage'));
 const IoTSensorDetailPage = lazy(() => import('./pages/IoTSensorDetailPage'));
@@ -201,94 +181,6 @@ const App: React.FC = () => {
               element={
                 <ProtectedRoute>
                   <DispatchesPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/dispatch-rules"
-              element={
-                <ProtectedRoute>
-                  <DispatchRulesPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/simulations"
-              element={
-                <ProtectedRoute>
-                  <SimulationPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/vehicle-tracking"
-              element={
-                <ProtectedRoute>
-                  <VehicleTrackingPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/dispatch-analytics"
-              element={
-                <ProtectedRoute>
-                  <DispatchAnalyticsDashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/ml-autolearning"
-              element={
-                <ProtectedRoute>
-                  <MLAutoLearningDashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/iot-sensor-monitoring"
-              element={
-                <ProtectedRoute>
-                  <IoTSensorMonitoring />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/predictive-maintenance"
-              element={
-                <ProtectedRoute>
-                  <PredictiveMaintenanceDashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/driver-dashboard"
-              element={
-                <ProtectedRoute>
-                  <DriverDashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/driver-notifications"
-              element={
-                <ProtectedRoute>
-                  <DriverNotifications />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/predictive-maintenance"
-              element={
-                <ProtectedRoute>
-                  <PredictiveMaintenanceDashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/auto-dispatch"
-              element={
-                <ProtectedRoute>
-                  <AutoDispatchPage />
                 </ProtectedRoute>
               }
             />

@@ -51,7 +51,3 @@ HETZNER_DEPLOYMENT_INFO.md
 *_CREDENTIALS.md
 *_SECRETS.md
 terraform.tfvars
-
-# Backup files
-*.backup_*
-*.new
