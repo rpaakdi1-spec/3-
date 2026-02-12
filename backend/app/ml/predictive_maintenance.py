@@ -132,8 +132,56 @@ class MaintenancePredictionModel:
             distance_since_last_maintenance = total_distance
         
         # 고장 발생 여부 (타겟 변수)
-        # 긴급 정비가 있었는지 확인
-        failure_occurred = 1 if emergency_maintenances > 0 else 0
+        # 다양한 위험 지표를 기반으로 판단
+        # 1. 긴급 정비 이력
+        # 2. 차량 연식과 주행거리
+        # 3. 정비 이후 경과 시간/거리
+        # 4. 차량 타입별 부하
+        
+        risk_score = 0
+        
+        # 긴급 정비 이력 (가중치: 높음)
+        if emergency_maintenances > 0:
+            risk_score += 3
+        
+        # 차량 연식 (5년 이상)
+        if vehicle_age_years >= 5:
+            risk_score += 2
+        elif vehicle_age_years >= 3:
+            risk_score += 1
+        
+        # 주행거리 (10만km 이상)
+        if total_distance >= 100000:
+            risk_score += 2
+        elif total_distance >= 50000:
+            risk_score += 1
+        
+        # 최근 정비 경과 (1년 이상)
+        if days_since_last_maintenance >= 365:
+            risk_score += 2
+        elif days_since_last_maintenance >= 180:
+            risk_score += 1
+        
+        # 정비 이후 주행거리 (5만km 이상)
+        if distance_since_last_maintenance >= 50000:
+            risk_score += 2
+        elif distance_since_last_maintenance >= 25000:
+            risk_score += 1
+        
+        # 차량 타입별 부하 (냉동차량은 고위험)
+        if vehicle_type_code >= 3:  # FROZEN
+            risk_score += 1
+        
+        # 일평균 주행거리 (과도한 운행)
+        if avg_distance_per_day >= 200:
+            risk_score += 2
+        elif avg_distance_per_day >= 100:
+            risk_score += 1
+        
+        # 위험도 임계값 기반 분류
+        # risk_score >= 6: 고위험 (failure_occurred = 1)
+        # risk_score < 6: 저위험 (failure_occurred = 0)
+        failure_occurred = 1 if risk_score >= 6 else 0
         
         return {
             'vehicle_id': vehicle.id,
@@ -158,6 +206,17 @@ class MaintenancePredictionModel:
     def train_models(self, X: pd.DataFrame, y_failure: pd.Series, y_cost: pd.Series):
         """모델 학습"""
         logger.info("🤖 Training predictive maintenance models...")
+        
+        # 레이블 분포 확인
+        failure_distribution = y_failure.value_counts().to_dict()
+        logger.info(f"📊 Training data label distribution:")
+        logger.info(f"  • Class 0 (Low Risk): {failure_distribution.get(0, 0)} samples")
+        logger.info(f"  • Class 1 (High Risk): {failure_distribution.get(1, 0)} samples")
+        
+        # 단일 클래스 경고
+        if len(failure_distribution) < 2:
+            logger.warning("⚠️  Only one class in training data! Model may not work properly.")
+            logger.warning("⚠️  Consider adjusting risk_score threshold or adding more diverse data.")
         
         # 데이터 전처리
         X_scaled = self.scaler.fit_transform(X)
@@ -239,8 +298,17 @@ class MaintenancePredictionModel:
         X_pred = X_pred[self.feature_names]  # 순서 맞추기
         X_pred_scaled = self.scaler.transform(X_pred)
         
-        # 고장 확률 예측
-        failure_proba = self.failure_classifier.predict_proba(X_pred_scaled)[0][1]
+        # 고장 확률 예측 (안전한 접근)
+        proba_result = self.failure_classifier.predict_proba(X_pred_scaled)[0]
+        
+        # 클래스가 2개인 경우: [prob_class0, prob_class1]
+        # 클래스가 1개인 경우: [prob_class0] or [prob_class1]
+        if len(proba_result) >= 2:
+            failure_proba = proba_result[1]  # High Risk 확률
+        else:
+            # 단일 클래스만 학습된 경우
+            predicted_class = self.failure_classifier.predict(X_pred_scaled)[0]
+            failure_proba = proba_result[0] if predicted_class == 1 else (1 - proba_result[0])
         
         # 비용 예측
         estimated_cost = 0
