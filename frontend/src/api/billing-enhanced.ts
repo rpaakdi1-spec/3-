@@ -692,7 +692,7 @@ export const downloadFinancialDashboardExcel = async (
 
     // 파일명 추출 (Content-Disposition 헤더에서)
     const contentDisposition = response.headers['content-disposition'];
-    let filename = '재무대시보드.xlsx';
+    let filename = 'Financial_Dashboard.xlsx';
     
     if (contentDisposition) {
       const filenameMatch = contentDisposition.match(/filename\*=UTF-8''(.+)/);
@@ -744,7 +744,7 @@ export const downloadFinancialDashboardPDF = async (
 
     // 파일명 추출
     const contentDisposition = response.headers['content-disposition'];
-    let filename = '재무대시보드.pdf';
+    let filename = 'Financial_Dashboard.pdf';
     
     if (contentDisposition) {
       const filenameMatch = contentDisposition.match(/filename\*=UTF-8''(.+)/);
