@@ -85,13 +85,17 @@ const DispatchMonitoringDashboard: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [selectedDateRange, setSelectedDateRange] = useState<string>('today');
+  const [countdown, setCountdown] = useState(5); // 새로고침 카운트다운
 
   // 실시간 통계 조회
   const fetchLiveStats = async () => {
     try {
-      const response = await apiClient.get('/dispatch/monitoring/live-stats');
+      // 캐시 방지를 위한 타임스탬프 추가
+      const timestamp = new Date().getTime();
+      const response = await apiClient.get(`/dispatch/monitoring/live-stats?_t=${timestamp}`);
       if (response && response.data) {
         setLiveStats(response.data);
+        console.log('Live stats updated:', new Date(response.data.timestamp).toLocaleTimeString());
       }
     } catch (error) {
       console.error('Failed to fetch live stats:', error);
@@ -134,14 +138,24 @@ const DispatchMonitoringDashboard: React.FC = () => {
 
     // 자동 새로고침 (5초마다)
     let interval: NodeJS.Timeout;
+    let countdownInterval: NodeJS.Timeout;
+    
     if (autoRefresh) {
+      // 데이터 새로고침
       interval = setInterval(() => {
         fetchLiveStats();
+        setCountdown(5); // 리셋
       }, 5000);
+      
+      // 카운트다운
+      countdownInterval = setInterval(() => {
+        setCountdown((prev) => (prev > 0 ? prev - 1 : 5));
+      }, 1000);
     }
 
     return () => {
       if (interval) clearInterval(interval);
+      if (countdownInterval) clearInterval(countdownInterval);
     };
   }, [autoRefresh]);
 
@@ -193,7 +207,7 @@ const DispatchMonitoringDashboard: React.FC = () => {
                 : 'bg-gray-300 text-gray-700 hover:bg-gray-400'
             }`}
           >
-            {autoRefresh ? '🟢 자동 새로고침' : '⏸️ 일시정지'}
+            {autoRefresh ? `🟢 자동 새로고침 (${countdown}초)` : '⏸️ 일시정지'}
           </button>
           <button
             onClick={handleManualRefresh}
