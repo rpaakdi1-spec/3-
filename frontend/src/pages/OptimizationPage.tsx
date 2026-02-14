@@ -124,6 +124,11 @@ const OptimizationPage: React.FC = () => {
       return;
     }
 
+    if (vehicles.length === 0) {
+      toast.error('사용 가능한 차량이 없습니다.');
+      return;
+    }
+
     setIsOptimizing(true);
     setIsConfirmed(false);
     try {
@@ -131,7 +136,14 @@ const OptimizationPage: React.FC = () => {
       
       // 실제 API 호출: CVRPTW 최적화 (GPS + 네이버 지도 사용)
       const orderIds = orders.map(o => o.id);
-      const vehicleIds = vehicles.filter(v => v.status === 'AVAILABLE').map(v => v.id);
+      const vehicleIds = vehicles.filter(v => v.status === 'AVAILABLE' || v.status === '운행가능').map(v => v.id);
+      
+      console.log('📦 최적화 요청:', {
+        orderIds,
+        vehicleIds,
+        orderCount: orderIds.length,
+        vehicleCount: vehicleIds.length
+      });
       
       // API 호출
       const response = await apiClient.optimizeDispatchCVRPTW(
@@ -143,16 +155,30 @@ const OptimizationPage: React.FC = () => {
         true    // use_real_routing: 네이버 API 실제 경로 사용 ⭐
       );
       
-      if (!response.success || !response.dispatches || response.dispatches.length === 0) {
-        toast.error(response.message || '배차 최적화에 실패했습니다.');
+      console.log('✅ 최적화 응답:', response);
+      
+      if (!response.success) {
+        toast.error(response.error || response.message || '배차 최적화에 실패했습니다.');
         setIsOptimizing(false);
         return;
       }
       
+      if (!response.dispatches || response.dispatches.length === 0) {
+        console.error('❌ 배차 결과 없음:', response);
+        toast.error('배차 결과가 생성되지 않았습니다. 차량과 주문의 온도대, 용량을 확인해주세요.');
+        setIsOptimizing(false);
+        return;
+      }
+      
+      console.log('📊 생성된 배차:', response.dispatches.length, '건');
+      
       // API 응답을 VehicleAssignment 형식으로 변환
       const vehicleAssignments: VehicleAssignment[] = response.dispatches.map((dispatch: any) => {
         const vehicle = vehicles.find(v => v.id === dispatch.vehicle_id);
-        if (!vehicle) return null;
+        if (!vehicle) {
+          console.warn('⚠️ 차량을 찾을 수 없음:', dispatch.vehicle_id);
+          return null;
+        }
         
         // 경로에서 주문 정보 추출
         const assignedOrders = dispatch.routes
@@ -184,8 +210,11 @@ const OptimizationPage: React.FC = () => {
         };
       }).filter(Boolean); // null 제거
       
+      console.log('🚛 변환된 차량 배정:', vehicleAssignments.length, '건');
+      
       if (vehicleAssignments.length === 0) {
-        toast.error('배차 결과가 없습니다. 차량이나 주문을 확인해주세요.');
+        toast.error('배차 결과를 변환하는데 실패했습니다. 차량 정보를 확인해주세요.');
+        console.error('❌ vehicleAssignments가 비어있음. vehicles:', vehicles, 'dispatches:', response.dispatches);
         setIsOptimizing(false);
         return;
       }
@@ -204,12 +233,13 @@ const OptimizationPage: React.FC = () => {
       };
         
       setOptimizationResult(result);
-      toast.success(`✅ 배차 최적화 완료! (GPS 위치 및 네이버 실제 경로 반영)`);
+      toast.success(`✅ 배차 최적화 완료! ${vehicleAssignments.length}대 차량에 ${orders.length}건 주문 배정`);
       setIsOptimizing(false);
       
     } catch (error: any) {
-      console.error('최적화 실패:', error);
-      toast.error(error.response?.data?.detail || '배차 최적화에 실패했습니다.');
+      console.error('❌ 최적화 실패:', error);
+      console.error('에러 상세:', error.response?.data);
+      toast.error(error.response?.data?.detail || error.message || '배차 최적화에 실패했습니다.');
       setIsOptimizing(false);
     }
   };
