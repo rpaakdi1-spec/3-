@@ -152,6 +152,62 @@ def get_dispatches(
     return DispatchListResponse(total=total, items=items)
 
 
+@router.get("/dashboard", response_model=DashboardStatsResponse)
+def get_dashboard_stats(db: Session = Depends(get_db)):
+    """대시보드 통계 조회"""
+    from datetime import date, datetime
+    from app.models.vehicle import Vehicle
+    
+    today = date.today()
+    
+    # 전체 주문 수 (오늘)
+    total_orders = db.query(func.count(Order.id)).filter(
+        Order.created_at >= datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    ).scalar() or 0
+    
+    # 배차 대기 중인 주문 수
+    pending_orders = db.query(func.count(Order.id)).filter(
+        Order.status == OrderStatus.PENDING
+    ).scalar() or 0
+    
+    # 진행 중인 배차 수 (확정 + 진행중)
+    active_dispatches = db.query(func.count(Dispatch.id)).filter(
+        Dispatch.status.in_([DispatchStatus.CONFIRMED, DispatchStatus.IN_PROGRESS])
+    ).scalar() or 0
+    
+    # 오늘 완료된 배차 수
+    completed_today = db.query(func.count(Dispatch.id)).filter(
+        Dispatch.dispatch_date == today,
+        Dispatch.status == DispatchStatus.COMPLETED
+    ).scalar() or 0
+    
+    # 사용 가능한 차량 수
+    available_vehicles = db.query(func.count(Vehicle.id)).filter(
+        Vehicle.status == VehicleStatus.AVAILABLE,
+        Vehicle.is_active == True
+    ).scalar() or 0
+    
+    # 운행 중인 차량 수
+    active_vehicles = db.query(func.count(Vehicle.id)).filter(
+        Vehicle.status == VehicleStatus.IN_USE
+    ).scalar() or 0
+    
+    logger.info(f"Dashboard stats: orders={total_orders}, pending={pending_orders}, "
+                f"active_dispatches={active_dispatches}, completed_today={completed_today}, "
+                f"available_vehicles={available_vehicles}, active_vehicles={active_vehicles}")
+    
+    return DashboardStatsResponse(
+        total_orders=total_orders,
+        pending_orders=pending_orders,
+        active_dispatches=active_dispatches,
+        completed_today=completed_today,
+        available_vehicles=available_vehicles,
+        active_vehicles=active_vehicles,
+        revenue_today=0,  # TODO: 실제 수익 계산 로직 추가
+        revenue_month=0   # TODO: 실제 수익 계산 로직 추가
+    )
+
+
 @router.get("/{dispatch_id}", response_model=DispatchDetailResponse)
 def get_dispatch(dispatch_id: int, db: Session = Depends(get_db)):
     """배차 상세 조회 (경로 포함)"""
@@ -400,62 +456,6 @@ def cancel_dispatches(
         "cancelled_dispatch_numbers": cancelled,
         "errors": errors
     }
-
-
-@router.get("/dashboard", response_model=DashboardStatsResponse)
-def get_dashboard_stats(db: Session = Depends(get_db)):
-    """대시보드 통계 조회"""
-    from datetime import date, datetime
-    from app.models.vehicle import Vehicle
-    
-    today = date.today()
-    
-    # 전체 주문 수 (최근 30일)
-    total_orders = db.query(func.count(Order.id)).filter(
-        Order.created_at >= datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-    ).scalar() or 0
-    
-    # 배차 대기 중인 주문 수
-    pending_orders = db.query(func.count(Order.id)).filter(
-        Order.status == OrderStatus.PENDING
-    ).scalar() or 0
-    
-    # 진행 중인 배차 수 (확정 + 진행중)
-    active_dispatches = db.query(func.count(Dispatch.id)).filter(
-        Dispatch.status.in_([DispatchStatus.CONFIRMED, DispatchStatus.IN_PROGRESS])
-    ).scalar() or 0
-    
-    # 오늘 완료된 배차 수
-    completed_today = db.query(func.count(Dispatch.id)).filter(
-        Dispatch.dispatch_date == today,
-        Dispatch.status == DispatchStatus.COMPLETED
-    ).scalar() or 0
-    
-    # 사용 가능한 차량 수
-    available_vehicles = db.query(func.count(Vehicle.id)).filter(
-        Vehicle.status == VehicleStatus.AVAILABLE,
-        Vehicle.is_active == True
-    ).scalar() or 0
-    
-    # 운행 중인 차량 수
-    active_vehicles = db.query(func.count(Vehicle.id)).filter(
-        Vehicle.status == VehicleStatus.IN_USE
-    ).scalar() or 0
-    
-    logger.info(f"Dashboard stats: orders={total_orders}, pending={pending_orders}, "
-                f"active_dispatches={active_dispatches}, completed_today={completed_today}, "
-                f"available_vehicles={available_vehicles}, active_vehicles={active_vehicles}")
-    
-    return DashboardStatsResponse(
-        total_orders=total_orders,
-        pending_orders=pending_orders,
-        active_dispatches=active_dispatches,
-        completed_today=completed_today,
-        available_vehicles=available_vehicles,
-        active_vehicles=active_vehicles,
-        revenue_today=0,  # TODO: 실제 수익 계산 로직 추가
-        revenue_month=0   # TODO: 실제 수익 계산 로직 추가
-    )
 
 
 @router.get("/stats/summary", response_model=DispatchStatsResponse)
