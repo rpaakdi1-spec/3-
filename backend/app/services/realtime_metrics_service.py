@@ -109,7 +109,9 @@ class RealtimeMetricsService:
                 except StopIteration:
                     pass
         except Exception as e:
+            import traceback
             logger.error(f"❌ Error broadcasting dashboard metrics: {e}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
     
     def _collect_dashboard_metrics(self, db) -> dict:
         """Collect dashboard metrics from database (synchronous)"""
