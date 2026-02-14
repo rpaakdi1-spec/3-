@@ -16,7 +16,7 @@ from app.api.auth import get_current_user_websocket
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/ws", tags=["WebSocket"])
+router = APIRouter(tags=["WebSocket"])
 
 
 @router.websocket("/dashboard")

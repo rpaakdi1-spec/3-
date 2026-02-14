@@ -85,7 +85,7 @@ class RealtimeMetricsService:
             db_gen = get_db()
             db = next(db_gen)
             try:
-                metrics = await self._collect_dashboard_metrics(db)
+                metrics = self._collect_dashboard_metrics(db)  # Call synchronously
                 
                 await manager.broadcast_to_channel(
                     "dashboard",
@@ -111,8 +111,8 @@ class RealtimeMetricsService:
         except Exception as e:
             logger.error(f"❌ Error broadcasting dashboard metrics: {e}")
     
-    async def _collect_dashboard_metrics(self, db: AsyncSession) -> dict:
-        """Collect dashboard metrics from database"""
+    def _collect_dashboard_metrics(self, db) -> dict:
+        """Collect dashboard metrics from database (synchronous)"""
         from app.models.dispatch import Dispatch, DispatchStatus
         from app.models.order import Order, OrderStatus
         from app.models.vehicle import Vehicle
@@ -127,7 +127,7 @@ class RealtimeMetricsService:
                 DispatchStatus.IN_PROGRESS
             ])
         )
-        active_dispatches = await db.scalar(active_dispatches_query) or 0
+        active_dispatches = db.scalar(active_dispatches_query) or 0
         
         # Completed today
         completed_today_query = select(func.count(Dispatch.id)).where(
@@ -136,19 +136,19 @@ class RealtimeMetricsService:
                 Dispatch.completed_at >= today_start
             )
         )
-        completed_today = await db.scalar(completed_today_query) or 0
+        completed_today = db.scalar(completed_today_query) or 0
         
         # Pending orders
         pending_orders_query = select(func.count(Order.id)).where(
             Order.status == OrderStatus.PENDING
         )
-        pending_orders = await db.scalar(pending_orders_query) or 0
+        pending_orders = db.scalar(pending_orders_query) or 0
         
         # Vehicles in transit
         vehicles_in_transit_query = select(func.count(Vehicle.id)).where(
             Vehicle.status == VehicleStatus.IN_USE
         )
-        vehicles_in_transit = await db.scalar(vehicles_in_transit_query) or 0
+        vehicles_in_transit = db.scalar(vehicles_in_transit_query) or 0
         
         # Temperature alerts (mock data for now)
         temperature_alerts = 0
@@ -176,7 +176,8 @@ class RealtimeMetricsService:
                     Vehicle.status == VehicleStatus.IN_USE
                 ).limit(50)
                 
-                result = await db.execute(vehicles_query)
+                # Execute synchronously (not async)
+                result = db.execute(vehicles_query)
                 vehicles = result.scalars().all()
                 
                 for vehicle in vehicles:
