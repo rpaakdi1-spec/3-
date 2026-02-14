@@ -47,7 +47,13 @@ async def get_live_dispatch_stats(
         Dispatch.dispatch_date == dispatch_date
     ).first()
     
-    # 차량 통계
+    # 차량 통계 (배차 기반 가동률 계산)
+    # 오늘 날짜에 배차가 있는 차량 수를 계산
+    vehicles_in_dispatch = db.query(func.count(func.distinct(Dispatch.vehicle_id))).filter(
+        Dispatch.dispatch_date == dispatch_date,
+        Dispatch.status.in_([DispatchStatus.IN_PROGRESS, DispatchStatus.COMPLETED])
+    ).scalar() or 0
+    
     vehicle_stats = db.query(
         func.count(Vehicle.id).label("total"),
         func.sum(case((Vehicle.status == VehicleStatus.AVAILABLE, 1), else_=0)).label("available"),
@@ -56,6 +62,9 @@ async def get_live_dispatch_stats(
     ).filter(
         Vehicle.is_active == True
     ).first()
+    
+    # 실제 배차 기반 가동률 (배차가 있는 차량 / 전체 차량)
+    actual_utilization_rate = round((vehicles_in_dispatch / (vehicle_stats.total or 1)) * 100, 1)
     
     # 주문 통계
     order_stats = db.query(
@@ -99,11 +108,9 @@ async def get_live_dispatch_stats(
         "vehicle": {
             "total": vehicle_stats.total or 0,
             "available": vehicle_stats.available or 0,
-            "in_use": vehicle_stats.in_use or 0,
+            "in_use": vehicles_in_dispatch,  # 실제 배차 중인 차량 수
             "maintenance": vehicle_stats.maintenance or 0,
-            "utilization_rate": round(
-                (vehicle_stats.in_use or 0) / (vehicle_stats.total or 1) * 100, 1
-            )
+            "utilization_rate": actual_utilization_rate  # 배차 기반 가동률
         },
         "order": {
             "total": order_stats.total or 0,
