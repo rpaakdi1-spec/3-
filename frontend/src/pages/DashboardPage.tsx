@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Layout from '../components/common/Layout';
 import Card from '../components/common/Card';
 import Loading from '../components/common/Loading';
@@ -26,6 +27,7 @@ const DashboardPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [isConnected, setIsConnected] = useState(false);
   const { isMobile } = useResponsive();
+  const navigate = useNavigate();
 
   useEffect(() => {
     // Initial fetch
@@ -284,17 +286,26 @@ const DashboardPage: React.FC = () => {
         <div className={isMobile ? 'px-4' : ''}>
           <Card title="빠른 작업">
             <div className={`grid ${isMobile ? 'grid-cols-1 gap-3' : 'grid-cols-1 md:grid-cols-3 gap-4'}`}>
-              <button className="p-3 md:p-4 bg-blue-50 hover:bg-blue-100 rounded-lg text-left transition-colors active:scale-95">
+              <button 
+                onClick={() => navigate('/orders/new')}
+                className="p-3 md:p-4 bg-blue-50 hover:bg-blue-100 rounded-lg text-left transition-colors active:scale-95 cursor-pointer"
+              >
                 <Package className="text-blue-600 mb-2" size={isMobile ? 20 : 24} />
                 <h3 className="font-semibold text-gray-900 text-sm md:text-base">새 주문 등록</h3>
                 <p className="text-xs md:text-sm text-gray-600 mt-1">신규 배송 주문을 등록합니다</p>
               </button>
-              <button className="p-3 md:p-4 bg-green-50 hover:bg-green-100 rounded-lg text-left transition-colors active:scale-95">
+              <button 
+                onClick={() => navigate('/optimization')}
+                className="p-3 md:p-4 bg-green-50 hover:bg-green-100 rounded-lg text-left transition-colors active:scale-95 cursor-pointer"
+              >
                 <Truck className="text-green-600 mb-2" size={isMobile ? 20 : 24} />
                 <h3 className="font-semibold text-gray-900 text-sm md:text-base">자동 배차</h3>
                 <p className="text-xs md:text-sm text-gray-600 mt-1">대기 중인 주문을 자동 배차합니다</p>
               </button>
-              <button className="p-3 md:p-4 bg-purple-50 hover:bg-purple-100 rounded-lg text-left transition-colors active:scale-95">
+              <button 
+                onClick={() => navigate('/dispatch/monitoring')}
+                className="p-3 md:p-4 bg-purple-50 hover:bg-purple-100 rounded-lg text-left transition-colors active:scale-95 cursor-pointer"
+              >
                 <CheckCircle className="text-purple-600 mb-2" size={isMobile ? 20 : 24} />
                 <h3 className="font-semibold text-gray-900 text-sm md:text-base">배송 현황</h3>
                 <p className="text-xs md:text-sm text-gray-600 mt-1">진행 중인 배송을 모니터링합니다</p>
