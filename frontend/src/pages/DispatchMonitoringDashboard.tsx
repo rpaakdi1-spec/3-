@@ -82,13 +82,17 @@ const DispatchMonitoringDashboard: React.FC = () => {
   const [liveStats, setLiveStats] = useState<LiveStats | null>(null);
   const [agentPerformance, setAgentPerformance] = useState<Record<string, AgentPerformance>>({});
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [selectedDateRange, setSelectedDateRange] = useState<string>('today');
 
   // 실시간 통계 조회
   const fetchLiveStats = async () => {
     try {
       const response = await apiClient.get('/dispatch/monitoring/live-stats');
-      setLiveStats(response.data);
+      if (response && response.data) {
+        setLiveStats(response.data);
+      }
     } catch (error) {
       console.error('Failed to fetch live stats:', error);
     }
@@ -100,9 +104,26 @@ const DispatchMonitoringDashboard: React.FC = () => {
       const response = await apiClient.get('/dispatch/monitoring/agent-performance', {
         params: { days: 30 }
       });
-      setAgentPerformance(response.data.agent_performance);
+      if (response && response.data && response.data.agent_performance) {
+        setAgentPerformance(response.data.agent_performance);
+      }
     } catch (error) {
       console.error('Failed to fetch agent performance:', error);
+    }
+  };
+
+  // 수동 새로고침
+  const handleManualRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        fetchLiveStats(),
+        fetchAgentPerformance()
+      ]);
+    } catch (error) {
+      console.error('Manual refresh failed:', error);
+    } finally {
+      setTimeout(() => setRefreshing(false), 500);
     }
   };
 
@@ -151,7 +172,19 @@ const DispatchMonitoringDashboard: React.FC = () => {
             마지막 업데이트: {new Date(liveStats.timestamp).toLocaleTimeString('ko-KR')}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+          {/* 날짜 범위 선택 */}
+          <select
+            value={selectedDateRange}
+            onChange={(e) => setSelectedDateRange(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="today">오늘</option>
+            <option value="yesterday">어제</option>
+            <option value="week">최근 7일</option>
+            <option value="month">최근 30일</option>
+          </select>
+          
           <button
             onClick={() => setAutoRefresh(!autoRefresh)}
             className={`px-4 py-2 rounded-lg font-medium transition ${
@@ -163,13 +196,15 @@ const DispatchMonitoringDashboard: React.FC = () => {
             {autoRefresh ? '🟢 자동 새로고침' : '⏸️ 일시정지'}
           </button>
           <button
-            onClick={() => {
-              fetchLiveStats();
-              fetchAgentPerformance();
-            }}
-            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-medium"
+            onClick={handleManualRefresh}
+            disabled={refreshing}
+            className={`px-4 py-2 rounded-lg font-medium transition ${
+              refreshing
+                ? 'bg-gray-400 text-white cursor-not-allowed'
+                : 'bg-blue-500 text-white hover:bg-blue-600'
+            }`}
           >
-            🔄 수동 새로고침
+            {refreshing ? '⏳ 새로고침 중...' : '🔄 수동 새로고침'}
           </button>
         </div>
       </div>
