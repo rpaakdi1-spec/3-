@@ -223,22 +223,7 @@ async def websocket_dashboard(websocket: WebSocket):
         from app.core.database import SessionLocal
         from datetime import date, datetime
         
-        # 연결 직후 즉시 확인 메시지 전송 (클라이언트가 연결을 유지하도록)
-        try:
-            await websocket.send_json({
-                "type": "connected",
-                "message": "Dashboard WebSocket connected",
-                "timestamp": datetime.now().isoformat()
-            })
-            logger.debug("Sent connection confirmation")
-        except Exception as e:
-            logger.warning(f"Failed to send connection confirmation: {e}")
-            return
-        
         while True:
-            # 5초 대기
-            await asyncio.sleep(5)
-            
             # 연결 상태 먼저 체크
             if websocket.client_state.name != "CONNECTED":
                 logger.info(f"WebSocket not in CONNECTED state: {websocket.client_state.name}, exiting loop")
@@ -310,6 +295,9 @@ async def websocket_dashboard(websocket: WebSocket):
                 break
             finally:
                 db.close()
+            
+            # Wait 5 seconds before next update
+            await asyncio.sleep(5)
     
     except WebSocketDisconnect:
         logger.info("WebSocket disconnected: dashboard")
