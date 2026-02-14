@@ -17,7 +17,7 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'backend'))
 
-from datetime import date, time, timedelta
+from datetime import date, time, timedelta, datetime
 from sqlalchemy.orm import Session
 from app.core.database import SessionLocal
 from app.models.order import Order, OrderStatus, TemperatureZone
@@ -69,8 +69,9 @@ def create_test_orders(db: Session, count: int = 5):
         pickup_client = random.choice(clients)
         delivery_client = random.choice([c for c in clients if c.id != pickup_client.id])
         
-        # 주문 번호 생성
-        order_number = f"TEST-ORD-{today.strftime('%Y%m%d')}-{i+1:03d}"
+        # 주문 번호 생성 (타임스탬프 포함하여 중복 방지)
+        timestamp = datetime.now().strftime('%H%M%S')
+        order_number = f"TEST-ORD-{today.strftime('%Y%m%d')}-{timestamp}-{i+1:02d}"
         
         # 온도대 선택 (순환)
         temp_zone = temperature_zones[i % len(temperature_zones)]
