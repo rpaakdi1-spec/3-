@@ -159,11 +159,16 @@ async def optimize_and_create_dispatch(db: Session, orders: list):
         
         print_info("최적화 성공", f"{result['total_dispatches']}건의 배차 생성")
         print_info("총 배정 주문", f"{result['total_orders']}건")
-        print_info("미배정 주문", f"{result['unassigned_orders']}건")
         print_info("총 예상 거리", f"{result['total_distance_km']:.2f} km")
-        print_info("최적화 점수", f"{result.get('optimization_score', 0):.3f}")
+        
+        # 온도대별 통계 출력
+        if 'temperature_zones' in result:
+            print("\n  📊 온도대별 배차:")
+            for zone in result['temperature_zones']:
+                print(f"    - {zone['zone']}: {zone['orders']}건 주문, {zone['dispatches']}건 배차, {zone['distance_km']:.1f}km")
         
         # 생성된 배차 조회
+        print("\n  🚚 생성된 배차 목록:")
         created_dispatches = []
         for dispatch_data in result['dispatches']:
             dispatch = db.query(Dispatch).filter(
