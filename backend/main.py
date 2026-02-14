@@ -190,7 +190,7 @@ app.include_router(ml_models.router, prefix=f"{settings.API_PREFIX}/ml-models", 
 app.include_router(fcm_notifications.router, prefix=f"{settings.API_PREFIX}/notifications", tags=["Push Notifications"])
 app.include_router(performance.router, prefix=f"{settings.API_PREFIX}/performance", tags=["Performance Monitoring"])
 app.include_router(security.router, prefix=f"{settings.API_PREFIX}/security", tags=["Security"])
-app.include_router(websocket.router, tags=["WebSocket"])  # WebSocket endpoints
+app.include_router(websocket.router, prefix=f"{settings.API_PREFIX}/ws", tags=["WebSocket"])  # WebSocket endpoints
 app.include_router(notifications.router, prefix=f"{settings.API_PREFIX}/notifications-v2", tags=["Notifications"])  # New notification system
 app.include_router(temperature_monitoring.router, prefix=f"{settings.API_PREFIX}", tags=["Temperature Monitoring"])  # Phase 3-A Part 4
 app.include_router(temperature_analytics.router, prefix=f"{settings.API_PREFIX}", tags=["Temperature Analytics"])  # Phase 3-A Part 5
