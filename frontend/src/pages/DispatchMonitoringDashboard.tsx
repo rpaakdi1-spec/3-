@@ -3,7 +3,7 @@
  * AI Agent 성능 추적 및 최적화 효과 시각화
  */
 import React, { useState, useEffect } from 'react';
-import Layout from '../components/Layout';
+import Layout from '../components/common/Layout';
 import {
   Activity,
   Truck,
