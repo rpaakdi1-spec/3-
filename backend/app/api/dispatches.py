@@ -223,6 +223,26 @@ async def websocket_dashboard(websocket: WebSocket):
         from app.core.database import SessionLocal
         from datetime import date, datetime
         
+        # Send immediate empty stats to keep connection alive
+        try:
+            initial_stats = {
+                "total_orders": 0,
+                "pending_orders": 0,
+                "active_dispatches": 0,
+                "completed_today": 0,
+                "available_vehicles": 0,
+                "active_vehicles": 0,
+                "revenue_today": 0.0,
+                "revenue_month": 0.0,
+                "timestamp": datetime.now().isoformat(),
+                "loading": True
+            }
+            await websocket.send_json(initial_stats)
+            logger.debug("Sent initial dashboard stats (loading)")
+        except Exception as e:
+            logger.warning(f"Failed to send initial stats: {e}")
+            return
+        
         while True:
             # 연결 상태 먼저 체크
             if websocket.client_state.name != "CONNECTED":
@@ -277,7 +297,8 @@ async def websocket_dashboard(websocket: WebSocket):
                     "active_vehicles": active_vehicles,
                     "revenue_today": 0.0,
                     "revenue_month": 0.0,
-                    "timestamp": datetime.now().isoformat()
+                    "timestamp": datetime.now().isoformat(),
+                    "loading": False
                 }
                 
                 # Try to send data
