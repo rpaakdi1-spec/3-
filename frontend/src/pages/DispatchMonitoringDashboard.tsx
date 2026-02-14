@@ -350,7 +350,7 @@ const DispatchMonitoringDashboard: React.FC = () => {
             <div>
               <ResponsiveContainer width="100%" height={300}>
                 <RadarChart data={Object.entries(agentPerformance).map(([name, data]) => ({
-                  agent: name,
+                  agent: data.agent_name,
                   correlation: Math.max(0, data.correlation) * 100,
                   sample_count: Math.min(data.sample_count / 10, 100)
                 }))}>
@@ -373,7 +373,7 @@ const DispatchMonitoringDashboard: React.FC = () => {
               {Object.entries(agentPerformance).map(([name, data]) => (
                 <div key={name} className="border-l-4 border-blue-500 pl-4">
                   <div className="flex justify-between items-start mb-1">
-                    <h4 className="font-semibold text-gray-700">{name}</h4>
+                    <h4 className="font-semibold text-gray-700">{data.agent_name}</h4>
                     <span className={`text-sm px-2 py-1 rounded ${
                       data.correlation > 0.7
                         ? 'bg-green-100 text-green-700'

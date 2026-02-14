@@ -191,31 +191,36 @@ async def get_agent_performance(
         # 각 Agent의 기여도를 최적화 점수 기반으로 추정
         agent_performance = {
             "distance_optimizer": {
-                "agent_name": "Distance Optimizer",
+                "agent_name": "거리 최적화",
+                "agent_name_en": "Distance Optimizer",
                 "correlation": round(avg_score * 0.85, 2),  # 거리 최적화와 높은 상관관계
                 "sample_count": sample_count,
                 "recommendation": "높은 상관관계 - 유지"
             },
             "rotation_equalizer": {
-                "agent_name": "Rotation Equalizer",
+                "agent_name": "순환 균등화",
+                "agent_name_en": "Rotation Equalizer",
                 "correlation": round(avg_score * 0.72, 2),
                 "sample_count": sample_count,
                 "recommendation": "중간 상관관계 - 개선 가능"
             },
             "time_window_checker": {
-                "agent_name": "Time Window Checker",
+                "agent_name": "시간대 검증",
+                "agent_name_en": "Time Window Checker",
                 "correlation": round(avg_score * 0.78, 2),
                 "sample_count": sample_count,
                 "recommendation": "높은 상관관계 - 유지"
             },
             "preference_matcher": {
-                "agent_name": "Preference Matcher",
+                "agent_name": "선호도 매칭",
+                "agent_name_en": "Preference Matcher",
                 "correlation": round(avg_score * 0.68, 2),
                 "sample_count": sample_count,
                 "recommendation": "중간 상관관계 - 모니터링 필요"
             },
             "voltage_safety_checker": {
-                "agent_name": "Voltage Safety Checker",
+                "agent_name": "전압 안전 검사",
+                "agent_name_en": "Voltage Safety Checker",
                 "correlation": round(avg_score * 0.65, 2),
                 "sample_count": sample_count,
                 "recommendation": "중간 상관관계 - 데이터 수집 중"
