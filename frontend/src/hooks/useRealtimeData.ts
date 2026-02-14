@@ -260,7 +260,7 @@ export interface VehicleLocation {
 export function useRealtimeVehicle(vehicleId: number, token?: string) {
   const wsUrl = `${
     window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  }//${window.location.host}/ws/vehicles/${vehicleId}`;
+  }//${window.location.host}/api/v1/ws/vehicles/${vehicleId}`;
 
   return useRealtimeData<VehicleLocation>({
     url: wsUrl,
@@ -295,7 +295,7 @@ export function useRealtimeAlerts(
 ) {
   const wsUrl = `${
     window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  }//${window.location.host}/ws/alerts`;
+  }//${window.location.host}/api/v1/ws/alerts`;
 
   return useRealtimeData<Alert>({
     url: wsUrl,
@@ -327,7 +327,7 @@ export interface DispatchUpdate {
 export function useRealtimeDispatches(token?: string) {
   const wsUrl = `${
     window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  }//${window.location.host}/ws/dispatches`;
+  }//${window.location.host}/api/v1/ws/dispatches`;
 
   return useRealtimeData<DispatchUpdate>({
     url: wsUrl,
