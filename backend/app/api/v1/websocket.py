@@ -313,6 +313,16 @@ async def websocket_alerts(
     connection_id = await manager.connect(websocket, "alerts", user_id)
     
     try:
+        # Send initial connection confirmation
+        await manager.send_personal_message(
+            {
+                "type": "connected",
+                "connection_id": connection_id,
+                "timestamp": datetime.utcnow().isoformat()
+            },
+            websocket
+        )
+        
         while True:
             try:
                 data = await asyncio.wait_for(websocket.receive_json(), timeout=300.0)

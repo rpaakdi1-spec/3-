@@ -223,9 +223,14 @@ async def websocket_dashboard(websocket: WebSocket):
         from app.core.database import SessionLocal
         from datetime import date, datetime
         
+        # 첫 번째 메시지는 즉시 전송
+        first_message = True
+        
         while True:
-            # 5초마다 통계 업데이트
-            await asyncio.sleep(5)
+            # 첫 메시지가 아닐 때만 5초 대기
+            if not first_message:
+                await asyncio.sleep(5)
+            first_message = False
             
             # 연결 상태 먼저 체크
             if websocket.client_state.name != "CONNECTED":
