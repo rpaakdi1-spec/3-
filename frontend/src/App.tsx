@@ -44,6 +44,9 @@ const SettlementApprovalPage = lazy(() => import('./pages/SettlementApprovalPage
 const PaymentReminderPage = lazy(() => import('./pages/PaymentReminderPage'));
 const ExportTaskPage = lazy(() => import('./pages/ExportTaskPage'));
 
+// AI Dispatch Monitoring Dashboard
+const DispatchMonitoringDashboard = lazy(() => import('./pages/DispatchMonitoringDashboard'));
+
 // IoT Sensor Pages
 const IoTSensorsPage = lazy(() => import('./pages/IoTSensorsPage'));
 const IoTSensorDetailPage = lazy(() => import('./pages/IoTSensorDetailPage'));
@@ -189,6 +192,14 @@ const App: React.FC = () => {
               element={
                 <ProtectedRoute>
                   <OptimizationPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dispatch/monitoring"
+              element={
+                <ProtectedRoute>
+                  <DispatchMonitoringDashboard />
                 </ProtectedRoute>
               }
             />
