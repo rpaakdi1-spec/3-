@@ -223,6 +223,14 @@ async def websocket_dashboard(websocket: WebSocket):
         from app.core.database import SessionLocal
         from datetime import date, datetime
         
+        # Send immediate ping to keep connection alive
+        try:
+            await websocket.send_json({"type": "ping", "timestamp": datetime.now().isoformat()})
+            logger.debug("Sent initial ping")
+        except Exception as e:
+            logger.warning(f"Failed to send initial ping: {e}")
+            return
+        
         while True:
             # 연결 상태 먼저 체크
             if websocket.client_state.name != "CONNECTED":
