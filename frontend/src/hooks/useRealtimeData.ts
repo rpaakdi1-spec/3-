@@ -227,7 +227,7 @@ export interface DashboardMetrics {
 export function useRealtimeDashboard(token?: string) {
   const wsUrl = `${
     window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  }//${window.location.host}/ws/dashboard`;
+  }//${window.location.host}/api/v1/dispatches/ws/dashboard`;
 
   return useRealtimeData<DashboardMetrics>({
     url: wsUrl,
