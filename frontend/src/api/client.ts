@@ -214,39 +214,22 @@ class ApiClient {
 
   async getDashboard() {
     try {
-      // Try dispatch stats endpoint first (more reliable)
-      const statsResponse = await this.client.get('/dispatches/stats/summary');
-      const stats = statsResponse.data;
-      
-      // Transform to DashboardStats format
+      // Use new dashboard endpoint
+      const response = await this.client.get('/dispatches/dashboard');
+      return response.data;
+    } catch (error) {
+      console.error('Dashboard API error:', error);
+      // Return zeros if API fails
       return {
-        total_orders: stats.total_orders || 0,
-        pending_orders: stats.pending_orders || 0,
-        active_dispatches: stats.active_dispatches || 0,
-        completed_today: stats.completed_today || 0,
-        available_vehicles: stats.available_vehicles || 0,
-        active_vehicles: stats.active_vehicles || 0,
+        total_orders: 0,
+        pending_orders: 0,
+        active_dispatches: 0,
+        completed_today: 0,
+        available_vehicles: 0,
+        active_vehicles: 0,
         revenue_today: 0,
         revenue_month: 0,
       };
-    } catch (error) {
-      // Fallback: try monitoring dashboard
-      try {
-        const response = await this.client.get('/monitoring/dashboard');
-        return response.data;
-      } catch (fallbackError) {
-        // If both fail, return zeros
-        return {
-          total_orders: 0,
-          pending_orders: 0,
-          active_dispatches: 0,
-          completed_today: 0,
-          available_vehicles: 0,
-          active_vehicles: 0,
-          revenue_today: 0,
-          revenue_month: 0,
-        };
-      }
     }
   }
 
