@@ -1,0 +1,225 @@
+"""
+실시간 배차 모니터링 API
+"""
+from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
+from sqlalchemy.orm import Session
+from sqlalchemy import func, case
+from typing import List, Dict
+from datetime import datetime, date
+
+from app.core.database import get_db
+from app.models.dispatch import Dispatch, DispatchStatus
+from app.models.vehicle import Vehicle, VehicleStatus
+from app.models.order import Order, OrderStatus
+from loguru import logger
+
+router = APIRouter()
+
+
+@router.get("/live-stats")
+async def get_live_dispatch_stats(
+    dispatch_date: date = None,
+    db: Session = Depends(get_db)
+):
+    """
+    실시간 배차 통계
+    
+    Returns:
+        - 총 배차 건수
+        - 진행중/완료/대기 건수
+        - 차량 가동률
+        - 평균 공차 거리
+        - AI 최적화 효과
+    """
+    if not dispatch_date:
+        dispatch_date = date.today()
+    
+    # 배차 통계
+    dispatch_stats = db.query(
+        func.count(Dispatch.id).label("total"),
+        func.sum(case((Dispatch.status == DispatchStatus.IN_PROGRESS, 1), else_=0)).label("in_progress"),
+        func.sum(case((Dispatch.status == DispatchStatus.COMPLETED, 1), else_=0)).label("completed"),
+        func.sum(case((Dispatch.status == DispatchStatus.DRAFT, 1), else_=0)).label("draft"),
+        func.avg(Dispatch.empty_distance_km).label("avg_empty_distance"),
+        func.sum(Dispatch.total_distance_km).label("total_distance"),
+        func.sum(Dispatch.optimization_score).label("total_optimization_score")
+    ).filter(
+        Dispatch.dispatch_date == dispatch_date
+    ).first()
+    
+    # 차량 통계
+    vehicle_stats = db.query(
+        func.count(Vehicle.id).label("total"),
+        func.sum(case((Vehicle.status == VehicleStatus.AVAILABLE, 1), else_=0)).label("available"),
+        func.sum(case((Vehicle.status == VehicleStatus.IN_USE, 1), else_=0)).label("in_use"),
+        func.sum(case((Vehicle.status == VehicleStatus.MAINTENANCE, 1), else_=0)).label("maintenance")
+    ).filter(
+        Vehicle.is_active == True
+    ).first()
+    
+    # 주문 통계
+    order_stats = db.query(
+        func.count(Order.id).label("total"),
+        func.sum(case((Order.status == OrderStatus.PENDING, 1), else_=0)).label("pending"),
+        func.sum(case((Order.status == OrderStatus.ASSIGNED, 1), else_=0)).label("assigned"),
+        func.sum(case((Order.status == OrderStatus.IN_TRANSIT, 1), else_=0)).label("in_transit"),
+        func.sum(case((Order.status == OrderStatus.DELIVERED, 1), else_=0)).label("delivered")
+    ).filter(
+        Order.order_date == dispatch_date
+    ).first()
+    
+    # AI 최적화 효과 계산
+    dispatches_with_ai = db.query(Dispatch).filter(
+        Dispatch.dispatch_date == dispatch_date,
+        Dispatch.ai_metadata.isnot(None)
+    ).all()
+    
+    total_savings_km = 0
+    total_savings_cost = 0
+    
+    for dispatch in dispatches_with_ai:
+        if dispatch.ai_metadata and "optimization_score" in dispatch.ai_metadata:
+            # 예상 절감 거리 (간단한 추정)
+            if dispatch.empty_distance_km:
+                savings_km = dispatch.empty_distance_km * 0.15  # 15% 절감 가정
+                total_savings_km += savings_km
+                total_savings_cost += savings_km * 1000  # km당 1000원
+    
+    return {
+        "date": str(dispatch_date),
+        "timestamp": datetime.now().isoformat(),
+        "dispatch": {
+            "total": dispatch_stats.total or 0,
+            "in_progress": dispatch_stats.in_progress or 0,
+            "completed": dispatch_stats.completed or 0,
+            "draft": dispatch_stats.draft or 0,
+            "avg_empty_distance_km": round(dispatch_stats.avg_empty_distance or 0, 2),
+            "total_distance_km": round(dispatch_stats.total_distance or 0, 2)
+        },
+        "vehicle": {
+            "total": vehicle_stats.total or 0,
+            "available": vehicle_stats.available or 0,
+            "in_use": vehicle_stats.in_use or 0,
+            "maintenance": vehicle_stats.maintenance or 0,
+            "utilization_rate": round(
+                (vehicle_stats.in_use or 0) / (vehicle_stats.total or 1) * 100, 1
+            )
+        },
+        "order": {
+            "total": order_stats.total or 0,
+            "pending": order_stats.pending or 0,
+            "assigned": order_stats.assigned or 0,
+            "in_transit": order_stats.in_transit or 0,
+            "delivered": order_stats.delivered or 0,
+            "completion_rate": round(
+                (order_stats.delivered or 0) / (order_stats.total or 1) * 100, 1
+            )
+        },
+        "ai_optimization": {
+            "enabled_dispatches": len(dispatches_with_ai),
+            "estimated_savings_km": round(total_savings_km, 2),
+            "estimated_savings_cost": int(total_savings_cost),
+            "avg_optimization_score": round(
+                (dispatch_stats.total_optimization_score or 0) / (dispatch_stats.total or 1), 3
+            )
+        }
+    }
+
+
+@router.websocket("/ws/live-updates")
+async def websocket_live_updates(websocket: WebSocket, db: Session = Depends(get_db)):
+    """
+    실시간 배차 업데이트 WebSocket
+    
+    클라이언트에게 실시간으로 배차 상태 변화를 전송
+    """
+    await websocket.accept()
+    logger.info("WebSocket connected: live-updates")
+    
+    try:
+        while True:
+            # 5초마다 통계 업데이트
+            import asyncio
+            await asyncio.sleep(5)
+            
+            stats = await get_live_dispatch_stats(db=db)
+            await websocket.send_json(stats)
+    
+    except WebSocketDisconnect:
+        logger.info("WebSocket disconnected: live-updates")
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}")
+        await websocket.close()
+
+
+@router.get("/agent-performance")
+async def get_agent_performance(
+    days: int = 30,
+    db: Session = Depends(get_db)
+):
+    """
+    ML Agent 성능 분석
+    
+    Returns:
+        Agent별 정확도, 상관계수, 개선 제안
+    """
+    from app.services.dispatch_learning_service import DispatchLearningService
+    
+    learning_service = DispatchLearningService(db)
+    
+    return {
+        "analysis_period_days": days,
+        "agent_performance": learning_service.analyze_agent_performance(days),
+        "weight_suggestions": learning_service.suggest_weight_adjustment(days)
+    }
+
+
+@router.get("/top-vehicles")
+async def get_top_performing_vehicles(
+    limit: int = 10,
+    dispatch_date: date = None,
+    db: Session = Depends(get_db)
+):
+    """
+    최고 성과 차량 TOP N
+    
+    Returns:
+        차량별 배차 건수, 평균 거리, 평균 점수
+    """
+    if not dispatch_date:
+        dispatch_date = date.today()
+    
+    from sqlalchemy import func
+    
+    results = db.query(
+        Vehicle.id,
+        Vehicle.code,
+        Vehicle.plate_number,
+        func.count(Dispatch.id).label("dispatch_count"),
+        func.avg(Dispatch.total_distance_km).label("avg_distance"),
+        func.avg(Dispatch.optimization_score).label("avg_score")
+    ).join(
+        Dispatch, Vehicle.id == Dispatch.vehicle_id
+    ).filter(
+        Dispatch.dispatch_date == dispatch_date,
+        Dispatch.status.in_([DispatchStatus.COMPLETED, DispatchStatus.IN_PROGRESS])
+    ).group_by(
+        Vehicle.id
+    ).order_by(
+        func.count(Dispatch.id).desc()
+    ).limit(limit).all()
+    
+    return {
+        "date": str(dispatch_date),
+        "top_vehicles": [
+            {
+                "vehicle_id": r.id,
+                "vehicle_code": r.code,
+                "plate_number": r.plate_number,
+                "dispatch_count": r.dispatch_count,
+                "avg_distance_km": round(r.avg_distance or 0, 2),
+                "avg_optimization_score": round(r.avg_score or 0, 3)
+            }
+            for r in results
+        ]
+    }
