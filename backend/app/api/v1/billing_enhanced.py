@@ -420,8 +420,9 @@ async def get_top_clients(
         Client.id,
         Client.name,
         func.sum(Invoice.total_amount).label('total_revenue'),
+        func.sum(Invoice.paid_amount).label('total_collected'),
         func.count(Invoice.id).label('invoice_count'),
-        (func.sum(Invoice.paid_amount) / func.sum(Invoice.total_amount) * 100).label('collection_rate')
+        func.coalesce(func.sum(Invoice.paid_amount) / func.nullif(func.sum(Invoice.total_amount), 0) * 100, 0).label('collection_rate')
     ).join(Invoice).filter(
         and_(
             Invoice.issue_date >= start_date,
@@ -436,8 +437,9 @@ async def get_top_clients(
             'client_id': r[0],
             'client_name': r[1],
             'total_revenue': round(r[2], 2),
-            'invoice_count': r[3],
-            'collection_rate': round(r[4], 2) if r[4] else 0.0
+            'total_collected': round(r[3], 2) if r[3] else 0.0,
+            'invoice_count': r[4],
+            'collection_rate': round(r[5], 2) if r[5] else 0.0
         }
         for r in results
     ]
@@ -712,8 +714,9 @@ async def export_financial_dashboard_excel(
         Client.id,
         Client.name,
         func.sum(Invoice.total_amount).label('total_revenue'),
+        func.sum(Invoice.paid_amount).label('total_collected'),
         func.count(Invoice.id).label('invoice_count'),
-        (func.sum(Invoice.paid_amount) / func.sum(Invoice.total_amount) * 100).label('collection_rate')
+        func.coalesce(func.sum(Invoice.paid_amount) / func.nullif(func.sum(Invoice.total_amount), 0) * 100, 0).label('collection_rate')
     ).join(Invoice).filter(
         and_(
             Invoice.issue_date >= start_date,
@@ -723,16 +726,20 @@ async def export_financial_dashboard_excel(
         func.sum(Invoice.total_amount).desc()
     ).limit(10).all()
     
-    top_clients = [
-        {
-            'client_id': r[0],
-            'client_name': r[1],
-            'total_revenue': round(r[2], 2),
-            'invoice_count': r[3],
-            'collection_rate': round(r[4], 2) if r[4] else 0.0
-        }
-        for r in top_clients_query
-    ]
+    top_clients = []
+    for idx, r in enumerate(top_clients_query):
+        try:
+            client_dict = {
+                'client_id': r[0],
+                'client_name': r[1],
+                'total_revenue': round(float(r[2]), 2) if r[2] else 0.0,
+                'total_collected': round(float(r[3]), 2) if r[3] else 0.0,
+                'invoice_count': int(r[4]) if r[4] else 0,
+                'collection_rate': round(float(r[5]), 2) if len(r) > 5 and r[5] else 0.0
+            }
+            top_clients.append(client_dict)
+        except Exception as e:
+            raise
     
     # Excel 파일 생성
     excel_file = financial_report_exporter.generate_excel(
@@ -809,8 +816,9 @@ async def export_financial_dashboard_pdf(
         Client.id,
         Client.name,
         func.sum(Invoice.total_amount).label('total_revenue'),
+        func.sum(Invoice.paid_amount).label('total_collected'),
         func.count(Invoice.id).label('invoice_count'),
-        (func.sum(Invoice.paid_amount) / func.sum(Invoice.total_amount) * 100).label('collection_rate')
+        func.coalesce(func.sum(Invoice.paid_amount) / func.nullif(func.sum(Invoice.total_amount), 0) * 100, 0).label('collection_rate')
     ).join(Invoice).filter(
         and_(
             Invoice.issue_date >= start_date,
@@ -820,16 +828,20 @@ async def export_financial_dashboard_pdf(
         func.sum(Invoice.total_amount).desc()
     ).limit(10).all()
     
-    top_clients = [
-        {
-            'client_id': r[0],
-            'client_name': r[1],
-            'total_revenue': round(r[2], 2),
-            'invoice_count': r[3],
-            'collection_rate': round(r[4], 2) if r[4] else 0.0
-        }
-        for r in top_clients_query
-    ]
+    top_clients = []
+    for idx, r in enumerate(top_clients_query):
+        try:
+            client_dict = {
+                'client_id': r[0],
+                'client_name': r[1],
+                'total_revenue': round(float(r[2]), 2) if r[2] else 0.0,
+                'total_collected': round(float(r[3]), 2) if r[3] else 0.0,
+                'invoice_count': int(r[4]) if r[4] else 0,
+                'collection_rate': round(float(r[5]), 2) if len(r) > 5 and r[5] else 0.0
+            }
+            top_clients.append(client_dict)
+        except Exception as e:
+            raise
     
     # PDF 파일 생성
     pdf_file = financial_report_exporter.generate_pdf(
