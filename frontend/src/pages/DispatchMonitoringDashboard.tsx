@@ -85,17 +85,17 @@ const DispatchMonitoringDashboard: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [selectedDateRange, setSelectedDateRange] = useState<string>('today');
-  const [countdown, setCountdown] = useState(5); // 새로고침 카운트다운
+  const [countdown, setCountdown] = useState(5);
+  const [isConnected, setIsConnected] = useState(false);
 
   // 실시간 통계 조회
   const fetchLiveStats = async () => {
     try {
-      // 캐시 방지를 위한 타임스탬프 추가
       const timestamp = new Date().getTime();
       const response = await apiClient.get(`/dispatch/monitoring/live-stats?_t=${timestamp}`);
       if (response && response.data) {
         setLiveStats(response.data);
-        console.log('Live stats updated:', new Date(response.data.timestamp).toLocaleTimeString());
+        console.log('📊 Live stats updated:', new Date(response.data.timestamp).toLocaleTimeString());
       }
     } catch (error) {
       console.error('Failed to fetch live stats:', error);
@@ -132,30 +132,88 @@ const DispatchMonitoringDashboard: React.FC = () => {
   };
 
   useEffect(() => {
+    // 초기 데이터 로드
     fetchLiveStats();
     fetchAgentPerformance();
     setLoading(false);
 
-    // 자동 새로고침 (5초마다)
-    let interval: NodeJS.Timeout;
+    // WebSocket 연결
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/api/v1/dispatch/monitoring/ws/live-updates`;
+    
+    let ws: WebSocket | null = null;
+    let reconnectTimeout: NodeJS.Timeout;
     let countdownInterval: NodeJS.Timeout;
     
-    if (autoRefresh) {
-      // 데이터 새로고침
-      interval = setInterval(() => {
-        fetchLiveStats();
-        setCountdown(5); // 리셋
-      }, 5000);
+    const connectWebSocket = () => {
+      if (!autoRefresh) return;
       
-      // 카운트다운
+      try {
+        ws = new WebSocket(wsUrl);
+        
+        ws.onopen = () => {
+          console.log('✅ WebSocket connected: live-updates');
+          setIsConnected(true);
+          setCountdown(5);
+        };
+        
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            console.log('📊 Monitoring stats updated via WebSocket');
+            setLiveStats(data);
+            setCountdown(5); // 리셋
+          } catch (error) {
+            console.error('Failed to parse WebSocket message:', error);
+          }
+        };
+        
+        ws.onerror = (error) => {
+          console.error('❌ WebSocket error:', error);
+          setIsConnected(false);
+        };
+        
+        ws.onclose = () => {
+          console.log('🔌 WebSocket disconnected, reconnecting in 5s...');
+          setIsConnected(false);
+          
+          // 5초 후 재연결
+          if (autoRefresh) {
+            reconnectTimeout = setTimeout(() => {
+              console.log('🔄 Reconnecting WebSocket...');
+              connectWebSocket();
+            }, 5000);
+          }
+        };
+      } catch (error) {
+        console.error('Failed to create WebSocket:', error);
+        setIsConnected(false);
+        // Fallback to polling
+        const interval = setInterval(fetchLiveStats, 5000);
+        return () => clearInterval(interval);
+      }
+    };
+    
+    // 카운트다운 (시각적 피드백)
+    if (autoRefresh) {
       countdownInterval = setInterval(() => {
-        setCountdown((prev) => (prev > 0 ? prev - 1 : 5));
+        setCountdown((prev) => (prev > 1 ? prev - 1 : 5));
       }, 1000);
     }
+    
+    connectWebSocket();
 
+    // Cleanup
     return () => {
-      if (interval) clearInterval(interval);
-      if (countdownInterval) clearInterval(countdownInterval);
+      if (ws) {
+        ws.close();
+      }
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+      }
+      if (countdownInterval) {
+        clearInterval(countdownInterval);
+      }
     };
   }, [autoRefresh]);
 
@@ -178,10 +236,19 @@ const DispatchMonitoringDashboard: React.FC = () => {
       {/* 헤더 */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <Activity className="w-8 h-8 text-blue-600" />
-            실시간 배차 모니터링
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-bold flex items-center gap-2">
+              <Activity className="w-8 h-8 text-blue-600" />
+              실시간 배차 모니터링
+            </h1>
+            {/* WebSocket 연결 상태 */}
+            <div className="flex items-center space-x-2 px-3 py-1 rounded-full bg-white border">
+              <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
+              <span className="text-xs font-medium text-gray-600">
+                {isConnected ? 'WebSocket 연결됨' : '연결 끊김'}
+              </span>
+            </div>
+          </div>
           <p className="text-gray-500 mt-1">
             마지막 업데이트: {new Date(liveStats.timestamp).toLocaleTimeString('ko-KR')}
           </p>
