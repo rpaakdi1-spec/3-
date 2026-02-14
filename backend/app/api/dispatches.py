@@ -282,7 +282,9 @@ async def websocket_dashboard(websocket: WebSocket):
                 logger.debug(f"Sent dashboard stats: pending={pending_orders}, active={active_dispatches}")
                 
             except Exception as inner_e:
-                logger.error(f"Error collecting stats: {inner_e}", exc_info=True)
+                logger.error(f"Error collecting stats: {type(inner_e).__name__}: {str(inner_e)}", exc_info=True)
+                # Continue without closing connection
+                pass
             finally:
                 db.close()
     
