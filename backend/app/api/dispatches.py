@@ -1,12 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import Optional
-from datetime import date
+from datetime import date, datetime
 import pandas as pd
 from pathlib import Path
 import tempfile
+import asyncio
 
 from app.core.database import get_db
 from app.models.dispatch import Dispatch, DispatchStatus
@@ -206,6 +207,90 @@ def get_dashboard_stats(db: Session = Depends(get_db)):
         revenue_today=0,  # TODO: 실제 수익 계산 로직 추가
         revenue_month=0   # TODO: 실제 수익 계산 로직 추가
     )
+
+
+@router.websocket("/ws/dashboard")
+async def websocket_dashboard(websocket: WebSocket):
+    """
+    대시보드 실시간 업데이트 WebSocket
+    
+    클라이언트에게 5초마다 대시보드 통계를 전송합니다.
+    """
+    await websocket.accept()
+    logger.info("WebSocket connected: dashboard")
+    
+    try:
+        from app.core.database import SessionLocal
+        
+        while True:
+            # 5초마다 통계 업데이트
+            await asyncio.sleep(5)
+            
+            # 새 세션 생성
+            db = SessionLocal()
+            try:
+                from app.models.vehicle import Vehicle
+                
+                today = date.today()
+                
+                # 전체 주문 수 (오늘)
+                total_orders = db.query(func.count(Order.id)).filter(
+                    Order.created_at >= datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+                ).scalar() or 0
+                
+                # 배차 대기 중인 주문 수
+                pending_orders = db.query(func.count(Order.id)).filter(
+                    Order.status == OrderStatus.PENDING
+                ).scalar() or 0
+                
+                # 진행 중인 배차 수 (확정 + 진행중)
+                active_dispatches = db.query(func.count(Dispatch.id)).filter(
+                    Dispatch.status.in_([DispatchStatus.CONFIRMED, DispatchStatus.IN_PROGRESS])
+                ).scalar() or 0
+                
+                # 오늘 완료된 배차 수
+                completed_today = db.query(func.count(Dispatch.id)).filter(
+                    Dispatch.dispatch_date == today,
+                    Dispatch.status == DispatchStatus.COMPLETED
+                ).scalar() or 0
+                
+                # 사용 가능한 차량 수
+                available_vehicles = db.query(func.count(Vehicle.id)).filter(
+                    Vehicle.status == VehicleStatus.AVAILABLE,
+                    Vehicle.is_active == True
+                ).scalar() or 0
+                
+                # 운행 중인 차량 수
+                active_vehicles = db.query(func.count(Vehicle.id)).filter(
+                    Vehicle.status == VehicleStatus.IN_USE
+                ).scalar() or 0
+                
+                stats = {
+                    "total_orders": total_orders,
+                    "pending_orders": pending_orders,
+                    "active_dispatches": active_dispatches,
+                    "completed_today": completed_today,
+                    "available_vehicles": available_vehicles,
+                    "active_vehicles": active_vehicles,
+                    "revenue_today": 0.0,
+                    "revenue_month": 0.0,
+                    "timestamp": datetime.now().isoformat()
+                }
+                
+                await websocket.send_json(stats)
+                logger.debug(f"Sent dashboard stats: pending={pending_orders}, active={active_dispatches}")
+                
+            finally:
+                db.close()
+    
+    except WebSocketDisconnect:
+        logger.info("WebSocket disconnected: dashboard")
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}")
+        try:
+            await websocket.close()
+        except:
+            pass
 
 
 @router.get("/{dispatch_id}", response_model=DispatchDetailResponse)
