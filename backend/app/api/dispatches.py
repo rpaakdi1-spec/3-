@@ -278,13 +278,20 @@ async def websocket_dashboard(websocket: WebSocket):
                     "timestamp": datetime.now().isoformat()
                 }
                 
-                await websocket.send_json(stats)
-                logger.debug(f"Sent dashboard stats: pending={pending_orders}, active={active_dispatches}")
+                # Check if WebSocket is still connected before sending
+                if websocket.client_state.name == "CONNECTED":
+                    await websocket.send_json(stats)
+                    logger.debug(f"Sent dashboard stats: pending={pending_orders}, active={active_dispatches}")
+                else:
+                    logger.warning(f"WebSocket not connected, state: {websocket.client_state.name}")
+                    break  # Exit the loop if connection is closed
                 
             except Exception as inner_e:
-                logger.error(f"Error collecting stats: {type(inner_e).__name__}: {str(inner_e)}", exc_info=True)
-                # Continue without closing connection
-                pass
+                error_type = type(inner_e).__name__
+                logger.error(f"Error collecting stats: {error_type}: {str(inner_e)}", exc_info=True)
+                # Break on connection errors
+                if error_type in ["ConnectionClosed", "WebSocketDisconnect", "RuntimeError"]:
+                    break
             finally:
                 db.close()
     
