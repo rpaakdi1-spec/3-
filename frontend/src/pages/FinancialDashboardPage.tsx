@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Layout from '../components/common/Layout';
 import {
   DollarSign,
@@ -139,82 +139,26 @@ const FinancialDashboardPage: React.FC = () => {
             <div className="flex items-center gap-2">
               <span className="text-sm text-gray-600 font-medium">빠른 선택:</span>
               <button
-                onClick={() => {
-                  const today = new Date();
-                  const lastWeek = new Date(today);
-                  lastWeek.setDate(today.getDate() - 7);
-                  setDateRange({
-                    start_date: lastWeek.toISOString().split('T')[0],
-                    end_date: today.toISOString().split('T')[0]
-                  });
-                }}
-                className={(() => {
-                  const diff = new Date(dateRange.end_date).getTime() - new Date(dateRange.start_date).getTime();
-                  const days = Math.round(diff / (24 * 60 * 60 * 1000));
-                  return days >= 6 && days <= 8
-                    ? "px-3 py-1 text-sm bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors font-medium"
-                    : "px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors";
-                })()}
+                onClick={() => handleQuickSelect(7)}
+                className={getButtonStyle(7)}
               >
                 최근 7일
               </button>
               <button
-                onClick={() => {
-                  const today = new Date();
-                  const lastMonth = new Date(today);
-                  lastMonth.setMonth(today.getMonth() - 1);
-                  setDateRange({
-                    start_date: lastMonth.toISOString().split('T')[0],
-                    end_date: today.toISOString().split('T')[0]
-                  });
-                }}
-                className={(() => {
-                  const diff = new Date(dateRange.end_date).getTime() - new Date(dateRange.start_date).getTime();
-                  const days = Math.round(diff / (24 * 60 * 60 * 1000));
-                  return days >= 28 && days <= 32
-                    ? "px-3 py-1 text-sm bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors font-medium"
-                    : "px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors";
-                })()}
+                onClick={() => handleQuickSelect(30)}
+                className={getButtonStyle(30, 2)}
               >
                 1개월
               </button>
               <button
-                onClick={() => {
-                  const today = new Date();
-                  const threeMonths = new Date(today);
-                  threeMonths.setMonth(today.getMonth() - 3);
-                  setDateRange({
-                    start_date: threeMonths.toISOString().split('T')[0],
-                    end_date: today.toISOString().split('T')[0]
-                  });
-                }}
-                className={(() => {
-                  const diff = new Date(dateRange.end_date).getTime() - new Date(dateRange.start_date).getTime();
-                  const days = Math.round(diff / (24 * 60 * 60 * 1000));
-                  return days >= 88 && days <= 92
-                    ? "px-3 py-1 text-sm bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors font-medium"
-                    : "px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors";
-                })()}
+                onClick={() => handleQuickSelect(90)}
+                className={getButtonStyle(90, 2)}
               >
                 3개월
               </button>
               <button
-                onClick={() => {
-                  const today = new Date();
-                  const sixMonths = new Date(today);
-                  sixMonths.setMonth(today.getMonth() - 6);
-                  setDateRange({
-                    start_date: sixMonths.toISOString().split('T')[0],
-                    end_date: today.toISOString().split('T')[0]
-                  });
-                }}
-                className={(() => {
-                  const diff = new Date(dateRange.end_date).getTime() - new Date(dateRange.start_date).getTime();
-                  const days = Math.round(diff / (24 * 60 * 60 * 1000));
-                  return days >= 178 && days <= 182
-                    ? "px-3 py-1 text-sm bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors font-medium"
-                    : "px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors";
-                })()}
+                onClick={() => handleQuickSelect(180)}
+                className={getButtonStyle(180, 2)}
               >
                 6개월
               </button>
