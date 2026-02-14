@@ -8,7 +8,7 @@
 
 from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass
-from datetime import datetime, time as dt_time
+from datetime import datetime, time as dt_time, date
 import math
 
 from ortools.constraint_solver import routing_enums_pb2
@@ -707,7 +707,7 @@ class AdvancedDispatchOptimizationService:
             # 배차 생성
             dispatch = Dispatch(
                 dispatch_number=dispatch_number,
-                dispatch_date=datetime.strptime(dispatch_date, '%Y-%m-%d').date() if dispatch_date else datetime.now().date(),
+                dispatch_date=dispatch_date if isinstance(dispatch_date, date) else datetime.strptime(dispatch_date, '%Y-%m-%d').date() if dispatch_date else datetime.now().date(),
                 vehicle_id=vehicle.id,
                 total_orders=route_data['num_stops'],
                 total_distance_km=route_data['distance'] / 1000,
