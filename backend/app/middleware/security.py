@@ -33,7 +33,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             "/health",
             "/docs",
             "/redoc",
-            "/openapi.json"
+            "/openapi.json",
+            "/api/v1/dispatches/ws/",  # WebSocket endpoints
+            "/api/v1/ws/",               # WebSocket endpoints
+            "/ws/"                       # WebSocket endpoints
         ]
         
         if any(request.url.path.startswith(path) for path in exempt_paths):
