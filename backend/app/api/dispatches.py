@@ -227,6 +227,11 @@ async def websocket_dashboard(websocket: WebSocket):
             # 5초마다 통계 업데이트
             await asyncio.sleep(5)
             
+            # 연결 상태 먼저 체크
+            if websocket.client_state.name != "CONNECTED":
+                logger.info(f"WebSocket not in CONNECTED state: {websocket.client_state.name}, exiting loop")
+                break
+            
             # 새 세션 생성
             db = SessionLocal()
             try:
@@ -278,20 +283,19 @@ async def websocket_dashboard(websocket: WebSocket):
                     "timestamp": datetime.now().isoformat()
                 }
                 
-                # Check if WebSocket is still connected before sending
-                if websocket.client_state.name == "CONNECTED":
+                # Try to send data
+                try:
                     await websocket.send_json(stats)
                     logger.debug(f"Sent dashboard stats: pending={pending_orders}, active={active_dispatches}")
-                else:
-                    logger.warning(f"WebSocket not connected, state: {websocket.client_state.name}")
-                    break  # Exit the loop if connection is closed
+                except Exception as send_error:
+                    logger.warning(f"Failed to send stats: {type(send_error).__name__}: {send_error}")
+                    break  # Exit loop if send fails
                 
             except Exception as inner_e:
                 error_type = type(inner_e).__name__
                 logger.error(f"Error collecting stats: {error_type}: {str(inner_e)}", exc_info=True)
-                # Break on connection errors
-                if error_type in ["ConnectionClosed", "WebSocketDisconnect", "RuntimeError"]:
-                    break
+                # Break on any error
+                break
             finally:
                 db.close()
     
