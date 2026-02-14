@@ -287,7 +287,7 @@ const DashboardPage: React.FC = () => {
           <Card title="빠른 작업">
             <div className={`grid ${isMobile ? 'grid-cols-1 gap-3' : 'grid-cols-1 md:grid-cols-3 gap-4'}`}>
               <button 
-                onClick={() => navigate('/orders/new')}
+                onClick={() => navigate('/orders')}
                 className="p-3 md:p-4 bg-blue-50 hover:bg-blue-100 rounded-lg text-left transition-colors active:scale-95 cursor-pointer"
               >
                 <Package className="text-blue-600 mb-2" size={isMobile ? 20 : 24} />
