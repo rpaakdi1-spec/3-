@@ -147,18 +147,36 @@ async def websocket_live_updates(websocket: WebSocket):
         from app.core.database import SessionLocal
         import asyncio
         
+        # 첫 번째 메시지는 즉시 전송
+        first_message = True
+        
         while True:
-            # 5초마다 통계 업데이트
-            await asyncio.sleep(5)
+            # 첫 메시지가 아닐 때만 5초 대기
+            if not first_message:
+                await asyncio.sleep(5)
+            first_message = False
+            
+            # 연결 상태 체크
+            if websocket.client_state.name != "CONNECTED":
+                logger.info(f"WebSocket not in CONNECTED state: {websocket.client_state.name}, exiting loop")
+                break
             
             # 새 DB 세션 생성
             db = SessionLocal()
             try:
                 stats = get_live_dispatch_stats(db=db)  # 동기 함수 호출
-                await websocket.send_json(stats)
-                logger.debug(f"Sent live stats: {stats.get('dispatch', {}).get('total', 0)} dispatches")
+                
+                # Try to send data
+                try:
+                    await websocket.send_json(stats)
+                    logger.debug(f"Sent live stats: {stats.get('dispatch', {}).get('total', 0)} dispatches")
+                except Exception as send_error:
+                    logger.warning(f"Failed to send live stats: {type(send_error).__name__}: {send_error}")
+                    break  # Exit loop if send fails
+                    
             except Exception as inner_e:
-                logger.error(f"Error collecting live stats: {inner_e}", exc_info=True)
+                logger.error(f"Error collecting live stats: {type(inner_e).__name__}: {str(inner_e)}", exc_info=True)
+                break  # Exit loop on error
             finally:
                 db.close()
     
