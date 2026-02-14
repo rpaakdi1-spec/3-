@@ -221,6 +221,7 @@ async def websocket_dashboard(websocket: WebSocket):
     
     try:
         from app.core.database import SessionLocal
+        from datetime import date, datetime
         
         while True:
             # 5초마다 통계 업데이트
@@ -280,13 +281,15 @@ async def websocket_dashboard(websocket: WebSocket):
                 await websocket.send_json(stats)
                 logger.debug(f"Sent dashboard stats: pending={pending_orders}, active={active_dispatches}")
                 
+            except Exception as inner_e:
+                logger.error(f"Error collecting stats: {inner_e}", exc_info=True)
             finally:
                 db.close()
     
     except WebSocketDisconnect:
         logger.info("WebSocket disconnected: dashboard")
     except Exception as e:
-        logger.error(f"WebSocket error: {e}")
+        logger.error(f"WebSocket error: {e}", exc_info=True)
         try:
             await websocket.close()
         except:
