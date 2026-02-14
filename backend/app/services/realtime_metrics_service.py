@@ -131,11 +131,11 @@ class RealtimeMetricsService:
         )
         active_dispatches = db.scalar(active_dispatches_query) or 0
         
-        # Completed today
+        # Completed today (using dispatch_date and status)
         completed_today_query = select(func.count(Dispatch.id)).where(
             and_(
                 Dispatch.status == DispatchStatus.COMPLETED,
-                Dispatch.completed_at >= today_start
+                Dispatch.dispatch_date == datetime.utcnow().date()
             )
         )
         completed_today = db.scalar(completed_today_query) or 0
