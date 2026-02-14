@@ -24,7 +24,7 @@ from app.models.order import Order, OrderStatus, TemperatureZone
 from app.models.dispatch import Dispatch, DispatchStatus, DispatchRoute, RouteType
 from app.models.vehicle import Vehicle, VehicleStatus
 from app.models.client import Client
-from app.services.dispatch_optimization_service import DispatchOptimizationService
+from app.services.cvrptw_service import AdvancedDispatchOptimizationService
 import random
 
 
@@ -136,8 +136,8 @@ async def optimize_and_create_dispatch(db: Session, orders: list):
     
     print_info("사용 가능한 차량 수", len(vehicles))
     
-    # AI 최적화 서비스 초기화
-    optimizer = DispatchOptimizationService(db)
+    # AI 최적화 서비스 초기화 (CVRPTW 사용)
+    optimizer = AdvancedDispatchOptimizationService(db)
     
     # 최적화 실행
     order_ids = [order.id for order in orders]
@@ -147,10 +147,13 @@ async def optimize_and_create_dispatch(db: Session, orders: list):
     print(f"  🤖 AI 최적화 실행 중... (주문 {len(order_ids)}건, 차량 {len(vehicle_ids)}대)")
     
     try:
-        result = await optimizer.optimize_dispatch(
+        result = await optimizer.optimize_dispatch_cvrptw(
             order_ids=order_ids,
             vehicle_ids=vehicle_ids,
-            dispatch_date=dispatch_date
+            dispatch_date=dispatch_date,
+            time_limit_seconds=30,
+            use_time_windows=True,
+            use_real_routing=False
         )
         
         print_info("최적화 성공", f"{result['total_dispatches']}건의 배차 생성")
