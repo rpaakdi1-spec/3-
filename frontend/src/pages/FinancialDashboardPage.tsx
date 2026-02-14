@@ -134,21 +134,109 @@ const FinancialDashboardPage: React.FC = () => {
 
         {/* Date Range Filter */}
         <div className="bg-white rounded-lg shadow p-4 mb-6">
-          <div className="flex items-center gap-4">
-            <Calendar className="w-5 h-5 text-gray-500" />
-            <input
-              type="date"
-              value={dateRange.start_date}
-              onChange={(e) => setDateRange({ ...dateRange, start_date: e.target.value })}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-            <span className="text-gray-500">~</span>
-            <input
-              type="date"
-              value={dateRange.end_date}
-              onChange={(e) => setDateRange({ ...dateRange, end_date: e.target.value })}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
+          <div className="flex flex-col gap-4">
+            {/* 빠른 선택 버튼 */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-600 font-medium">빠른 선택:</span>
+              <button
+                onClick={() => {
+                  const today = new Date();
+                  const lastWeek = new Date(today);
+                  lastWeek.setDate(today.getDate() - 7);
+                  setDateRange({
+                    start_date: lastWeek.toISOString().split('T')[0],
+                    end_date: today.toISOString().split('T')[0]
+                  });
+                }}
+                className={(() => {
+                  const diff = new Date(dateRange.end_date).getTime() - new Date(dateRange.start_date).getTime();
+                  const days = Math.round(diff / (24 * 60 * 60 * 1000));
+                  return days >= 6 && days <= 8
+                    ? "px-3 py-1 text-sm bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors font-medium"
+                    : "px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors";
+                })()}
+              >
+                최근 7일
+              </button>
+              <button
+                onClick={() => {
+                  const today = new Date();
+                  const lastMonth = new Date(today);
+                  lastMonth.setMonth(today.getMonth() - 1);
+                  setDateRange({
+                    start_date: lastMonth.toISOString().split('T')[0],
+                    end_date: today.toISOString().split('T')[0]
+                  });
+                }}
+                className={(() => {
+                  const diff = new Date(dateRange.end_date).getTime() - new Date(dateRange.start_date).getTime();
+                  const days = Math.round(diff / (24 * 60 * 60 * 1000));
+                  return days >= 28 && days <= 32
+                    ? "px-3 py-1 text-sm bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors font-medium"
+                    : "px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors";
+                })()}
+              >
+                1개월
+              </button>
+              <button
+                onClick={() => {
+                  const today = new Date();
+                  const threeMonths = new Date(today);
+                  threeMonths.setMonth(today.getMonth() - 3);
+                  setDateRange({
+                    start_date: threeMonths.toISOString().split('T')[0],
+                    end_date: today.toISOString().split('T')[0]
+                  });
+                }}
+                className={(() => {
+                  const diff = new Date(dateRange.end_date).getTime() - new Date(dateRange.start_date).getTime();
+                  const days = Math.round(diff / (24 * 60 * 60 * 1000));
+                  return days >= 88 && days <= 92
+                    ? "px-3 py-1 text-sm bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors font-medium"
+                    : "px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors";
+                })()}
+              >
+                3개월
+              </button>
+              <button
+                onClick={() => {
+                  const today = new Date();
+                  const sixMonths = new Date(today);
+                  sixMonths.setMonth(today.getMonth() - 6);
+                  setDateRange({
+                    start_date: sixMonths.toISOString().split('T')[0],
+                    end_date: today.toISOString().split('T')[0]
+                  });
+                }}
+                className={(() => {
+                  const diff = new Date(dateRange.end_date).getTime() - new Date(dateRange.start_date).getTime();
+                  const days = Math.round(diff / (24 * 60 * 60 * 1000));
+                  return days >= 178 && days <= 182
+                    ? "px-3 py-1 text-sm bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors font-medium"
+                    : "px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors";
+                })()}
+              >
+                6개월
+              </button>
+            </div>
+            
+            {/* 날짜 입력 */}
+            <div className="flex items-center gap-4">
+              <Calendar className="w-5 h-5 text-gray-500" />
+              <input
+                type="date"
+                value={dateRange.start_date}
+                onChange={(e) => setDateRange({ ...dateRange, start_date: e.target.value })}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <span className="text-gray-500">~</span>
+              <input
+                type="date"
+                value={dateRange.end_date}
+                onChange={(e) => setDateRange({ ...dateRange, end_date: e.target.value })}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
           </div>
         </div>
 
