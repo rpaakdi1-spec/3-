@@ -311,38 +311,36 @@ async def websocket_alerts(
             return
     
     connection_id = await manager.connect(websocket, "alerts", user_id)
+    logger.info(f"Alerts WebSocket connected: {connection_id}")
     
     try:
-        # Send initial connection confirmation
-        await manager.send_personal_message(
-            {
-                "type": "connected",
-                "connection_id": connection_id,
-                "timestamp": datetime.utcnow().isoformat()
-            },
-            websocket
-        )
-        
+        # Keep connection alive - send periodic keepalive
         while True:
             try:
-                data = await asyncio.wait_for(websocket.receive_json(), timeout=300.0)
+                # Check if still connected
+                if websocket.client_state.name != "CONNECTED":
+                    logger.info(f"Alerts WebSocket not in CONNECTED state, exiting")
+                    break
                 
-                if data.get("type") == "pong":
-                    continue
+                # Send keepalive every 5 seconds
+                await websocket.send_json({
+                    "type": "keepalive",
+                    "timestamp": datetime.utcnow().isoformat()
+                })
+                logger.debug(f"Sent alerts keepalive to {connection_id}")
                 
-                # Handle alert acknowledgment
-                if data.get("type") == "acknowledge":
-                    alert_id = data.get("alert_id")
-                    logger.info(f"Alert {alert_id} acknowledged by {connection_id}")
-            except asyncio.TimeoutError:
-                await manager.send_personal_message(
-                    {"type": "keepalive", "timestamp": datetime.utcnow().isoformat()},
-                    websocket
-                )
+            except Exception as send_error:
+                logger.warning(f"Failed to send alerts keepalive: {send_error}")
+                break
+            
+            # Wait before next keepalive
+            await asyncio.sleep(5)
+            
     except WebSocketDisconnect:
+        logger.info(f"Alerts WebSocket disconnected: {connection_id}")
         manager.disconnect(connection_id)
     except Exception as e:
-        logger.error(f"Alerts WebSocket error: {e}")
+        logger.error(f"Alerts WebSocket error: {e}", exc_info=True)
         manager.disconnect(connection_id)
 
 
