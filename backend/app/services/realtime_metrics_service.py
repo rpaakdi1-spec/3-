@@ -122,10 +122,10 @@ class RealtimeMetricsService:
         now = datetime.utcnow()
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         
-        # Active dispatches
+        # Active dispatches (CONFIRMED or IN_PROGRESS)
         active_dispatches_query = select(func.count(Dispatch.id)).where(
             Dispatch.status.in_([
-                DispatchStatus.ASSIGNED,
+                DispatchStatus.CONFIRMED,
                 DispatchStatus.IN_PROGRESS
             ])
         )
