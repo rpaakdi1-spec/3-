@@ -17,7 +17,7 @@ router = APIRouter()
 
 
 @router.get("/live-stats")
-async def get_live_dispatch_stats(
+def get_live_dispatch_stats(
     dispatch_date: date = None,
     db: Session = Depends(get_db)
 ):
@@ -134,7 +134,7 @@ async def get_live_dispatch_stats(
 
 
 @router.websocket("/ws/live-updates")
-async def websocket_live_updates(websocket: WebSocket, db: Session = Depends(get_db)):
+async def websocket_live_updates(websocket: WebSocket):
     """
     실시간 배차 업데이트 WebSocket
     
@@ -144,19 +144,32 @@ async def websocket_live_updates(websocket: WebSocket, db: Session = Depends(get
     logger.info("WebSocket connected: live-updates")
     
     try:
+        from app.core.database import SessionLocal
+        import asyncio
+        
         while True:
             # 5초마다 통계 업데이트
-            import asyncio
             await asyncio.sleep(5)
             
-            stats = await get_live_dispatch_stats(db=db)
-            await websocket.send_json(stats)
+            # 새 DB 세션 생성
+            db = SessionLocal()
+            try:
+                stats = get_live_dispatch_stats(db=db)  # 동기 함수 호출
+                await websocket.send_json(stats)
+                logger.debug(f"Sent live stats: {stats.get('dispatch', {}).get('total', 0)} dispatches")
+            except Exception as inner_e:
+                logger.error(f"Error collecting live stats: {inner_e}", exc_info=True)
+            finally:
+                db.close()
     
     except WebSocketDisconnect:
         logger.info("WebSocket disconnected: live-updates")
     except Exception as e:
-        logger.error(f"WebSocket error: {e}")
-        await websocket.close()
+        logger.error(f"WebSocket error: {e}", exc_info=True)
+        try:
+            await websocket.close()
+        except:
+            pass
 
 
 @router.get("/agent-performance")
