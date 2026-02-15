@@ -216,13 +216,13 @@ async def websocket_dashboard(websocket: WebSocket):
     
     클라이언트에게 5초마다 대시보드 통계를 전송합니다.
     """
+    from app.core.database import SessionLocal
+    from datetime import date, datetime
+    
     await websocket.accept()
     logger.info("WebSocket connected: dashboard")
     
     try:
-        from app.core.database import SessionLocal
-        from datetime import date, datetime
-        
         # Send immediate empty stats to keep connection alive
         try:
             initial_stats = {
@@ -238,9 +238,9 @@ async def websocket_dashboard(websocket: WebSocket):
                 "loading": True
             }
             await websocket.send_json(initial_stats)
-            logger.debug("Sent initial dashboard stats (loading)")
+            logger.info("Sent initial dashboard stats (loading)")
         except Exception as e:
-            logger.warning(f"Failed to send initial stats: {e}")
+            logger.error(f"Failed to send initial stats: {type(e).__name__}: {e}")
             return
         
         while True:
