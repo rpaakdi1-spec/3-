@@ -86,10 +86,14 @@ export function useRealtimeData<T = any>(
             return;
           }
           
-          // Update data
-          setData(message.data || message);
+          // Skip state update for system messages (connected, keepalive, etc.)
+          // Only update state for actual data messages or messages with meaningful data
+          if (message.type !== 'connected' && message.type !== 'keepalive') {
+            // Update data
+            setData(message.data || message);
+          }
           
-          // Call custom message handler
+          // Call custom message handler (even for system messages)
           if (onMessage) {
             onMessage(message);
           }

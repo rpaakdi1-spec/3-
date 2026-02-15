@@ -220,29 +220,9 @@ async def websocket_dashboard(websocket: WebSocket):
     from datetime import date, datetime
     
     await websocket.accept()
-    logger.info("WebSocket connected: dashboard")
+    logger.info("✅ Dashboard WebSocket connected, will send real data immediately")
     
     try:
-        # Send immediate empty stats to keep connection alive
-        try:
-            initial_stats = {
-                "total_orders": 0,
-                "pending_orders": 0,
-                "active_dispatches": 0,
-                "completed_today": 0,
-                "available_vehicles": 0,
-                "active_vehicles": 0,
-                "revenue_today": 0.0,
-                "revenue_month": 0.0,
-                "timestamp": datetime.now().isoformat(),
-                "loading": True
-            }
-            await websocket.send_json(initial_stats)
-            logger.info("Sent initial dashboard stats (loading)")
-        except Exception as e:
-            logger.error(f"Failed to send initial stats: {type(e).__name__}: {e}")
-            return
-        
         while True:
             # 연결 상태 먼저 체크
             if websocket.client_state.name != "CONNECTED":
@@ -358,6 +338,7 @@ async def websocket_alerts(websocket: WebSocket):
         initial_message = {
             "type": "connected",
             "message": "Alerts WebSocket connected",
+            "data": None,
             "timestamp": datetime.now().isoformat()
         }
         await websocket.send_json(initial_message)
@@ -365,7 +346,7 @@ async def websocket_alerts(websocket: WebSocket):
         
         # Keep connection alive with periodic keepalive messages
         while True:
-            await asyncio.sleep(30)  # Send keepalive every 30 seconds
+            await asyncio.sleep(5)  # Send keepalive every 5 seconds
             
             # Check connection state
             if websocket.client_state.name != "CONNECTED":
@@ -375,6 +356,7 @@ async def websocket_alerts(websocket: WebSocket):
             try:
                 keepalive = {
                     "type": "keepalive",
+                    "data": None,
                     "timestamp": datetime.now().isoformat()
                 }
                 await websocket.send_json(keepalive)
