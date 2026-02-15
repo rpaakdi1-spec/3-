@@ -249,62 +249,71 @@ async def websocket_dashboard(websocket: WebSocket):
                 logger.info(f"WebSocket not in CONNECTED state: {websocket.client_state.name}, exiting loop")
                 break
             
-            # 새 세션 생성
-            db = SessionLocal()
+            # DB 쿼리를 비동기로 실행하여 성능 향상
             try:
-                from app.models.vehicle import Vehicle
+                # Define sync helper function
+                def collect_stats():
+                    from app.models.vehicle import Vehicle
+                    
+                    db = SessionLocal()
+                    try:
+                        today = date.today()
+                        today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+                        
+                        # Optimize: Use single query with conditional aggregation
+                        from sqlalchemy import case
+                        
+                        # Single optimized query for orders
+                        order_stats = db.query(
+                            func.count(Order.id).label('total'),
+                            func.sum(case((Order.status == OrderStatus.PENDING, 1), else_=0)).label('pending')
+                        ).filter(
+                            Order.created_at >= today_start
+                        ).first()
+                        
+                        total_orders = order_stats.total or 0
+                        pending_orders = order_stats.pending or 0
+                        
+                        # Single optimized query for dispatches  
+                        dispatch_stats = db.query(
+                            func.sum(case((Dispatch.status.in_([DispatchStatus.CONFIRMED, DispatchStatus.IN_PROGRESS]), 1), else_=0)).label('active'),
+                            func.sum(case((and_(Dispatch.status == DispatchStatus.COMPLETED, Dispatch.dispatch_date == today), 1), else_=0)).label('completed')
+                        ).first()
+                        
+                        active_dispatches = dispatch_stats.active or 0
+                        completed_today = dispatch_stats.completed or 0
+                        
+                        # Single optimized query for vehicles
+                        vehicle_stats = db.query(
+                            func.sum(case((and_(Vehicle.status == VehicleStatus.AVAILABLE, Vehicle.is_active == True), 1), else_=0)).label('available'),
+                            func.sum(case((Vehicle.status == VehicleStatus.IN_USE, 1), else_=0)).label('active')
+                        ).first()
+                        
+                        available_vehicles = vehicle_stats.available or 0
+                        active_vehicles = vehicle_stats.active or 0
+                        
+                        return {
+                            "total_orders": total_orders,
+                            "pending_orders": pending_orders,
+                            "active_dispatches": active_dispatches,
+                            "completed_today": completed_today,
+                            "available_vehicles": available_vehicles,
+                            "active_vehicles": active_vehicles,
+                            "revenue_today": 0.0,
+                            "revenue_month": 0.0,
+                            "timestamp": datetime.now().isoformat(),
+                            "loading": False
+                        }
+                    finally:
+                        db.close()
                 
-                today = date.today()
-                
-                # 전체 주문 수 (오늘)
-                total_orders = db.query(func.count(Order.id)).filter(
-                    Order.created_at >= datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-                ).scalar() or 0
-                
-                # 배차 대기 중인 주문 수
-                pending_orders = db.query(func.count(Order.id)).filter(
-                    Order.status == OrderStatus.PENDING
-                ).scalar() or 0
-                
-                # 진행 중인 배차 수 (확정 + 진행중)
-                active_dispatches = db.query(func.count(Dispatch.id)).filter(
-                    Dispatch.status.in_([DispatchStatus.CONFIRMED, DispatchStatus.IN_PROGRESS])
-                ).scalar() or 0
-                
-                # 오늘 완료된 배차 수
-                completed_today = db.query(func.count(Dispatch.id)).filter(
-                    Dispatch.dispatch_date == today,
-                    Dispatch.status == DispatchStatus.COMPLETED
-                ).scalar() or 0
-                
-                # 사용 가능한 차량 수
-                available_vehicles = db.query(func.count(Vehicle.id)).filter(
-                    Vehicle.status == VehicleStatus.AVAILABLE,
-                    Vehicle.is_active == True
-                ).scalar() or 0
-                
-                # 운행 중인 차량 수
-                active_vehicles = db.query(func.count(Vehicle.id)).filter(
-                    Vehicle.status == VehicleStatus.IN_USE
-                ).scalar() or 0
-                
-                stats = {
-                    "total_orders": total_orders,
-                    "pending_orders": pending_orders,
-                    "active_dispatches": active_dispatches,
-                    "completed_today": completed_today,
-                    "available_vehicles": available_vehicles,
-                    "active_vehicles": active_vehicles,
-                    "revenue_today": 0.0,
-                    "revenue_month": 0.0,
-                    "timestamp": datetime.now().isoformat(),
-                    "loading": False
-                }
+                # Run in thread pool to avoid blocking
+                stats = await asyncio.to_thread(collect_stats)
                 
                 # Try to send data
                 try:
                     await websocket.send_json(stats)
-                    logger.debug(f"Sent dashboard stats: pending={pending_orders}, active={active_dispatches}")
+                    logger.debug(f"Sent dashboard stats: pending={stats['pending_orders']}, active={stats['active_dispatches']}")
                 except Exception as send_error:
                     logger.warning(f"Failed to send stats: {type(send_error).__name__}: {send_error}")
                     break  # Exit loop if send fails
@@ -314,8 +323,6 @@ async def websocket_dashboard(websocket: WebSocket):
                 logger.error(f"Error collecting stats: {error_type}: {str(inner_e)}", exc_info=True)
                 # Break on any error
                 break
-            finally:
-                db.close()
             
             # Wait 5 seconds before next update
             await asyncio.sleep(5)
