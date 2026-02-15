@@ -330,6 +330,60 @@ async def websocket_dashboard(websocket: WebSocket):
             pass
 
 
+@router.websocket("/ws/alerts")
+async def websocket_alerts(websocket: WebSocket):
+    """
+    실시간 알림 WebSocket
+    
+    클라이언트에게 시스템 알림을 실시간으로 전송합니다.
+    """
+    from datetime import datetime
+    import asyncio
+    
+    await websocket.accept()
+    logger.info("WebSocket connected: alerts")
+    
+    try:
+        # Send initial connection confirmation
+        initial_message = {
+            "type": "connected",
+            "message": "Alerts WebSocket connected",
+            "timestamp": datetime.now().isoformat()
+        }
+        await websocket.send_json(initial_message)
+        logger.info("Sent initial alerts connection message")
+        
+        # Keep connection alive with periodic keepalive messages
+        while True:
+            await asyncio.sleep(30)  # Send keepalive every 30 seconds
+            
+            # Check connection state
+            if websocket.client_state.name != "CONNECTED":
+                logger.info(f"Alerts WebSocket not in CONNECTED state: {websocket.client_state.name}")
+                break
+            
+            try:
+                keepalive = {
+                    "type": "keepalive",
+                    "timestamp": datetime.now().isoformat()
+                }
+                await websocket.send_json(keepalive)
+                logger.debug("Sent alerts keepalive")
+            except Exception as e:
+                logger.warning(f"Failed to send alerts keepalive: {type(e).__name__}: {e}")
+                break
+                
+    except WebSocketDisconnect:
+        logger.info("WebSocket disconnected: alerts")
+    except Exception as e:
+        logger.error(f"WebSocket alerts error: {type(e).__name__}: {e}")
+    finally:
+        try:
+            await websocket.close()
+        except:
+            pass
+
+
 @router.get("/{dispatch_id}", response_model=DispatchDetailResponse)
 def get_dispatch(dispatch_id: int, db: Session = Depends(get_db)):
     """배차 상세 조회 (경로 포함)"""
