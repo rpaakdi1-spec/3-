@@ -251,6 +251,7 @@ async def websocket_dashboard(websocket: WebSocket):
             
             # DB 쿼리를 비동기로 실행하여 성능 향상
             try:
+                logger.info("🔄 Starting to collect dashboard stats...")
                 # Define sync helper function
                 def collect_stats():
                     from app.models.vehicle import Vehicle
@@ -308,12 +309,14 @@ async def websocket_dashboard(websocket: WebSocket):
                         db.close()
                 
                 # Run in thread pool to avoid blocking
+                logger.info("⏳ Executing DB queries in thread pool...")
                 stats = await asyncio.to_thread(collect_stats)
+                logger.info(f"✅ Stats collected successfully: {stats}")
                 
                 # Try to send data
                 try:
                     await websocket.send_json(stats)
-                    logger.debug(f"Sent dashboard stats: pending={stats['pending_orders']}, active={stats['active_dispatches']}")
+                    logger.info(f"📊 Sent dashboard stats: pending={stats['pending_orders']}, active={stats['active_dispatches']}")
                 except Exception as send_error:
                     logger.warning(f"Failed to send stats: {type(send_error).__name__}: {send_error}")
                     break  # Exit loop if send fails
