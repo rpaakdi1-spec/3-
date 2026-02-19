@@ -17,6 +17,7 @@ from app.services.analytics_service import (
     KPIResult,
     TrendData
 )
+from app.services.gps_optimization_analytics import GPSOptimizationAnalytics
 
 logger = logging.getLogger(__name__)
 
@@ -433,4 +434,194 @@ async def get_hourly_distribution(
         return [HourlyDistributionResponse(**item) for item in distribution]
     except Exception as e:
         logger.error(f"시간대별 분포 조회 실패: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ========================================
+# GPS 최적화 분석 엔드포인트
+# ========================================
+
+@router.get("/analytics/gps-optimization/report")
+async def get_gps_optimization_report(
+    start_date: Optional[str] = Query(None, description="분석 시작일 (YYYY-MM-DD)"),
+    end_date: Optional[str] = Query(None, description="분석 종료일 (YYYY-MM-DD)"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    GPS 실시간 위치 기반 배차 최적화 효과 분석 리포트
+    
+    - GPS 데이터 활용률
+    - 배차 효율성
+    - 거리/시간/비용 절감 효과
+    - 데이터 품질
+    - 개선 권장사항
+    """
+    try:
+        # 날짜 파싱
+        start_dt = datetime.fromisoformat(start_date) if start_date else None
+        end_dt = datetime.fromisoformat(end_date) if end_date else None
+        
+        service = GPSOptimizationAnalytics(db)
+        report = await service.get_comprehensive_report(start_dt, end_dt)
+        
+        return report
+    except Exception as e:
+        logger.error(f"GPS 최적화 리포트 조회 실패: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/analytics/gps-optimization/compare")
+async def compare_gps_optimization(
+    before_start: str = Query(..., description="적용 전 시작일 (YYYY-MM-DD)"),
+    before_end: str = Query(..., description="적용 전 종료일 (YYYY-MM-DD)"),
+    after_start: str = Query(..., description="적용 후 시작일 (YYYY-MM-DD)"),
+    after_end: str = Query(..., description="적용 후 종료일 (YYYY-MM-DD)"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    GPS 실시간 위치 적용 전후 비교 분석
+    
+    - 거리 개선율
+    - 시간 개선율
+    - 비용 절감 효과
+    """
+    try:
+        # 날짜 파싱
+        before_start_dt = datetime.fromisoformat(before_start)
+        before_end_dt = datetime.fromisoformat(before_end)
+        after_start_dt = datetime.fromisoformat(after_start)
+        after_end_dt = datetime.fromisoformat(after_end)
+        
+        service = GPSOptimizationAnalytics(db)
+        comparison = await service.compare_before_after(
+            before_start_dt, before_end_dt,
+            after_start_dt, after_end_dt
+        )
+        
+        return comparison
+    except Exception as e:
+        logger.error(f"GPS 최적화 전후 비교 실패: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ========================================
+# GPS 수집 최적화 엔드포인트
+# ========================================
+
+from app.services.gps_collection_optimizer import GPSCollectionOptimizer
+
+@router.get("/analytics/gps-collection/strategy")
+async def get_gps_collection_strategy(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    차량별 GPS 수집 전략 분석
+    
+    - 차량 상태별 권장 수집 주기
+    - 데이터 품질 평가
+    - 주의 필요 차량 목록
+    """
+    try:
+        optimizer = GPSCollectionOptimizer(db)
+        strategy = await optimizer.get_collection_strategy()
+        return strategy
+    except Exception as e:
+        logger.error(f"GPS 수집 전략 조회 실패: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/analytics/gps-collection/recommendations")
+async def get_gps_collection_recommendations(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    GPS 데이터 수집 최적화 권장사항
+    
+    - 수집 주기 최적화
+    - 데이터 품질 개선
+    - 비용 절감 방안
+    """
+    try:
+        optimizer = GPSCollectionOptimizer(db)
+        recommendations = await optimizer.get_optimization_recommendations()
+        return recommendations
+    except Exception as e:
+        logger.error(f"GPS 수집 권장사항 조회 실패: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ========================================
+# 차량 위치 예측 엔드포인트
+# ========================================
+
+from app.services.vehicle_location_predictor import VehicleLocationPredictor
+
+@router.get("/analytics/vehicle-location/predict/{vehicle_id}")
+async def predict_vehicle_location(
+    vehicle_id: int,
+    prediction_minutes: int = Query(30, ge=5, le=120, description="예측 시간 (5-120분)"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    특정 차량의 미래 위치 예측
+    
+    - 배차 경로 기반 예측 (배차 중일 경우)
+    - 과거 이력 기반 예측 (배차 없을 경우)
+    - 예측 신뢰도 포함
+    """
+    try:
+        predictor = VehicleLocationPredictor(db)
+        prediction = await predictor.predict_vehicle_location(vehicle_id, prediction_minutes)
+        return prediction
+    except Exception as e:
+        logger.error(f"차량 위치 예측 실패: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/analytics/vehicle-location/predict-multiple")
+async def predict_multiple_vehicle_locations(
+    vehicle_ids: Optional[List[int]] = None,
+    prediction_minutes: int = Query(30, ge=5, le=120),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    여러 차량의 미래 위치 일괄 예측
+    
+    - vehicle_ids가 null이면 모든 활성 차량 예측
+    - 배차 중 차량 우선 예측
+    """
+    try:
+        predictor = VehicleLocationPredictor(db)
+        predictions = await predictor.predict_multiple_vehicles(vehicle_ids, prediction_minutes)
+        return predictions
+    except Exception as e:
+        logger.error(f"여러 차량 위치 예측 실패: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/analytics/vehicle-location/accuracy/{vehicle_id}")
+async def evaluate_prediction_accuracy(
+    vehicle_id: int,
+    test_period_days: int = Query(7, ge=1, le=30, description="평가 기간 (1-30일)"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    차량 위치 예측 정확도 평가
+    
+    - 과거 데이터로 예측 정확도 검증
+    - 평균 오차, 정확도 비율 계산
+    """
+    try:
+        predictor = VehicleLocationPredictor(db)
+        evaluation = await predictor.evaluate_prediction_accuracy(vehicle_id, test_period_days)
+        return evaluation
+    except Exception as e:
+        logger.error(f"예측 정확도 평가 실패: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
