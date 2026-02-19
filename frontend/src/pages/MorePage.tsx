@@ -15,7 +15,17 @@ import {
   Shield,
   HelpCircle,
   LogOut,
-  ChevronRight
+  ChevronRight,
+  Package,
+  Zap,
+  Brain,
+  Thermometer,
+  Wrench,
+  Radio,
+  AlertTriangle,
+  TrendingUp,
+  FileSpreadsheet,
+  Bot
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import toast from 'react-hot-toast';
@@ -47,16 +57,47 @@ const MorePage: React.FC = () => {
       items: [
         { icon: Users, label: '고객 관리', path: '/clients', color: 'text-blue-600' },
         { icon: TruckIcon, label: '차량 관리', path: '/vehicles', color: 'text-green-600' },
-        { icon: MapPin, label: '기사 관리', path: '/drivers', color: 'text-purple-600' },
-        { icon: Calendar, label: '주문 캘린더', path: '/calendar', color: 'text-orange-600' },
+        { icon: Package, label: '주문 관리', path: '/orders', color: 'text-orange-600' },
+        { icon: MapPin, label: '배차 관리', path: '/dispatches', color: 'text-purple-600' },
+        { icon: Calendar, label: '주문 캘린더', path: '/calendar', color: 'text-pink-600' },
+        { icon: Wrench, label: '차량 정비', path: '/maintenance', color: 'text-yellow-600' },
+      ],
+    },
+    {
+      title: 'AI 및 최적화',
+      items: [
+        { icon: Zap, label: '배차 최적화', path: '/optimization', color: 'text-blue-600' },
+        { icon: Brain, label: 'AI 채팅', path: '/ai-chat', color: 'text-purple-600' },
+        { icon: TrendingUp, label: 'ML 예측', path: '/ml-predictions', color: 'text-indigo-600' },
+        { icon: Bot, label: 'AI 비용 대시보드', path: '/ai-cost', color: 'text-teal-600' },
+      ],
+    },
+    {
+      title: '모니터링 및 IoT',
+      items: [
+        { icon: BarChart3, label: '실시간 대시보드', path: '/realtime', color: 'text-indigo-600' },
+        { icon: Radio, label: '원격 측정', path: '/telemetry', color: 'text-cyan-600' },
+        { icon: Thermometer, label: '온도 모니터링', path: '/temperature-monitoring', color: 'text-blue-600' },
+        { icon: TrendingUp, label: '온도 분석', path: '/temperature-analytics', color: 'text-green-600' },
+        { icon: AlertTriangle, label: 'IoT 알림', path: '/iot/alerts', color: 'text-red-600' },
+        { icon: Radio, label: 'IoT 센서', path: '/iot/sensors', color: 'text-blue-600' },
+      ],
+    },
+    {
+      title: '재무 및 청구',
+      items: [
+        { icon: DollarSign, label: '청구 관리', path: '/billing', color: 'text-emerald-600' },
+        { icon: FileText, label: '재무 대시보드', path: '/billing/financial-dashboard', color: 'text-teal-600' },
+        { icon: FileSpreadsheet, label: '청구 미리보기', path: '/billing/charge-preview', color: 'text-blue-600' },
+        { icon: Calendar, label: '자동 청구 일정', path: '/billing/auto-schedule', color: 'text-purple-600' },
       ],
     },
     {
       title: '분석 및 리포트',
       items: [
-        { icon: BarChart3, label: '실시간 모니터링', path: '/monitoring', color: 'text-indigo-600' },
-        { icon: FileText, label: '재무 대시보드', path: '/financial', color: 'text-teal-600' },
-        { icon: DollarSign, label: '청구 관리', path: '/billing', color: 'text-emerald-600' },
+        { icon: BarChart3, label: '분석 대시보드', path: '/analytics-dashboard', color: 'text-indigo-600' },
+        { icon: FileText, label: '리포트', path: '/reports', color: 'text-gray-600' },
+        { icon: TrendingUp, label: '배차 모니터링', path: '/dispatch/monitoring', color: 'text-green-600' },
       ],
     },
     {
@@ -70,7 +111,7 @@ const MorePage: React.FC = () => {
     {
       title: '기타',
       items: [
-        { icon: HelpCircle, label: '도움말', path: '/help', color: 'text-blue-500' },
+        { icon: HelpCircle, label: '도움말', path: '/dashboard', color: 'text-blue-500' },
         { icon: LogOut, label: '로그아웃', onClick: handleLogout, color: 'text-red-500' },
       ],
     },
