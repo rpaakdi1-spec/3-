@@ -1,13 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/common/Layout';
 import { Settings, User, Bell, Shield, Save } from 'lucide-react';
-import Layout from '../components/common/Layout';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
 import api from '../api/client';
 import { useAuthStore } from '../store/authStore';
-import Sidebar from '../components/common/Sidebar';
 
 const SettingsPage: React.FC = () => {
   const { user } = useAuthStore();
@@ -149,14 +147,11 @@ const SettingsPage: React.FC = () => {
 
   return (
     <Layout>
-    <div className="flex h-screen bg-gray-100">
-      <Sidebar />
-      <div className="flex-1 overflow-auto">
-        <div className="p-6">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-800">설정</h1>
-        <p className="text-gray-600 mt-1">시스템 및 개인 설정을 관리합니다</p>
-      </div>
+      <div className="p-6">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-gray-800">설정</h1>
+          <p className="text-gray-600 mt-1">시스템 및 개인 설정을 관리합니다</p>
+        </div>
 
       {message && (
         <div className={`mb-4 p-4 rounded-lg ${
@@ -445,9 +440,6 @@ const SettingsPage: React.FC = () => {
           )}
         </div>
       </div>
-        </div>
-      </div>
-    </div>
     </Layout>
   );
 };
