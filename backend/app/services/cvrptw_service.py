@@ -8,7 +8,7 @@
 
 from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass
-from datetime import datetime, time as dt_time, date
+from datetime import datetime, time as dt_time, date, timezone, timedelta
 import math
 
 from ortools.constraint_solver import routing_enums_pb2
@@ -581,22 +581,24 @@ class AdvancedDispatchOptimizationService:
         # 첫 번째 차량의 실시간 위치 또는 차고지 사용
         first_vehicle = vehicles[0]
         
-        # 1순위: 실시간 GPS 위치 (운행중인 경우)
+        # 1순위: 실시간 GPS 위치 (최근 30분 이내, 운행중인 경우)
+        thirty_minutes_ago = datetime.now(timezone.utc) - timedelta(minutes=30)
         latest_location = self.db.query(VehicleLocation).filter(
-            VehicleLocation.vehicle_id == first_vehicle.id
+            VehicleLocation.vehicle_id == first_vehicle.id,
+            VehicleLocation.recorded_at >= thirty_minutes_ago
         ).order_by(VehicleLocation.recorded_at.desc()).first()
         
-        if latest_location:
+        if latest_location and latest_location.latitude and latest_location.longitude:
             depot_lat = latest_location.latitude
             depot_lon = latest_location.longitude
-            logger.info(f"📍 차량 {first_vehicle.code} 실시간 GPS 사용: ({depot_lat:.6f}, {depot_lon:.6f})")
+            logger.info(f"✅ 차량 {first_vehicle.code}: 실시간 GPS 사용 ({depot_lat:.6f}, {depot_lon:.6f}) - {latest_location.recorded_at.strftime('%H:%M:%S')}")
         # 2순위: 차고지 좌표
         elif first_vehicle.garage_latitude and first_vehicle.garage_longitude:
             depot_lat = first_vehicle.garage_latitude
             depot_lon = first_vehicle.garage_longitude
-            logger.info(f"🏠 차량 {first_vehicle.code} 차고지 GPS 사용: ({depot_lat:.6f}, {depot_lon:.6f})")
+            logger.info(f"🏠 차량 {first_vehicle.code}: 차고지 GPS 사용 ({depot_lat:.6f}, {depot_lon:.6f})")
         else:
-            logger.warning(f"⚠️  차량 {first_vehicle.code} GPS 없음, 기본 좌표 사용")
+            logger.warning(f"⚠️  차량 {first_vehicle.code}: 실시간 GPS 없음, 기본 서울 좌표 사용")
 
         
         depot_idx = 0
