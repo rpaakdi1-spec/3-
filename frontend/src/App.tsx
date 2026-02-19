@@ -24,6 +24,7 @@ const ClientsPage = lazy(() => import('./pages/ClientsPage'));
 const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'));
 const ReportsPage = lazy(() => import('./pages/ReportsPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const MorePage = lazy(() => import('./pages/MorePage'));
 const MLTrainingPage = lazy(() => import('./pages/MLTrainingPage'));
 const ABTestMonitorPage = lazy(() => import('./pages/ABTestMonitorPage'));
 const RecurringOrdersPage = lazy(() => import('./pages/RecurringOrdersPage'));
@@ -264,6 +265,14 @@ const App: React.FC = () => {
               element={
                 <ProtectedRoute>
                   <SettingsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/more"
+              element={
+                <ProtectedRoute>
+                  <MorePage />
                 </ProtectedRoute>
               }
             />
