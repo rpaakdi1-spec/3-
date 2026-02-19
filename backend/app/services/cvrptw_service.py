@@ -387,11 +387,17 @@ class AdvancedDispatchOptimizationService:
             return 0
     
     def _convert_temp_zone_to_vehicle_types(self, temp_zone: TemperatureZone) -> List[VehicleType]:
-        """온도대를 호환 가능한 차량 타입으로 변환"""
+        """온도대를 호환 가능한 차량 타입으로 변환
+        
+        온도대 호환성:
+        - 냉동 주문: 냉동, 듀얼 차량만 가능
+        - 냉장 주문: 냉동, 냉장, 듀얼 차량 가능 (냉동 차량으로 냉장 운송 가능)
+        - 상온 주문: 모든 차량 타입 가능
+        """
         mapping = {
             TemperatureZone.FROZEN: [VehicleType.FROZEN, VehicleType.DUAL],
-            TemperatureZone.REFRIGERATED: [VehicleType.REFRIGERATED, VehicleType.DUAL],
-            TemperatureZone.AMBIENT: [VehicleType.AMBIENT, VehicleType.DUAL]
+            TemperatureZone.REFRIGERATED: [VehicleType.FROZEN, VehicleType.REFRIGERATED, VehicleType.DUAL],
+            TemperatureZone.AMBIENT: [VehicleType.FROZEN, VehicleType.REFRIGERATED, VehicleType.AMBIENT, VehicleType.DUAL]
         }
         return mapping.get(temp_zone, [VehicleType.DUAL])
     
