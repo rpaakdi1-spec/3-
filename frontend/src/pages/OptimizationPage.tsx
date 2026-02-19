@@ -186,7 +186,8 @@ const OptimizationPage: React.FC = () => {
         }
         
         // 경로에서 주문 정보 추출
-        const assignedOrders = dispatch.routes
+        // 주의: 현재 API 응답에는 routes 정보가 없으므로 빈 배열 반환
+        const assignedOrders = (dispatch.routes || [])
           .filter((route: any) => route.route_type === 'PICKUP' || route.route_type === 'DELIVERY')
           .map((route: any) => {
             const order = orders.find(o => o.id === route.order_id);
@@ -201,6 +202,8 @@ const OptimizationPage: React.FC = () => {
             };
           });
         
+        // routes가 없을 경우 num_stops 기반으로 기본 정보 생성
+        const orderCount = dispatch.num_stops || assignedOrders.length;
         const totalPallets = dispatch.total_pallets || assignedOrders.reduce((sum: number, o: any) => sum + o.pallet_count, 0);
         
         return {
