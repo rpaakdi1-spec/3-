@@ -877,6 +877,7 @@ class AdvancedDispatchOptimizationService:
             saved_dispatches.append({
                 'id': dispatch.id,
                 'dispatch_number': dispatch.dispatch_number,
+                'vehicle_id': vehicle.id,
                 'vehicle_code': vehicle.code,
                 'num_stops': route_data['num_stops'],
                 'distance_km': round(route_data['distance'] / 1000, 2),
