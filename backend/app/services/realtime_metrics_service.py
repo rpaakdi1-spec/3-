@@ -189,7 +189,7 @@ class RealtimeMetricsService:
                         vehicle_data = {
                             "type": "vehicle_location",
                             "vehicle_id": vehicle.id,
-                            "license_plate": vehicle.license_plate,
+                            "plate_number": vehicle.plate_number,  # Fixed: license_plate → plate_number
                             "status": vehicle.status.value if hasattr(vehicle.status, 'value') else str(vehicle.status),
                             "timestamp": datetime.utcnow().isoformat()
                         }
