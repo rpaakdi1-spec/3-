@@ -22,11 +22,12 @@ class GPSCollectionOptimizer:
     
     # 차량 상태별 권장 수집 주기 (분)
     COLLECTION_INTERVALS = {
-        VehicleStatus.DRIVING: 3,      # 운행 중: 3분 (높은 정확도 필요)
-        VehicleStatus.LOADING: 10,     # 상하차 중: 10분 (중간 정확도)
-        VehicleStatus.WAITING: 15,     # 대기 중: 15분 (낮은 정확도)
+        VehicleStatus.IN_USE: 3,       # 운행 중: 3분 (높은 정확도 필요)
+        VehicleStatus.AVAILABLE: 10,   # 운행 가능: 10분 (중간 정확도)
         VehicleStatus.MAINTENANCE: 60, # 정비 중: 60분 (최소 수집)
-        VehicleStatus.OUT_OF_SERVICE: 120  # 운휴: 120분 (최소 수집)
+        VehicleStatus.EMERGENCY_MAINTENANCE: 60, # 긴급 정비: 60분
+        VehicleStatus.BREAKDOWN: 120,  # 고장: 120분 (최소 수집)
+        VehicleStatus.OUT_OF_SERVICE: 120  # 운행 불가: 120분 (최소 수집)
     }
     
     # 데이터 품질 기준
