@@ -181,9 +181,11 @@ class GPSOptimizationAnalytics:
             
             # 거리 (routes에서 계산)
             if dispatch.routes:
-                total_distance = sum(route.distance_km for route in dispatch.routes if route.distance_km)
+                total_distance = sum(route.distance_from_previous_km for route in dispatch.routes if route.distance_from_previous_km)
                 if total_distance > 0:
                     distances.append(total_distance)
+            elif dispatch.total_distance_km:
+                distances.append(dispatch.total_distance_km)
             
             # 소요 시간
             if dispatch.actual_start_time and dispatch.actual_end_time:
