@@ -168,8 +168,14 @@ class GPSOptimizationAnalytics:
         durations = []
         
         for dispatch in dispatches:
-            # 주문 수
-            order_count = len(dispatch.orders) if dispatch.orders else 0
+            # 주문 수 (routes를 통해 계산)
+            if dispatch.routes:
+                # 각 route는 하나의 주문에 대한 경로
+                unique_order_ids = set(route.order_id for route in dispatch.routes if route.order_id)
+                order_count = len(unique_order_ids)
+            else:
+                order_count = dispatch.total_orders or 0
+            
             if order_count > 0:
                 orders_per_dispatch.append(order_count)
             
