@@ -826,8 +826,9 @@ class AdvancedDispatchOptimizationService:
             vehicle_info = route_data['vehicle']
             vehicle = next(v for v in vehicles if v.id == vehicle_info.id)
             
-            # 배차 번호 생성
-            dispatch_number = f"DISP-{datetime.now().strftime('%Y%m%d%H%M%S')}-{vehicle.code}"
+            # 배차 번호 생성 (마이크로초 포함하여 고유성 보장)
+            now = datetime.now()
+            dispatch_number = f"DISP-{now.strftime('%Y%m%d%H%M%S')}{now.microsecond:06d}-{vehicle.code}"
             
             # 배차 생성
             dispatch = Dispatch(
