@@ -68,7 +68,7 @@ class GPSCollectionOptimizer:
                 and_(
                     Dispatch.vehicle_id == vehicle.id,
                     Dispatch.status.in_([
-                        DispatchStatus.ASSIGNED,
+                        DispatchStatus.CONFIRMED,
                         DispatchStatus.IN_PROGRESS
                     ])
                 )
@@ -208,7 +208,7 @@ class GPSCollectionOptimizer:
         
         # 2. 배차 중 차량 우선 수집
         active_dispatches = self.db.query(func.count(Dispatch.id)).filter(
-            Dispatch.status.in_([DispatchStatus.ASSIGNED, DispatchStatus.IN_PROGRESS])
+            Dispatch.status.in_([DispatchStatus.CONFIRMED, DispatchStatus.IN_PROGRESS])
         ).scalar() or 0
         
         if active_dispatches > 0:
@@ -307,7 +307,7 @@ class GPSCollectionOptimizer:
                 and_(
                     Dispatch.vehicle_id == vehicle_id,
                     Dispatch.status.in_([
-                        DispatchStatus.ASSIGNED,
+                        DispatchStatus.CONFIRMED,
                         DispatchStatus.IN_PROGRESS
                     ])
                 )

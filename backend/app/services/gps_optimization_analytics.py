@@ -266,8 +266,7 @@ class GPSOptimizationAnalytics:
             and_(
                 Dispatch.dispatch_date >= start_date.date(),
                 Dispatch.dispatch_date <= end_date.date(),
-                Dispatch.actual_start_time.isnot(None),
-                Dispatch.actual_end_time.isnot(None)
+                Dispatch.estimated_duration_minutes.isnot(None)
             )
         ).all()
         
