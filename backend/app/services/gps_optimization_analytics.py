@@ -93,7 +93,7 @@ class GPSOptimizationAnalytics:
         
         # 전체 차량 수
         total_vehicles = self.db.query(Vehicle).filter(
-            Vehicle.status == 'ACTIVE'
+            Vehicle.is_active == True
         ).count()
         
         # 최근 30분 이내 GPS 데이터가 있는 차량 수

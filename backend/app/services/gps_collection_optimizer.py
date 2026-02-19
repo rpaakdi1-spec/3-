@@ -48,7 +48,7 @@ class GPSCollectionOptimizer:
         logger.info("📊 GPS 수집 전략 분석 시작")
         
         vehicles = self.db.query(Vehicle).filter(
-            Vehicle.status != VehicleStatus.OUT_OF_SERVICE
+            Vehicle.is_active == True
         ).all()
         
         strategies = []
@@ -94,7 +94,7 @@ class GPSCollectionOptimizer:
             
             strategies.append({
                 "vehicle_id": vehicle.id,
-                "vehicle_code": vehicle.vehicle_code,
+                "vehicle_code": vehicle.code,
                 "current_status": current_status.value if current_status else "UNKNOWN",
                 "has_active_dispatch": active_dispatch is not None,
                 "recommended_interval_minutes": recommended_interval,
@@ -317,13 +317,13 @@ class GPSCollectionOptimizer:
                 interval = min(interval, 3)
         
         logger.info(
-            f"🔄 차량 {vehicle.vehicle_code}: GPS 수집 주기 {interval}분으로 설정"
+            f"🔄 차량 {vehicle.code}: GPS 수집 주기 {interval}분으로 설정"
         )
         
         return {
             "success": True,
             "vehicle_id": vehicle_id,
-            "vehicle_code": vehicle.vehicle_code,
+            "vehicle_code": vehicle.code,
             "status": vehicle.status.value if vehicle.status else "UNKNOWN",
             "interval_minutes": interval,
             "has_active_dispatch": active_dispatch is not None if 'active_dispatch' in locals() else False

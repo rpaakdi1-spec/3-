@@ -68,7 +68,7 @@ class VehicleLocationPredictor:
                 "success": False,
                 "error": "No GPS data available",
                 "vehicle_id": vehicle_id,
-                "vehicle_code": vehicle.vehicle_code
+                "vehicle_code": vehicle.code
             }
         
         # 2. 배차 정보 확인
@@ -435,7 +435,7 @@ class VehicleLocationPredictor:
                 predictions.append({
                     "success": False,
                     "vehicle_id": vehicle.id,
-                    "vehicle_code": vehicle.vehicle_code,
+                    "vehicle_code": vehicle.code,
                     "error": str(e)
                 })
         
