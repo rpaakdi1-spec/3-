@@ -187,10 +187,9 @@ class GPSOptimizationAnalytics:
             elif dispatch.total_distance_km:
                 distances.append(dispatch.total_distance_km)
             
-            # 소요 시간
-            if dispatch.actual_start_time and dispatch.actual_end_time:
-                duration = (dispatch.actual_end_time - dispatch.actual_start_time).total_seconds() / 3600
-                durations.append(duration)
+            # 소요 시간 (estimated_duration_minutes 사용)
+            if dispatch.estimated_duration_minutes:
+                durations.append(dispatch.estimated_duration_minutes / 60)  # 시간 단위로 변환
         
         return {
             "total_dispatches": total_dispatches,
@@ -282,8 +281,8 @@ class GPSOptimizationAnalytics:
         
         total_hours = 0
         for dispatch in dispatches:
-            if dispatch.actual_start_time and dispatch.actual_end_time:
-                duration = (dispatch.actual_end_time - dispatch.actual_start_time).total_seconds() / 3600
+            if dispatch.estimated_duration_minutes:
+                duration = dispatch.estimated_duration_minutes / 60  # 시간 단위로 변환
                 total_hours += duration
         
         # 추정: 실시간 GPS 사용으로 평균 20-25% 시간 절감
