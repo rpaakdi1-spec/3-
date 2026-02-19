@@ -239,8 +239,8 @@ class GPSOptimizationAnalytics:
         for dispatch in dispatches:
             if dispatch.routes:
                 for route in dispatch.routes:
-                    if route.distance_km:
-                        total_distance += route.distance_km
+                    if route.distance_from_previous_km:
+                        total_distance += route.distance_from_previous_km
         
         # 추정: 실시간 GPS 사용으로 평균 15-20% 거리 절감
         # (차고지 기준 vs 실시간 위치 기준)
