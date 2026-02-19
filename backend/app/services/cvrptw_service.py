@@ -18,7 +18,7 @@ from loguru import logger
 
 from app.models.client import Client
 from app.models.vehicle import Vehicle, VehicleType
-from app.models.order import Order, TemperatureZone
+from app.models.order import Order, TemperatureZone, OrderStatus
 from app.models.dispatch import Dispatch, DispatchRoute, RouteType, DispatchStatus
 from app.services.naver_map_service import NaverMapService
 
@@ -870,6 +870,13 @@ class AdvancedDispatchOptimizationService:
                 )
                 
                 self.db.add(route)
+                
+                # 주문 상태 업데이트: 배차에 포함된 주문은 "배차완료" 상태로 변경
+                if location.order_id:
+                    order = self.db.query(Order).filter(Order.id == location.order_id).first()
+                    if order and order.status == OrderStatus.PENDING:
+                        order.status = OrderStatus.ASSIGNED
+                        logger.info(f"  → 주문 {order.order_number} 상태 변경: 배차대기 → 배차완료")
             
             self.db.commit()
             self.db.refresh(dispatch)
