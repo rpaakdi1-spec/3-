@@ -89,6 +89,9 @@ const OrderCalendarPage: React.FC = () => {
   const [selectedOrderForRecurring, setSelectedOrderForRecurring] = useState<Order | null>(null);
   const [dispatchModalOpen, setDispatchModalOpen] = useState(false);
   const [selectedOrderForDispatch, setSelectedOrderForDispatch] = useState<Order | null>(null);
+  
+  // 상태 필터
+  const [statusFilter, setStatusFilter] = useState<string[]>(['PENDING', 'ASSIGNED', 'IN_TRANSIT']);
 
   // 오더 목록 가져오기
   const fetchOrders = useCallback(async () => {
@@ -108,22 +111,44 @@ const OrderCalendarPage: React.FC = () => {
     fetchOrders();
   }, [fetchOrders]);
 
-  // 오더를 캘린더 이벤트로 변환
+  // 상태 필터 토글 핸들러
+  const handleStatusToggle = useCallback((status: string) => {
+    setStatusFilter(prev => 
+      prev.includes(status)
+        ? prev.filter(s => s !== status)
+        : [...prev, status]
+    );
+  }, []);
+
+  // 전체 선택/해제 핸들러
+  const handleToggleAll = useCallback(() => {
+    if (statusFilter.length === Object.keys(STATUS_LABELS).length) {
+      // 전체 해제
+      setStatusFilter([]);
+    } else {
+      // 전체 선택
+      setStatusFilter(Object.keys(STATUS_LABELS));
+    }
+  }, [statusFilter]);
+
+  // 오더를 캘린더 이벤트로 변환 (필터 적용)
   const events = useMemo<CalendarEvent[]>(() => {
-    return orders.map(order => {
-      // 주문일자를 캘린더에 표시
-      const dateStr = order.order_date;
-      const eventDate = new Date(dateStr);
-      
-      return {
-        id: order.id,
-        title: `${order.order_number} (${order.pallet_count}P)`,
-        start: eventDate,
-        end: eventDate,
-        resource: order,
-      };
-    });
-  }, [orders]);
+    return orders
+      .filter(order => statusFilter.includes(order.status)) // 필터 적용
+      .map(order => {
+        // 주문일자를 캘린더에 표시
+        const dateStr = order.order_date;
+        const eventDate = new Date(dateStr);
+        
+        return {
+          id: order.id,
+          title: `${order.order_number} (${order.pallet_count}P)`,
+          start: eventDate,
+          end: eventDate,
+          resource: order,
+        };
+      });
+  }, [orders, statusFilter]);
 
   // 날짜 클릭 핸들러 (빈 날짜 클릭 시 빠른 등록, 오더 있는 날짜는 목록 표시)
   const handleSelectSlot = useCallback((slotInfo: { start: Date; end: Date }) => {
@@ -351,19 +376,63 @@ const OrderCalendarPage: React.FC = () => {
           </div>
         </div>
 
-        {/* 범례 */}
+        {/* 상태 필터 */}
         <Card>
-          <div className="flex flex-wrap items-center gap-4">
-            <span className="font-medium text-gray-700">상태 범례:</span>
-            {Object.entries(STATUS_LABELS).map(([key, label]) => (
-              <div key={key} className="flex items-center gap-2">
-                <div
-                  className="w-4 h-4 rounded"
-                  style={{ backgroundColor: STATUS_COLORS[key as keyof typeof STATUS_COLORS] }}
-                />
-                <span className="text-sm text-gray-600">{label}</span>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Filter className="w-5 h-5 text-gray-600" />
+                <span className="font-medium text-gray-700">상태 필터</span>
+                <span className="text-sm text-gray-500">({statusFilter.length}/{Object.keys(STATUS_LABELS).length}개 선택)</span>
               </div>
-            ))}
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleToggleAll}
+              >
+                {statusFilter.length === Object.keys(STATUS_LABELS).length ? '전체 해제' : '전체 선택'}
+              </Button>
+            </div>
+            
+            <div className="flex flex-wrap items-center gap-3">
+              {Object.entries(STATUS_LABELS).map(([key, label]) => {
+                const isSelected = statusFilter.includes(key);
+                return (
+                  <button
+                    key={key}
+                    onClick={() => handleStatusToggle(key)}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-all ${
+                      isSelected
+                        ? 'border-current shadow-sm'
+                        : 'border-gray-200 opacity-50 hover:opacity-75'
+                    }`}
+                    style={{
+                      backgroundColor: isSelected ? STATUS_COLORS[key as keyof typeof STATUS_COLORS] + '20' : 'transparent',
+                      borderColor: isSelected ? STATUS_COLORS[key as keyof typeof STATUS_COLORS] : undefined,
+                    }}
+                  >
+                    <div
+                      className="w-4 h-4 rounded"
+                      style={{ backgroundColor: STATUS_COLORS[key as keyof typeof STATUS_COLORS] }}
+                    />
+                    <span
+                      className="text-sm font-medium"
+                      style={{ color: isSelected ? STATUS_COLORS[key as keyof typeof STATUS_COLORS] : undefined }}
+                    >
+                      {label}
+                    </span>
+                    {isSelected && (
+                      <CheckCircle className="w-4 h-4" style={{ color: STATUS_COLORS[key as keyof typeof STATUS_COLORS] }} />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            
+            <div className="flex items-center justify-between text-sm text-gray-600 pt-2 border-t">
+              <span>필터링된 주문: <strong className="text-gray-900">{events.length}</strong>건</span>
+              <span>전체 주문: <strong className="text-gray-900">{orders.length}</strong>건</span>
+            </div>
           </div>
         </Card>
 
