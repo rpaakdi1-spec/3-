@@ -174,9 +174,14 @@ const OptimizationPage: React.FC = () => {
       
       // API 응답을 VehicleAssignment 형식으로 변환
       const vehicleAssignments: VehicleAssignment[] = response.dispatches.map((dispatch: any) => {
+        console.log('🔍 dispatch 데이터:', dispatch);
+        console.log('🔍 찾는 vehicle_id:', dispatch.vehicle_id);
+        console.log('🔍 사용 가능한 vehicles:', vehicles.map(v => ({ id: v.id, code: v.code })));
+        
         const vehicle = vehicles.find(v => v.id === dispatch.vehicle_id);
         if (!vehicle) {
           console.warn('⚠️ 차량을 찾을 수 없음:', dispatch.vehicle_id);
+          console.warn('⚠️ dispatch 전체 데이터:', dispatch);
           return null;
         }
         
