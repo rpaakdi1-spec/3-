@@ -20,6 +20,7 @@ from app.models.client import Client
 from app.models.vehicle import Vehicle, VehicleType
 from app.models.order import Order, TemperatureZone, OrderStatus
 from app.models.dispatch import Dispatch, DispatchRoute, RouteType, DispatchStatus
+from app.models.vehicle_location import VehicleLocation
 from app.services.naver_map_service import NaverMapService
 
 
@@ -573,14 +574,30 @@ class AdvancedDispatchOptimizationService:
         locations = []
         location_map = {}
         
-        # 차고지 추가 (depot)
-        depot_lat = 37.5665  # 서울 기본 좌표
+        # 차고지 추가 (depot) - 운행 가능한 차량의 실시간 위치 또는 차고지 사용
+        depot_lat = 37.5665  # 서울 기본 좌표 (Fallback)
         depot_lon = 126.9780
         
-        # 첫 번째 차량의 차고지 사용 (또는 기본 좌표)
-        if vehicles[0].garage_latitude and vehicles[0].garage_longitude:
-            depot_lat = vehicles[0].garage_latitude
-            depot_lon = vehicles[0].garage_longitude
+        # 첫 번째 차량의 실시간 위치 또는 차고지 사용
+        first_vehicle = vehicles[0]
+        
+        # 1순위: 실시간 GPS 위치 (운행중인 경우)
+        latest_location = self.db.query(VehicleLocation).filter(
+            VehicleLocation.vehicle_id == first_vehicle.id
+        ).order_by(VehicleLocation.recorded_at.desc()).first()
+        
+        if latest_location:
+            depot_lat = latest_location.latitude
+            depot_lon = latest_location.longitude
+            logger.info(f"📍 차량 {first_vehicle.code} 실시간 GPS 사용: ({depot_lat:.6f}, {depot_lon:.6f})")
+        # 2순위: 차고지 좌표
+        elif first_vehicle.garage_latitude and first_vehicle.garage_longitude:
+            depot_lat = first_vehicle.garage_latitude
+            depot_lon = first_vehicle.garage_longitude
+            logger.info(f"🏠 차량 {first_vehicle.code} 차고지 GPS 사용: ({depot_lat:.6f}, {depot_lon:.6f})")
+        else:
+            logger.warning(f"⚠️  차량 {first_vehicle.code} GPS 없음, 기본 좌표 사용")
+
         
         depot_idx = 0
         locations.append(Location(
