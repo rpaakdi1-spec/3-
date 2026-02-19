@@ -446,6 +446,7 @@ class AdvancedDispatchOptimizationService:
             
             # 4. 각 온도대별로 최적화
             all_results = []
+            failed_zones = []
             
             for temp_zone, zone_orders in orders_by_temp.items():
                 logger.info(f"\n온도대 [{temp_zone.value}] 최적화: {len(zone_orders)}건")
@@ -455,7 +456,13 @@ class AdvancedDispatchOptimizationService:
                 compatible_vehicles = [v for v in vehicles if v.vehicle_type in compatible_types]
                 
                 if not compatible_vehicles:
-                    logger.warning(f"온도대 [{temp_zone.value}]에 호환 차량 없음")
+                    issue = f"온도대 [{temp_zone.value}]에 호환 차량 없음 (필요: {[t.value for t in compatible_types]}, 보유: {[v.vehicle_type.value for v in vehicles]})"
+                    logger.warning(issue)
+                    failed_zones.append({
+                        'temp_zone': temp_zone.value,
+                        'orders_count': len(zone_orders),
+                        'reason': issue
+                    })
                     continue
                 
                 # 온도대별 최적화 실행
@@ -468,17 +475,51 @@ class AdvancedDispatchOptimizationService:
                     use_real_routing
                 )
                 
-                if result:
+                if result and result.get('success', True) is not False:
                     all_results.append(result)
+                else:
+                    # 실패 정보 수집
+                    failed_zones.append({
+                        'temp_zone': temp_zone.value,
+                        'orders_count': len(zone_orders),
+                        'reason': result.get('error', '알 수 없는 오류') if result else '솔루션 없음',
+                        'details': result.get('reasons', []) if result else [],
+                        'diagnostics': result.get('diagnostics', {}) if result else {}
+                    })
             
             # 5. 결과 취합
-            total_dispatches = sum(r['num_dispatches'] for r in all_results)
-            total_distance = sum(r['total_distance'] for r in all_results)
+            total_dispatches = sum(r.get('num_dispatches', 0) for r in all_results)
+            total_distance = sum(r.get('total_distance', 0) for r in all_results)
             
-            logger.success(f"\n=== 최적화 완료 ===")
-            logger.info(f"생성된 배차: {total_dispatches}개")
-            logger.info(f"총 거리: {total_distance/1000:.2f} km")
+            # 성공/실패 정보 출력
+            if all_results:
+                logger.success(f"\n=== 최적화 완료 ===")
+                logger.info(f"생성된 배차: {total_dispatches}개")
+                logger.info(f"총 거리: {total_distance/1000:.2f} km")
             
+            if failed_zones:
+                logger.warning(f"\n⚠️  일부 온도대 배차 실패: {len(failed_zones)}개")
+                for failed in failed_zones:
+                    logger.warning(f"   - {failed['temp_zone']}: {failed['orders_count']}건 - {failed['reason']}")
+                    if failed.get('details'):
+                        for detail in failed['details']:
+                            logger.warning(f"      • {detail}")
+            
+            # 완전 실패인 경우
+            if not all_results:
+                error_msg = "모든 온도대에서 배차 최적화 실패"
+                logger.error(f"\n❌ {error_msg}")
+                return {
+                    "success": False,
+                    "error": error_msg,
+                    "total_orders": len(orders),
+                    "failed_zones": failed_zones,
+                    "message": "배차 최적화에 실패했습니다. 다음을 확인하세요:\n" + 
+                               "\n".join([f"- {fz['temp_zone']}: {', '.join(fz.get('details', [fz['reason']]))}" 
+                                        for fz in failed_zones])
+                }
+            
+            # 부분 성공
             return {
                 "success": True,
                 "total_orders": len(orders),
@@ -488,12 +529,14 @@ class AdvancedDispatchOptimizationService:
                     {
                         "zone": temp_zone.value,
                         "orders": len(zone_orders),
-                        "dispatches": result['num_dispatches'],
-                        "distance_km": round(result['total_distance'] / 1000, 2)
+                        "dispatches": result.get('num_dispatches', 0),
+                        "distance_km": round(result.get('total_distance', 0) / 1000, 2)
                     }
                     for (temp_zone, zone_orders), result in zip(orders_by_temp.items(), all_results)
                 ],
-                "dispatches": [d for r in all_results for d in r['dispatches']]
+                "dispatches": [d for r in all_results for d in r.get('dispatches', [])],
+                "failed_zones": failed_zones if failed_zones else None,
+                "warnings": [f"{fz['temp_zone']}: {fz['reason']}" for fz in failed_zones] if failed_zones else None
             }
             
         except Exception as e:
@@ -512,6 +555,13 @@ class AdvancedDispatchOptimizationService:
         use_real_routing: bool
     ) -> Optional[Dict[str, Any]]:
         """특정 온도대의 주문을 최적화"""
+        
+        # 진단 정보 수집
+        diagnostics = {
+            'orders_count': len(orders),
+            'vehicles_count': len(vehicles),
+            'issues': []
+        }
         
         # 위치 리스트 구축
         locations = []
@@ -629,6 +679,17 @@ class AdvancedDispatchOptimizationService:
         
         logger.info(f"위치: {len(locations)}개 (차고지 1 + 주문 위치 {len(locations)-1})")
         
+        # 위치 데이터 검증
+        missing_coords_count = 0
+        for loc in locations:
+            if loc.location_type != 'depot':
+                if loc.latitude == depot_lat and loc.longitude == depot_lon:
+                    missing_coords_count += 1
+        
+        if missing_coords_count > 0:
+            diagnostics['issues'].append(f"⚠️  {missing_coords_count}개 위치에 좌표가 없어 기본 좌표 사용")
+            logger.warning(f"⚠️  {missing_coords_count}개 위치에 좌표가 없어 기본 좌표(서울) 사용")
+        
         # 차량 정보 구축
         vehicle_infos = []
         for vehicle in vehicles:
@@ -644,6 +705,27 @@ class AdvancedDispatchOptimizationService:
             ))
         
         logger.info(f"차량: {len(vehicle_infos)}대")
+        
+        # 용량 검증
+        total_pallet_demand = sum(order.pallet_count for order in orders)
+        total_weight_demand = sum(order.weight_kg for order in orders)
+        total_vehicle_pallet_capacity = sum(v.max_pallets for v in vehicle_infos)
+        total_vehicle_weight_capacity = sum(v.max_weight_kg for v in vehicle_infos)
+        
+        diagnostics['total_pallet_demand'] = total_pallet_demand
+        diagnostics['total_weight_demand'] = total_weight_demand
+        diagnostics['total_vehicle_pallet_capacity'] = total_vehicle_pallet_capacity
+        diagnostics['total_vehicle_weight_capacity'] = total_vehicle_weight_capacity
+        
+        if total_pallet_demand > total_vehicle_pallet_capacity:
+            issue = f"⚠️  팔레트 초과: 주문 {total_pallet_demand}개 > 차량 용량 {total_vehicle_pallet_capacity}개"
+            diagnostics['issues'].append(issue)
+            logger.warning(issue)
+        
+        if total_weight_demand > total_vehicle_weight_capacity:
+            issue = f"⚠️  중량 초과: 주문 {total_weight_demand:.1f}kg > 차량 용량 {total_vehicle_weight_capacity:.1f}kg"
+            diagnostics['issues'].append(issue)
+            logger.warning(issue)
         
         # 거리/시간 행렬 생성
         if use_real_routing:
@@ -666,8 +748,45 @@ class AdvancedDispatchOptimizationService:
         solution = solver.solve(time_limit_seconds=time_limit_seconds)
         
         if not solution:
-            logger.warning("솔루션을 찾지 못했습니다")
-            return None
+            # 실패 원인 분석 및 로깅
+            logger.error("❌ 배차 최적화 실패 - 솔루션을 찾지 못했습니다")
+            logger.error(f"📊 진단 정보:")
+            logger.error(f"   - 주문 수: {diagnostics['orders_count']}건")
+            logger.error(f"   - 차량 수: {diagnostics['vehicles_count']}대")
+            logger.error(f"   - 위치 수: {len(locations)}개")
+            logger.error(f"   - 팔레트 수요: {diagnostics['total_pallet_demand']}개")
+            logger.error(f"   - 팔레트 용량: {diagnostics['total_vehicle_pallet_capacity']}개")
+            logger.error(f"   - 중량 수요: {diagnostics['total_weight_demand']:.1f}kg")
+            logger.error(f"   - 중량 용량: {diagnostics['total_vehicle_weight_capacity']:.1f}kg")
+            
+            if diagnostics['issues']:
+                logger.error(f"\n🔍 발견된 문제:")
+                for issue in diagnostics['issues']:
+                    logger.error(f"   {issue}")
+            
+            # 실패 원인 추정
+            reasons = []
+            if missing_coords_count > 0:
+                reasons.append(f"GPS 좌표 누락 ({missing_coords_count}개 위치)")
+            if total_pallet_demand > total_vehicle_pallet_capacity:
+                reasons.append(f"팔레트 용량 부족 (수요 {total_pallet_demand} > 용량 {total_vehicle_pallet_capacity})")
+            if total_weight_demand > total_vehicle_weight_capacity:
+                reasons.append(f"중량 용량 부족 (수요 {total_weight_demand:.1f}kg > 용량 {total_vehicle_weight_capacity:.1f}kg)")
+            if len(locations) <= 1:
+                reasons.append("배차 가능한 위치 없음")
+            if not reasons:
+                reasons.append("시간 제약 또는 경로 제약으로 인한 실행 불가능")
+            
+            logger.error(f"\n💡 실패 추정 원인:")
+            for i, reason in enumerate(reasons, 1):
+                logger.error(f"   {i}. {reason}")
+            
+            return {
+                'success': False,
+                'error': '배차 최적화 실패',
+                'reasons': reasons,
+                'diagnostics': diagnostics
+            }
         
         # 데이터베이스에 저장
         saved_dispatches = await self._save_solution_to_db(
