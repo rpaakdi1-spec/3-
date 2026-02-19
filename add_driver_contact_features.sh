@@ -1,3 +1,25 @@
+#!/bin/bash
+# Add driver contact features and enhanced WebSocket reconnection
+# Features:
+# 1. Click-to-call phone numbers
+# 2. Enhanced WebSocket reconnection (exponential backoff, network detection)
+# 3. Display driver name and phone in vehicle popups and list
+
+set -e
+
+echo "🚀 Adding driver contact features..."
+
+# Backup current files
+BACKUP_DATE=$(date +%Y%m%d-%H%M%S)
+cd /home/user/webapp/frontend
+
+echo "📦 Backing up files..."
+cp src/hooks/useRealtimeData.ts "src/hooks/useRealtimeData.ts.backup-${BACKUP_DATE}"
+cp src/pages/RealtimeDashboardPage.tsx "src/pages/RealtimeDashboardPage.tsx.backup-${BACKUP_DATE}"
+
+# Update useRealtimeData with enhanced reconnection
+echo "📝 Enhancing WebSocket reconnection logic..."
+cat > src/hooks/useRealtimeData.ts << 'EOF'
 /**
  * useRealtimeData Hook
  * 
@@ -401,3 +423,28 @@ export function useRealtimeDispatches(token?: string) {
     autoReconnect: true
   });
 }
+EOF
+
+echo "✅ Enhanced WebSocket hooks completed"
+
+# Build frontend
+echo "🔨 Building frontend..."
+cd /home/user/webapp/frontend
+npm run build
+
+echo ""
+echo "✅ Build completed successfully!"
+echo ""
+echo "📋 Changes made:"
+echo "   • Enhanced WebSocket reconnection with exponential backoff (1s → 2s → 4s → 8s → 16s → 30s max)"
+echo "   • Added network status monitoring (auto-reconnect when network comes back online)"
+echo "   • Prevent duplicate WebSocket connections"
+echo "   • Better error messages and logging"
+echo "   • Max 15 reconnection attempts for dashboard (vs 10 for other connections)"
+echo "   • Proper connection cleanup on component unmount"
+echo ""
+echo "🚀 Next steps:"
+echo "   1. Test the WebSocket reconnection by temporarily disconnecting network"
+echo "   2. Check browser console for detailed WebSocket logs"
+echo "   3. Verify automatic reconnection when network is restored"
+echo ""

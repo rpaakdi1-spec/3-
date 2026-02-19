@@ -1,249 +1,355 @@
-# WebSocket 타이밍 문제 최종 수정 배포 가이드
+# WebSocket Connection Fix - Deployment Guide
 
-## 문제 원인
-WebSocket 연결 후 **첫 데이터 전송 전에 5초 대기**하여 클라이언트가 타임아웃으로 연결을 끊음.
+## 📋 Summary
 
-## 해결 방법
-**즉시 첫 데이터를 전송**한 후, 루프 끝에서 5초 대기하도록 변경.
+This fix resolves the WebSocket connection stability issues where the dashboard and alerts WebSocket connections were repeatedly disconnecting with "ClientDisconnected" errors.
 
----
+**Commit:** `895e980` - fix(websocket): Fix dashboard and alerts WebSocket connection stability
 
-## 🚀 배포 절차
+## 🎯 Root Cause Analysis
 
-### 1️⃣ 서버에서 최신 코드 Pull
-```bash
-cd /root/uvis && git pull origin main
+### Frontend Issue
+- The `useRealtimeData` hook was calling `setData()` for **every message**, including system messages like `connected` and `keepalive`
+- This caused unnecessary React state updates and re-renders
+- Component lifecycle effects were triggered, potentially causing WebSocket disconnections
+
+### Backend Issues
+1. **Dashboard WebSocket**: Sent an initial "loading" message with `loading: true` flag, which had a different structure than the expected dashboard metrics
+2. **Alerts WebSocket**: 
+   - Keepalive interval was too long (30 seconds), causing frontend timeout/reconnection
+   - Missing `data: null` field in system messages
+
+## 🔧 Changes Made
+
+### Frontend (`frontend/src/hooks/useRealtimeData.ts`)
+
+```typescript
+// Before:
+setData(message.data || message);  // Called for ALL messages
+
+// After:
+if (message.type !== 'connected' && message.type !== 'keepalive') {
+  setData(message.data || message);  // Only called for data messages
+}
 ```
-**예상 출력**: `aa956f5..` commit이 포함된 업데이트
 
----
+**Impact:** System messages no longer trigger state updates, preventing unnecessary re-renders.
 
-### 2️⃣ 업데이트된 파일 컨테이너에 복사
-```bash
-docker cp backend/app/api/dispatches.py uvis-backend:/app/app/api/dispatches.py
+### Backend (`backend/app/api/dispatches.py`)
+
+#### 1. Dashboard WebSocket
+```python
+# Removed the initial "loading" message
+# Now sends real dashboard stats immediately upon connection
+await websocket.accept()
+logger.info("✅ Dashboard WebSocket connected, will send real data immediately")
+
+# Stats sent every 5 seconds with real data:
+{
+  "total_orders": 0,
+  "pending_orders": 0,
+  "active_dispatches": 0,
+  "completed_today": 0,
+  "available_vehicles": 46,
+  "active_vehicles": 0,
+  "revenue_today": 0.0,
+  "revenue_month": 0.0,
+  "timestamp": "2026-02-15T...",
+  "loading": false
+}
 ```
-**예상 출력**: `Successfully copied ...kB to uvis-backend`
 
----
+#### 2. Alerts WebSocket
+```python
+# Changed keepalive interval from 30s to 5s
+await asyncio.sleep(5)  # Send keepalive every 5 seconds
 
-### 3️⃣ Python 캐시 삭제 (중요!)
+# Added "data: null" field to system messages
+initial_message = {
+  "type": "connected",
+  "message": "Alerts WebSocket connected",
+  "data": None,  # ← Added
+  "timestamp": datetime.now().isoformat()
+}
+
+keepalive = {
+  "type": "keepalive",
+  "data": None,  # ← Added
+  "timestamp": datetime.now().isoformat()
+}
+```
+
+## 🚀 Deployment Steps
+
+### Step 1: Pull Latest Code
 ```bash
-docker exec uvis-backend find /app -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+cd /root/uvis
+git pull origin main
+
+# Verify you have the latest commit
+git log --oneline -3
+# Should show:
+# 895e980 fix(websocket): Fix dashboard and alerts WebSocket connection stability
+# ef4c2ab debug(websocket): Add verbose logging for dashboard stats collection
+# 775dfd1 fix(websocket): Add missing SQLAlchemy and_ import
+```
+
+### Step 2: Deploy Backend
+```bash
+# Copy updated dispatches.py into backend container
+docker cp /root/uvis/backend/app/api/dispatches.py uvis-backend:/app/app/api/dispatches.py
+
+# Clear Python cache
+docker exec uvis-backend find /app -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 docker exec uvis-backend find /app -name "*.pyc" -delete
-```
 
----
-
-### 4️⃣ 백엔드 완전 재시작
-```bash
-docker stop uvis-backend
-sleep 5
-docker start uvis-backend
-sleep 30
-```
-
----
-
-### 5️⃣ 시작 확인
-```bash
-docker logs uvis-backend --tail=20 | grep -i "application startup complete"
-```
-**예상 출력**: 
-```
-INFO:     Application startup complete.
-2026-02-14 XX:XX:XX | INFO     | main:lifespan | Application startup complete!
-```
-
----
-
-## ✅ 검증 절차
-
-### A. 서버 로그 검증
-
-#### ① 에러 확인 (빈 화면이 정상)
-```bash
-docker logs uvis-backend --since 2m | grep -i "failed to send stats\|error collecting stats"
-```
-**예상 출력**: *빈 화면 (에러 없음)*
-
-#### ② WebSocket 연결 로그 확인
-```bash
-timeout 60 docker logs -f uvis-backend 2>&1 | grep -i "websocket.*dashboard\|sent dashboard"
-```
-**예상 출력** (브라우저에서 /realtime 접속 후):
-```
-INFO:     ('192.168.112.5', XXXXX) - "WebSocket /api/v1/dispatches/ws/dashboard" [accepted]
-2026-02-14 XX:XX:XX | INFO     | app.api.dispatches:websocket_dashboard | WebSocket connected: dashboard
-2026-02-14 XX:XX:XX | DEBUG    | app.api.dispatches:websocket_dashboard | Sent dashboard stats: pending=17, active=0
-2026-02-14 XX:XX:XX | DEBUG    | app.api.dispatches:websocket_dashboard | Sent dashboard stats: pending=17, active=0
-(5초마다 반복...)
-```
-
-⚠️ **중요**: `connection closed` 로그가 **나오면 안 됩니다**!
-
----
-
-### B. 브라우저 검증
-
-#### ① 캐시 완전 삭제
-- **Chrome/Edge**: `Ctrl + Shift + Delete`
-  - 기간: **전체 기간**
-  - 항목: **쿠키 및 기타 사이트 데이터**, **캐시된 이미지 및 파일** 모두 선택
-  - 삭제 후 브라우저 **완전 종료** 및 재시작
-
-#### ② 시크릿/프라이빗 모드로 테스트
-```
-http://139.150.11.99/realtime
-```
-
-#### ③ 개발자 도구 (F12) 확인
-
-**Console 탭 예상 출력**:
-```
-✅ WebSocket connected: ws://139.150.11.99/api/v1/dispatches/ws/dashboard
-✅ WebSocket connected: ws://139.150.11.99/api/v1/ws/alerts
-📊 Dashboard stats updated: {total_orders: 423, pending_orders: 17, ...}
-(5초마다 반복...)
-```
-
-**Network 탭 → WS (WebSocket) 하위**:
-- `dashboard` 연결: **Status 101 Switching Protocols** (지속 유지)
-- `alerts` 연결: **Status 101 Switching Protocols** (지속 유지)
-- Messages: 5초마다 JSON 데이터 수신 확인
-
----
-
-## 🎯 성공 체크리스트
-
-### 서버 측
-- [ ] git pull 성공 (`aa956f5` commit 포함)
-- [ ] 파일 복사 완료
-- [ ] Python 캐시 삭제
-- [ ] 컨테이너 재시작 완료
-- [ ] "Application startup complete" 로그 확인
-- [ ] **에러 로그 없음** (Failed to send stats 없음)
-- [ ] "Sent dashboard stats" 로그가 **5초마다 출력**
-- [ ] "connection closed" 로그가 **즉시 나오지 않음**
-
-### 클라이언트 측
-- [ ] 브라우저 캐시 완전 삭제
-- [ ] 시크릿 모드 사용
-- [ ] Console에 "WebSocket connected" 메시지
-- [ ] Console에 에러 메시지 **없음**
-- [ ] Network → WS 탭에서 **Status 101** 유지
-- [ ] 5초마다 JSON 메시지 수신
-- [ ] **재연결 시도 없음** (reconnecting 메시지 없음)
-- [ ] 대시보드 카드 숫자가 **5초마다 자동 갱신**
-
----
-
-## 🔧 변경 사항 요약
-
-### `backend/app/api/dispatches.py`의 `/ws/dashboard` 엔드포인트
-
-**변경 전** (문제 코드):
-```python
-# 연결 직후 확인 메시지 전송
-await websocket.send_json({"type": "connected", ...})
-
-while True:
-    await asyncio.sleep(5)  # ❌ 5초 대기 후 데이터 전송
-    # ... 데이터 수집 및 전송
-```
-
-**변경 후** (수정 코드):
-```python
-while True:
-    # 연결 상태 체크
-    if websocket.client_state.name != "CONNECTED":
-        break
-    
-    # 데이터 수집
-    db = SessionLocal()
-    try:
-        # ... 통계 수집
-        await websocket.send_json(stats)  # ✅ 즉시 전송
-    finally:
-        db.close()
-    
-    await asyncio.sleep(5)  # ✅ 전송 후 대기
-```
-
----
-
-## 📝 코드 변경 상세
-
-### 주요 개선 사항
-1. **불필요한 확인 메시지 제거**: 바로 실제 데이터 전송
-2. **타이밍 수정**: 데이터 전송 **후** 5초 대기 (전: 대기 **후** 전송)
-3. **연결 상태 체크 강화**: `CONNECTED` 상태 확인
-4. **에러 처리 개선**: 전송 실패 시 즉시 루프 종료
-5. **로깅 개선**: 에러 타입 명시적 출력
-
----
-
-## 🐛 트러블슈팅
-
-### 여전히 "Failed to send stats" 에러 발생 시
-
-1. **컨테이너 내부 코드 확인**:
-```bash
-docker exec uvis-backend grep -A 5 "await asyncio.sleep(5)" /app/app/api/dispatches.py | tail -10
-```
-**예상 출력**: `asyncio.sleep(5)`가 `db.close()` **이후**에 있어야 함
-
-2. **Python 프로세스 완전 재시작**:
-```bash
-docker exec uvis-backend pkill -9 python
+# Restart backend container
 docker restart uvis-backend
+
+# Wait 30 seconds for startup
+sleep 30
+
+# Check backend health
+curl http://localhost:8000/api/v1/health
+# Should return: {"status":"healthy","service":"uvis-backend"}
 ```
 
-3. **Uvicorn 로그 레벨 확인**:
-```bash
-docker logs uvis-backend --tail=100 | grep -i "uvicorn\|startup"
-```
-
----
-
-### 브라우저에서 여전히 재연결 반복 시
-
-1. **브라우저 프로세스 완전 종료**:
-   - 작업 관리자에서 Chrome/Edge 프로세스 **모두** 종료
-   - 브라우저 재시작
-
-2. **프론트엔드 재빌드**:
+### Step 3: Deploy Frontend
 ```bash
 cd /root/uvis/frontend
-rm -rf dist/ node_modules/.vite
+
+# Build frontend with latest changes
 npm run build
+
+# Deploy to frontend container
+docker cp /root/uvis/frontend/dist/. uvis-frontend:/usr/share/nginx/html/
+
+# Restart frontend container (to clear any cached connections)
+docker restart uvis-frontend
+
+# Wait 10 seconds
+sleep 10
+```
+
+### Step 4: Verify Deployment
+
+#### Check Container Status
+```bash
+docker ps --format "table {{.Names}}\t{{.Status}}"
+```
+
+Expected output:
+```
+NAMES               STATUS
+uvis-backend        Up X minutes (healthy)
+uvis-frontend       Up X minutes (healthy)
+```
+
+#### Monitor WebSocket Connections
+```bash
+# Watch live backend logs
+docker logs -f uvis-backend --since 1m | grep -E "WebSocket|dashboard|alerts|Sent"
+```
+
+Expected log output:
+```
+✅ Dashboard WebSocket connected, will send real data immediately
+🔄 Starting to collect dashboard stats...
+⏳ Executing DB queries in thread pool...
+✅ Stats collected successfully: {...}
+📊 Sent dashboard stats: pending=0, active=0
+```
+
+No "ClientDisconnected" or "Failed to send" warnings should appear.
+
+## 🧪 Testing Instructions
+
+### Browser Test (Critical!)
+
+1. **Close ALL browser tabs** completely
+2. **Fully exit the browser** (not just close window)
+3. **Reopen browser** in a fresh session
+4. **Open a new incognito/private window** (Ctrl+Shift+N / Cmd+Shift+N)
+5. **Open DevTools** (F12) → Console tab
+6. **Navigate to:** `http://139.150.11.99/realtime`
+7. **Force refresh:** Ctrl+Shift+R (or Cmd+Shift+R on Mac)
+
+### Expected Browser Console Output
+
+✅ **Success Pattern:**
+```
+✅ WebSocket connected: ws://139.150.11.99/api/v1/dispatches/ws/dashboard
+📊 Dashboard WebSocket connected
+📊 Dashboard stats updated: {
+  total_orders: 0,
+  pending_orders: 0,
+  active_dispatches: 0,
+  completed_today: 0,
+  available_vehicles: 46,
+  active_vehicles: 0,
+  revenue_today: 0,
+  revenue_month: 0,
+  timestamp: "2026-02-15T...",
+  loading: false
+}
+... (repeats every 5 seconds) ...
+```
+
+❌ **Failure Pattern (should NOT see):**
+```
+❌ WebSocket error: ws://...
+🔌 WebSocket disconnected: ws://...
+🔄 Reconnecting (1/10)...
+```
+
+### Dashboard UI Verification
+
+The dashboard should display:
+- ✅ **Available Vehicles**: 46 (updating automatically)
+- ✅ **Active Dispatches**: 0 (or current count)
+- ✅ **Completed Today**: X (today's completed dispatches)
+- ✅ **Pending Orders**: 0 (or current count)
+
+Numbers should **automatically update every 5 seconds** without page refresh.
+
+## 🔍 Troubleshooting
+
+### Issue: Still seeing "ClientDisconnected" in logs
+
+**Cause:** Browser cache not cleared or old tab still open
+
+**Solution:**
+```bash
+# 1. Completely close browser (not just tabs)
+# 2. Clear browser cache manually:
+#    - Chrome: Ctrl+Shift+Delete → Clear cached images and files
+#    - Firefox: Ctrl+Shift+Delete → Cookies and Cache
+# 3. Open new incognito window
+# 4. Hard refresh: Ctrl+Shift+R
+```
+
+### Issue: Frontend not showing updated stats
+
+**Cause:** Frontend container serving old files
+
+**Solution:**
+```bash
+# Clear frontend container cache completely
 docker exec uvis-frontend rm -rf /usr/share/nginx/html/*
-docker cp dist/. uvis-frontend:/usr/share/nginx/html/
+
+# Redeploy frontend
+docker cp /root/uvis/frontend/dist/. uvis-frontend:/usr/share/nginx/html/
+
+# Restart nginx
 docker restart uvis-frontend
 ```
 
-3. **Network 탭에서 WebSocket URL 확인**:
-   - 올바른 URL: `ws://139.150.11.99/api/v1/dispatches/ws/dashboard`
-   - 잘못된 URL (이중 prefix): `ws://139.150.11.99/api/v1/ws/ws/dashboard`
+### Issue: Backend health check failing
+
+**Cause:** Container still starting or database connection issue
+
+**Solution:**
+```bash
+# Check backend logs
+docker logs uvis-backend --tail=50
+
+# Check database connection
+docker exec uvis-backend python3 -c "
+from app.core.database import SessionLocal
+db = SessionLocal()
+print('✅ Database connected')
+db.close()
+"
+```
+
+## 📊 Expected Metrics After Fix
+
+### Before Fix:
+- ❌ WebSocket reconnects every ~5 seconds
+- ❌ "ClientDisconnected" warnings in logs
+- ❌ Dashboard shows "loading..." indefinitely
+- ❌ No automatic stats updates
+
+### After Fix:
+- ✅ WebSocket stays connected continuously
+- ✅ No "ClientDisconnected" warnings
+- ✅ Dashboard displays real-time stats immediately
+- ✅ Stats update every 5 seconds automatically
+- ✅ Clean logs with only INFO messages
+
+## 📝 Technical Notes
+
+### Why This Fix Works
+
+1. **Frontend:** By skipping `setData()` for system messages, we avoid triggering React's reconciliation algorithm unnecessarily. This prevents component lifecycle methods (useEffect, useMemo, etc.) from re-running on every keepalive message.
+
+2. **Backend:** Sending real data immediately eliminates the "loading" state confusion and ensures the frontend always receives data in the expected format.
+
+3. **Keepalive Interval:** 5 seconds matches the dashboard stats interval, ensuring consistent heartbeat timing and preventing timeout-related disconnections.
+
+### Message Flow After Fix
+
+```
+┌─────────┐                    ┌─────────┐
+│ Browser │                    │ Backend │
+└────┬────┘                    └────┬────┘
+     │                              │
+     │ ─────  Connect WS  ────────> │
+     │                              │
+     │ <──  Dashboard Stats (5s) ── │  ✅ Real data immediately
+     │ <──  Dashboard Stats (5s) ── │  ✅ Every 5 seconds
+     │ <──  Dashboard Stats (5s) ── │  ✅ Continuous updates
+     │                              │
+     │ ─────  Connect Alerts  ────> │
+     │                              │
+     │ <──  Connected (data:null) ─ │  ✅ Ignored by frontend
+     │ <──  Keepalive (data:null) ─ │  ✅ Ignored by frontend (5s)
+     │ <──  Alert (real data)  ───  │  ✅ Processed by frontend
+     │                              │
+```
+
+## ✅ Success Criteria
+
+Deployment is successful when:
+
+1. ✅ Backend logs show "✅ Dashboard WebSocket connected" and "📊 Sent dashboard stats" every 5 seconds
+2. ✅ No "ClientDisconnected" or "Failed to send" warnings in logs
+3. ✅ Browser console shows continuous "Dashboard stats updated" messages every 5 seconds
+4. ✅ Dashboard UI displays real-time metrics that update automatically
+5. ✅ No WebSocket error or reconnection messages in browser console
+6. ✅ Container health checks remain green (healthy status)
 
 ---
 
-## 📊 관련 Commit
+## 📞 Support
 
-- **aa956f5**: `fix: WebSocket 타이밍 문제 해결 - 즉시 데이터 전송 후 대기`
-- **9e9f67c**: `fix: WebSocket 연결 직후 즉시 확인 메시지 전송`
-- **71dc72a**: `fix: WebSocket 즉시 연결 끊김 문제 해결`
+If issues persist after following this guide:
+
+1. **Collect logs:**
+   ```bash
+   docker logs uvis-backend --tail=200 > /tmp/backend_logs.txt
+   docker logs uvis-frontend --tail=50 > /tmp/frontend_logs.txt
+   ```
+
+2. **Test WebSocket directly:**
+   ```bash
+   docker exec uvis-backend python3 -c "
+   import asyncio, websockets
+   async def test():
+       async with websockets.connect('ws://localhost:8000/api/v1/dispatches/ws/dashboard') as ws:
+           msg = await ws.recv()
+           print(f'Received: {msg}')
+   asyncio.run(test())
+   "
+   ```
+
+3. **Provide:**
+   - Browser console screenshot
+   - Backend logs
+   - Direct WebSocket test results
 
 ---
 
-## 🎉 배포 완료 후 기대 결과
-
-✅ **서버 로그**: "Sent dashboard stats" 메시지가 5초마다 정상 출력  
-✅ **브라우저 Console**: WebSocket 연결 안정적 유지, 재연결 없음  
-✅ **대시보드 UI**: 실시간 통계가 5초마다 자동 갱신  
-✅ **에러 로그**: "Failed to send", "ClientDisconnected" 에러 **완전 제거**  
-
----
-
-**작성일**: 2026-02-14  
-**Commit**: aa956f5  
-**Repository**: https://github.com/rpaakdi1-spec/3-
+**Last Updated:** 2026-02-15  
+**Commit:** 895e980  
+**Status:** ✅ Ready for Production Deployment

@@ -1,406 +1,530 @@
+#!/usr/bin/env python3
 """
-전체 배차 프로세스 End-to-End 테스트 스크립트
+배차 플로우 통합 테스트 스크립트
 
-테스트 흐름:
-1. 주문 등록 (PENDING)
-2. 차량 매칭 - AI 배차 최적화 (DRAFT)
-3. 배차 확정 (CONFIRMED)
-4. 배차 진행 (IN_PROGRESS)
-5. 배차 완료 (COMPLETED)
-
-Requirements:
-- uvis-backend 컨테이너가 실행 중이어야 함
-- 데이터베이스에 활성 차량(vehicles)과 거래처(clients)가 존재해야 함
+주문관리 → AI배차최적화 → 배차관리 전체 플로우 테스트
 """
 
-import sys
-import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'backend'))
+import requests
+import json
+from datetime import date, datetime, timedelta
+from typing import Dict, Any, List
 
-from datetime import date, time, timedelta, datetime
-from sqlalchemy.orm import Session
-from app.core.database import SessionLocal
-from app.models.order import Order, OrderStatus, TemperatureZone
-from app.models.dispatch import Dispatch, DispatchStatus, DispatchRoute, RouteType
-from app.models.vehicle import Vehicle, VehicleStatus
-from app.models.client import Client
-from app.services.cvrptw_service import AdvancedDispatchOptimizationService
-import random
+# API Base URL
+BASE_URL = "http://139.150.11.99/api/v1"
+# BASE_URL = "http://localhost:8000/api/v1"  # 로컬 테스트용
+
+# 인증 토큰 (실제 토큰으로 교체 필요)
+ACCESS_TOKEN = None
 
 
-def print_step(step_num, title):
-    """단계 출력"""
-    print(f"\n{'='*80}")
-    print(f"STEP {step_num}: {title}")
-    print(f"{'='*80}\n")
+def set_token(token: str):
+    """테스트용 토큰 설정"""
+    global ACCESS_TOKEN
+    ACCESS_TOKEN = token
 
 
-def print_info(label, value):
-    """정보 출력"""
-    print(f"  ✅ {label}: {value}")
+def get_headers():
+    """API 요청 헤더"""
+    headers = {"Content-Type": "application/json"}
+    if ACCESS_TOKEN:
+        headers["Authorization"] = f"Bearer {ACCESS_TOKEN}"
+    return headers
 
 
-def print_error(message):
-    """에러 출력"""
-    print(f"  ❌ ERROR: {message}")
-
-
-def create_test_orders(db: Session, count: int = 5):
-    """테스트 주문 생성"""
-    print_step(1, "주문 등록 (PENDING)")
+class DispatchFlowTester:
+    """배차 플로우 통합 테스트"""
     
-    # 활성 거래처 조회
-    clients = db.query(Client).filter(Client.is_active == True).limit(10).all()
-    
-    if len(clients) < 2:
-        print_error("거래처가 부족합니다. 최소 2개의 활성 거래처가 필요합니다.")
-        return []
-    
-    print_info("활성 거래처 수", len(clients))
-    
-    created_orders = []
-    today = date.today()
-    
-    # 온도대별로 주문 생성
-    temperature_zones = [TemperatureZone.FROZEN, TemperatureZone.REFRIGERATED, TemperatureZone.AMBIENT]
-    
-    for i in range(count):
-        # 랜덤 상차/하차 거래처 선택
-        pickup_client = random.choice(clients)
-        delivery_client = random.choice([c for c in clients if c.id != pickup_client.id])
+    def __init__(self):
+        self.test_results = []
+        self.created_order_ids = []
+        self.created_dispatch_ids = []
         
-        # 주문 번호 생성 (타임스탬프 포함하여 중복 방지)
-        timestamp = datetime.now().strftime('%H%M%S')
-        order_number = f"TEST-ORD-{today.strftime('%Y%m%d')}-{timestamp}-{i+1:02d}"
+    def log_result(self, test_name: str, success: bool, message: str, data: Any = None):
+        """테스트 결과 기록"""
+        result = {
+            "test": test_name,
+            "success": success,
+            "message": message,
+            "data": data,
+            "timestamp": datetime.now().isoformat()
+        }
+        self.test_results.append(result)
         
-        # 온도대 선택 (순환)
-        temp_zone = temperature_zones[i % len(temperature_zones)]
+        status = "✅" if success else "❌"
+        print(f"{status} {test_name}: {message}")
+        if data and not success:
+            print(f"   데이터: {json.dumps(data, indent=2, ensure_ascii=False)}")
+    
+    # ========================================
+    # 1. 주문 관리 테스트
+    # ========================================
+    
+    def test_get_orders(self):
+        """주문 목록 조회 테스트"""
+        print("\n" + "="*60)
+        print("1️⃣  주문 관리 테스트")
+        print("="*60)
         
-        # 주문 생성
-        order = Order(
-            order_number=order_number,
-            order_date=today,
-            temperature_zone=temp_zone,
-            pickup_client_id=pickup_client.id,
-            delivery_client_id=delivery_client.id,
-            pickup_address=pickup_client.address,
-            pickup_latitude=pickup_client.latitude,
-            pickup_longitude=pickup_client.longitude,
-            delivery_address=delivery_client.address,
-            delivery_latitude=delivery_client.latitude,
-            delivery_longitude=delivery_client.longitude,
-            pallet_count=random.randint(5, 15),
-            weight_kg=random.uniform(300, 800),
-            volume_cbm=random.uniform(5, 15),
-            product_name=f"테스트상품-{i+1}",
-            pickup_start_time=time(9, 0),
-            pickup_end_time=time(12, 0),
-            delivery_start_time=time(13, 0),
-            delivery_end_time=time(17, 0),
-            priority=random.randint(1, 10),
-            status=OrderStatus.PENDING,
-            notes=f"E2E 테스트 주문 #{i+1}"
-        )
+        try:
+            response = requests.get(
+                f"{BASE_URL}/orders/",
+                headers=get_headers(),
+                params={"limit": 10}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                total = data.get("total", 0)
+                items = data.get("items", [])
+                
+                self.log_result(
+                    "주문 목록 조회",
+                    True,
+                    f"총 {total}건의 주문 조회 성공",
+                    {"total": total, "sample": items[:3] if items else []}
+                )
+                return items
+            else:
+                self.log_result(
+                    "주문 목록 조회",
+                    False,
+                    f"API 호출 실패: {response.status_code}",
+                    response.text
+                )
+                return []
+                
+        except Exception as e:
+            self.log_result("주문 목록 조회", False, f"예외 발생: {str(e)}")
+            return []
+    
+    def test_get_pending_orders(self):
+        """배차 대기 중인 주문 조회"""
+        try:
+            response = requests.get(
+                f"{BASE_URL}/orders/",
+                headers=get_headers(),
+                params={"status": "배차대기", "limit": 100}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                items = data.get("items", [])
+                
+                self.log_result(
+                    "배차 대기 주문 조회",
+                    True,
+                    f"배차 대기 중인 주문: {len(items)}건",
+                    {"count": len(items), "orders": [o.get("order_number") for o in items[:5]]}
+                )
+                return items
+            else:
+                self.log_result(
+                    "배차 대기 주문 조회",
+                    False,
+                    f"API 호출 실패: {response.status_code}",
+                    response.text
+                )
+                return []
+                
+        except Exception as e:
+            self.log_result("배차 대기 주문 조회", False, f"예외 발생: {str(e)}")
+            return []
+    
+    def test_create_order(self):
+        """테스트 주문 생성"""
+        try:
+            # 테스트용 주문 데이터
+            order_data = {
+                "order_number": f"TEST-{datetime.now().strftime('%Y%m%d%H%M%S')}",
+                "order_date": date.today().isoformat(),
+                "temperature_zone": "냉장",
+                "pickup_address": "서울특별시 강남구 테헤란로 427",
+                "delivery_address": "서울특별시 송파구 올림픽로 300",
+                "pallet_count": 5,
+                "weight_kg": 500.0,
+                "product_name": "테스트 상품",
+                "status": "배차대기",
+                "priority": 2
+            }
+            
+            response = requests.post(
+                f"{BASE_URL}/orders/",
+                headers=get_headers(),
+                json=order_data
+            )
+            
+            if response.status_code == 201:
+                data = response.json()
+                order_id = data.get("id")
+                self.created_order_ids.append(order_id)
+                
+                self.log_result(
+                    "테스트 주문 생성",
+                    True,
+                    f"주문 생성 성공: {data.get('order_number')} (ID: {order_id})",
+                    {"id": order_id, "order_number": data.get("order_number")}
+                )
+                return data
+            else:
+                self.log_result(
+                    "테스트 주문 생성",
+                    False,
+                    f"API 호출 실패: {response.status_code}",
+                    response.text
+                )
+                return None
+                
+        except Exception as e:
+            self.log_result("테스트 주문 생성", False, f"예외 발생: {str(e)}")
+            return None
+    
+    # ========================================
+    # 2. AI 배차 최적화 테스트
+    # ========================================
+    
+    def test_optimization(self, order_ids: List[int]):
+        """배차 최적화 테스트"""
+        print("\n" + "="*60)
+        print("2️⃣  AI 배차 최적화 테스트")
+        print("="*60)
         
-        db.add(order)
-        created_orders.append(order)
+        if not order_ids:
+            self.log_result(
+                "배차 최적화",
+                False,
+                "최적화할 주문이 없습니다",
+                None
+            )
+            return None
+        
+        try:
+            # 기본 Greedy 알고리즘 테스트
+            opt_data = {
+                "order_ids": order_ids[:10],  # 최대 10개 주문
+                "vehicle_ids": [],  # 빈 배열 = 모든 차량
+                "dispatch_date": date.today().isoformat()
+            }
+            
+            print(f"\n🔄 기본 배차 최적화 실행 중... (주문 {len(opt_data['order_ids'])}건)")
+            
+            response = requests.post(
+                f"{BASE_URL}/dispatches/optimize",
+                headers=get_headers(),
+                json=opt_data
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                routes = data.get("routes", [])
+                unassigned = data.get("unassigned_orders", [])
+                summary = data.get("summary", {})
+                
+                self.log_result(
+                    "기본 배차 최적화",
+                    True,
+                    f"최적화 완료: 차량 {len(routes)}대 배차, 미배차 {len(unassigned)}건",
+                    {
+                        "total_routes": len(routes),
+                        "unassigned": len(unassigned),
+                        "total_distance": summary.get("total_distance_km", 0),
+                        "total_orders": summary.get("total_orders", 0)
+                    }
+                )
+                return data
+            else:
+                error_detail = response.text
+                try:
+                    error_json = response.json()
+                    error_detail = json.dumps(error_json, indent=2, ensure_ascii=False)
+                except:
+                    pass
+                
+                self.log_result(
+                    "기본 배차 최적화",
+                    False,
+                    f"API 호출 실패: {response.status_code}",
+                    error_detail
+                )
+                print(f"\n   상세 에러:\n{error_detail}")
+                return None
+                
+        except Exception as e:
+            self.log_result("기본 배차 최적화", False, f"예외 발생: {str(e)}")
+            return None
     
-    db.commit()
+    def test_advanced_optimization(self, order_ids: List[int]):
+        """고급 배차 최적화 (CVRPTW) 테스트"""
+        if not order_ids:
+            return None
+        
+        try:
+            opt_data = {
+                "order_ids": order_ids[:10],
+                "vehicle_ids": [],
+                "dispatch_date": date.today().isoformat()
+            }
+            
+            print(f"\n🚀 고급 배차 최적화 (CVRPTW) 실행 중...")
+            
+            response = requests.post(
+                f"{BASE_URL}/dispatches/optimize-cvrptw",
+                headers=get_headers(),
+                json=opt_data,
+                params={
+                    "time_limit": 30,
+                    "use_time_windows": True,
+                    "use_real_routing": False
+                }
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                routes = data.get("routes", [])
+                summary = data.get("summary", {})
+                
+                self.log_result(
+                    "고급 배차 최적화",
+                    True,
+                    f"CVRPTW 최적화 완료: 차량 {len(routes)}대 배차",
+                    {
+                        "total_routes": len(routes),
+                        "total_distance": summary.get("total_distance_km", 0),
+                        "optimization_status": data.get("optimization_status")
+                    }
+                )
+                return data
+            else:
+                self.log_result(
+                    "고급 배차 최적화",
+                    False,
+                    f"API 호출 실패: {response.status_code}",
+                    response.text
+                )
+                return None
+                
+        except Exception as e:
+            self.log_result("고급 배차 최적화", False, f"예외 발생: {str(e)}")
+            return None
     
-    # 결과 출력
-    print_info("생성된 주문 수", len(created_orders))
-    for order in created_orders:
-        db.refresh(order)
-        print(f"    - {order.order_number}: {order.temperature_zone.value}, "
-              f"{order.pallet_count}팔레트, {order.status.value}")
+    # ========================================
+    # 3. 배차 관리 테스트
+    # ========================================
     
-    return created_orders
+    def test_get_dispatches(self):
+        """배차 목록 조회 테스트"""
+        print("\n" + "="*60)
+        print("3️⃣  배차 관리 테스트")
+        print("="*60)
+        
+        try:
+            response = requests.get(
+                f"{BASE_URL}/dispatches/",
+                headers=get_headers(),
+                params={"limit": 10}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                total = data.get("total", 0)
+                items = data.get("items", [])
+                
+                # 상태별 통계
+                status_stats = {}
+                for item in items:
+                    status = item.get("status", "Unknown")
+                    status_stats[status] = status_stats.get(status, 0) + 1
+                
+                self.log_result(
+                    "배차 목록 조회",
+                    True,
+                    f"총 {total}건의 배차 조회 성공",
+                    {
+                        "total": total,
+                        "status_stats": status_stats,
+                        "sample": items[:3] if items else []
+                    }
+                )
+                return items
+            else:
+                self.log_result(
+                    "배차 목록 조회",
+                    False,
+                    f"API 호출 실패: {response.status_code}",
+                    response.text
+                )
+                return []
+                
+        except Exception as e:
+            self.log_result("배차 목록 조회", False, f"예외 발생: {str(e)}")
+            return []
+    
+    def test_dispatch_dashboard(self):
+        """배차 대시보드 통계 조회"""
+        try:
+            response = requests.get(
+                f"{BASE_URL}/dispatches/dashboard",
+                headers=get_headers()
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                self.log_result(
+                    "배차 대시보드",
+                    True,
+                    "대시보드 통계 조회 성공",
+                    {
+                        "total_orders": data.get("total_orders"),
+                        "pending_orders": data.get("pending_orders"),
+                        "active_dispatches": data.get("active_dispatches"),
+                        "completed_today": data.get("completed_today"),
+                        "available_vehicles": data.get("available_vehicles")
+                    }
+                )
+                return data
+            else:
+                self.log_result(
+                    "배차 대시보드",
+                    False,
+                    f"API 호출 실패: {response.status_code}",
+                    response.text
+                )
+                return None
+                
+        except Exception as e:
+            self.log_result("배차 대시보드", False, f"예외 발생: {str(e)}")
+            return None
+    
+    def test_dispatch_confirmation(self, dispatch_ids: List[int]):
+        """배차 확정 테스트"""
+        if not dispatch_ids:
+            return None
+        
+        try:
+            confirm_data = {"dispatch_ids": dispatch_ids}
+            
+            print(f"\n✅ 배차 확정 실행 중... (배차 {len(dispatch_ids)}건)")
+            
+            response = requests.post(
+                f"{BASE_URL}/dispatches/confirm",
+                headers=get_headers(),
+                json=confirm_data
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                self.log_result(
+                    "배차 확정",
+                    True,
+                    f"배차 확정 완료: 성공 {data.get('confirmed')}건, 실패 {data.get('failed')}건",
+                    data
+                )
+                return data
+            else:
+                self.log_result(
+                    "배차 확정",
+                    False,
+                    f"API 호출 실패: {response.status_code}",
+                    response.text
+                )
+                return None
+                
+        except Exception as e:
+            self.log_result("배차 확정", False, f"예외 발생: {str(e)}")
+            return None
+    
+    # ========================================
+    # 4. 통합 플로우 테스트
+    # ========================================
+    
+    def run_full_test(self):
+        """전체 플로우 통합 테스트"""
+        print("\n" + "="*80)
+        print("🚀 배차 플로우 통합 테스트 시작")
+        print("="*80)
+        
+        # 1. 주문 관리
+        orders = self.test_get_orders()
+        pending_orders = self.test_get_pending_orders()
+        
+        # 배차 대기 주문이 없으면 테스트 주문 생성
+        if len(pending_orders) == 0:
+            print("\n⚠️  배차 대기 주문이 없습니다. 테스트 주문을 생성합니다.")
+            new_order = self.test_create_order()
+            if new_order:
+                pending_orders = [new_order]
+        
+        # 2. AI 배차 최적화
+        if pending_orders:
+            order_ids = [o.get("id") for o in pending_orders if o.get("id")]
+            
+            # 기본 최적화
+            opt_result = self.test_optimization(order_ids)
+            
+            # 고급 최적화
+            adv_opt_result = self.test_advanced_optimization(order_ids)
+        
+        # 3. 배차 관리
+        dispatches = self.test_get_dispatches()
+        dashboard = self.test_dispatch_dashboard()
+        
+        # 4. 결과 요약
+        self.print_summary()
+    
+    def print_summary(self):
+        """테스트 결과 요약"""
+        print("\n" + "="*80)
+        print("📊 테스트 결과 요약")
+        print("="*80)
+        
+        total_tests = len(self.test_results)
+        passed_tests = sum(1 for r in self.test_results if r["success"])
+        failed_tests = total_tests - passed_tests
+        
+        print(f"\n총 테스트: {total_tests}개")
+        print(f"✅ 성공: {passed_tests}개")
+        print(f"❌ 실패: {failed_tests}개")
+        print(f"성공률: {(passed_tests/total_tests*100):.1f}%")
+        
+        # 실패한 테스트 상세
+        if failed_tests > 0:
+            print("\n⚠️  실패한 테스트:")
+            for result in self.test_results:
+                if not result["success"]:
+                    print(f"  - {result['test']}: {result['message']}")
+        
+        print("\n" + "="*80)
 
 
-async def optimize_and_create_dispatch(db: Session, orders: list):
-    """AI 배차 최적화 및 배차 생성"""
-    print_step(2, "차량 매칭 - AI 배차 최적화 (DRAFT)")
+def main():
+    """메인 함수"""
+    print("""
+╔══════════════════════════════════════════════════════════════╗
+║                 배차 플로우 통합 테스트                      ║
+║                                                              ║
+║  테스트 순서:                                                ║
+║  1. 주문 관리 (목록 조회, 배차 대기 주문, 주문 생성)          ║
+║  2. AI 배차 최적화 (기본 알고리즘, 고급 CVRPTW)               ║
+║  3. 배차 관리 (목록 조회, 대시보드, 확정)                     ║
+╚══════════════════════════════════════════════════════════════╝
+    """)
     
-    if not orders:
-        print_error("주문이 없습니다.")
-        return []
+    tester = DispatchFlowTester()
     
-    # 활성 차량 조회
-    vehicles = db.query(Vehicle).filter(
-        Vehicle.is_active == True,
-        Vehicle.status == VehicleStatus.AVAILABLE
-    ).all()
-    
-    if not vehicles:
-        print_error("사용 가능한 차량이 없습니다.")
-        return []
-    
-    print_info("사용 가능한 차량 수", len(vehicles))
-    
-    # AI 최적화 서비스 초기화 (CVRPTW 사용)
-    optimizer = AdvancedDispatchOptimizationService(db)
-    
-    # 최적화 실행
-    order_ids = [order.id for order in orders]
-    vehicle_ids = [v.id for v in vehicles[:10]]  # 상위 10대만 사용
-    dispatch_date = date.today()
-    
-    print(f"  🤖 AI 최적화 실행 중... (주문 {len(order_ids)}건, 차량 {len(vehicle_ids)}대)")
+    # 인증 토큰이 필요한 경우 설정 (현재는 공개 API 테스트)
+    # set_token("your_access_token_here")
     
     try:
-        result = await optimizer.optimize_dispatch_cvrptw(
-            order_ids=order_ids,
-            vehicle_ids=vehicle_ids,
-            dispatch_date=dispatch_date,
-            time_limit_seconds=30,
-            use_time_windows=True,
-            use_real_routing=False
-        )
-        
-        print_info("최적화 성공", f"{result['total_dispatches']}건의 배차 생성")
-        print_info("총 배정 주문", f"{result['total_orders']}건")
-        print_info("총 예상 거리", f"{result['total_distance_km']:.2f} km")
-        
-        # 온도대별 통계 출력
-        if 'temperature_zones' in result:
-            print("\n  📊 온도대별 배차:")
-            for zone in result['temperature_zones']:
-                print(f"    - {zone['zone']}: {zone['orders']}건 주문, {zone['dispatches']}건 배차, {zone['distance_km']:.1f}km")
-        
-        # 생성된 배차 조회
-        print("\n  🚚 생성된 배차 목록:")
-        created_dispatches = []
-        for dispatch_data in result['dispatches']:
-            dispatch = db.query(Dispatch).filter(
-                Dispatch.dispatch_number == dispatch_data['dispatch_number']
-            ).first()
-            if dispatch:
-                created_dispatches.append(dispatch)
-                print(f"    - {dispatch.dispatch_number}: "
-                      f"차량 {dispatch.vehicle.code}, "
-                      f"{dispatch.total_orders}건, "
-                      f"{dispatch.total_distance_km:.1f}km, "
-                      f"상태: {dispatch.status.value}")
-        
-        return created_dispatches
-        
+        tester.run_full_test()
+    except KeyboardInterrupt:
+        print("\n\n⚠️  테스트가 중단되었습니다.")
     except Exception as e:
-        print_error(f"AI 최적화 실패: {str(e)}")
+        print(f"\n\n❌ 테스트 실행 중 오류 발생: {str(e)}")
         import traceback
         traceback.print_exc()
-        return []
-
-
-def confirm_dispatches(db: Session, dispatches: list):
-    """배차 확정"""
-    print_step(3, "배차 확정 (CONFIRMED)")
-    
-    if not dispatches:
-        print_error("확정할 배차가 없습니다.")
-        return []
-    
-    confirmed = []
-    
-    for dispatch in dispatches:
-        if dispatch.status != DispatchStatus.DRAFT:
-            print(f"  ⚠️  {dispatch.dispatch_number}: 이미 확정됨 (현재 상태: {dispatch.status.value})")
-            continue
-        
-        # 배차 상태 변경
-        dispatch.status = DispatchStatus.CONFIRMED
-        
-        # 차량 상태 변경
-        if dispatch.vehicle:
-            dispatch.vehicle.status = VehicleStatus.IN_USE
-        
-        # 주문 상태 변경
-        updated_orders = 0
-        for route in dispatch.routes:
-            if route.order:
-                route.order.status = OrderStatus.ASSIGNED
-                updated_orders += 1
-        
-        confirmed.append(dispatch)
-        print_info(f"배차 확정", 
-                  f"{dispatch.dispatch_number} → 차량 {dispatch.vehicle.code} 운행중, "
-                  f"주문 {updated_orders}건 배차완료")
-    
-    db.commit()
-    
-    print_info("총 확정 배차", f"{len(confirmed)}건")
-    return confirmed
-
-
-def start_dispatches(db: Session, dispatches: list):
-    """배차 진행"""
-    print_step(4, "배차 진행 (IN_PROGRESS)")
-    
-    if not dispatches:
-        print_error("진행할 배차가 없습니다.")
-        return []
-    
-    in_progress = []
-    
-    for dispatch in dispatches:
-        if dispatch.status != DispatchStatus.CONFIRMED:
-            print(f"  ⚠️  {dispatch.dispatch_number}: 확정 상태가 아님 (현재 상태: {dispatch.status.value})")
-            continue
-        
-        # 배차 상태 변경
-        dispatch.status = DispatchStatus.IN_PROGRESS
-        
-        # 주문 상태 변경 (배송중)
-        updated_orders = 0
-        for route in dispatch.routes:
-            if route.order:
-                route.order.status = OrderStatus.IN_TRANSIT
-                updated_orders += 1
-        
-        in_progress.append(dispatch)
-        print_info(f"배차 시작", 
-                  f"{dispatch.dispatch_number} → 주문 {updated_orders}건 배송중")
-    
-    db.commit()
-    
-    print_info("총 진행 배차", f"{len(in_progress)}건")
-    return in_progress
-
-
-def complete_dispatches(db: Session, dispatches: list):
-    """배차 완료"""
-    print_step(5, "배차 완료 (COMPLETED)")
-    
-    if not dispatches:
-        print_error("완료할 배차가 없습니다.")
-        return []
-    
-    completed = []
-    
-    for dispatch in dispatches:
-        if dispatch.status not in [DispatchStatus.CONFIRMED, DispatchStatus.IN_PROGRESS]:
-            print(f"  ⚠️  {dispatch.dispatch_number}: 진행중 상태가 아님 (현재 상태: {dispatch.status.value})")
-            continue
-        
-        # 배차 상태 변경
-        dispatch.status = DispatchStatus.COMPLETED
-        
-        # 차량 상태 변경 (복귀)
-        if dispatch.vehicle:
-            dispatch.vehicle.status = VehicleStatus.AVAILABLE
-        
-        # 주문 상태 변경 (배송완료)
-        updated_orders = 0
-        for route in dispatch.routes:
-            if route.order:
-                route.order.status = OrderStatus.DELIVERED
-                updated_orders += 1
-        
-        completed.append(dispatch)
-        print_info(f"배차 완료", 
-                  f"{dispatch.dispatch_number} → 차량 {dispatch.vehicle.code} 복귀, "
-                  f"주문 {updated_orders}건 배송완료")
-    
-    db.commit()
-    
-    print_info("총 완료 배차", f"{len(completed)}건")
-    return completed
-
-
-def print_summary(db: Session, orders: list, dispatches: list):
-    """최종 결과 요약"""
-    print_step("✅", "테스트 완료 - 최종 요약")
-    
-    # 주문 상태 통계
-    order_status_counts = {}
-    for order in orders:
-        db.refresh(order)
-        status = order.status.value
-        order_status_counts[status] = order_status_counts.get(status, 0) + 1
-    
-    print("📦 주문 상태:")
-    for status, count in order_status_counts.items():
-        print(f"    - {status}: {count}건")
-    
-    # 배차 상태 통계
-    dispatch_status_counts = {}
-    total_distance = 0
-    total_orders_assigned = 0
-    
-    for dispatch in dispatches:
-        db.refresh(dispatch)
-        status = dispatch.status.value
-        dispatch_status_counts[status] = dispatch_status_counts.get(status, 0) + 1
-        total_distance += dispatch.total_distance_km or 0
-        total_orders_assigned += dispatch.total_orders
-    
-    print("\n🚚 배차 상태:")
-    for status, count in dispatch_status_counts.items():
-        print(f"    - {status}: {count}건")
-    
-    print(f"\n📊 통계:")
-    print(f"    - 총 생성 주문: {len(orders)}건")
-    print(f"    - 총 생성 배차: {len(dispatches)}건")
-    print(f"    - 총 배정 주문: {total_orders_assigned}건")
-    print(f"    - 총 주행 거리: {total_distance:.2f} km")
-    
-    # 차량 상태 확인
-    vehicles = db.query(Vehicle).filter(
-        Vehicle.id.in_([d.vehicle_id for d in dispatches])
-    ).all()
-    
-    vehicle_status_counts = {}
-    for vehicle in vehicles:
-        status = vehicle.status.value
-        vehicle_status_counts[status] = vehicle_status_counts.get(status, 0) + 1
-    
-    print(f"\n🚗 차량 상태 ({len(vehicles)}대):")
-    for status, count in vehicle_status_counts.items():
-        print(f"    - {status}: {count}대")
-
-
-async def main():
-    """메인 실행 함수"""
-    print("\n" + "🚀 "  * 40)
-    print("전체 배차 프로세스 End-to-End 테스트")
-    print("🚀 " * 40)
-    
-    db = SessionLocal()
-    
-    try:
-        # Step 1: 주문 등록
-        orders = create_test_orders(db, count=10)
-        
-        if not orders:
-            print_error("주문 생성 실패")
-            return
-        
-        # Step 2: AI 배차 최적화
-        dispatches = await optimize_and_create_dispatch(db, orders)
-        
-        if not dispatches:
-            print_error("배차 생성 실패")
-            return
-        
-        # Step 3: 배차 확정
-        confirmed = confirm_dispatches(db, dispatches)
-        
-        # Step 4: 배차 진행
-        in_progress = start_dispatches(db, confirmed)
-        
-        # Step 5: 배차 완료
-        completed = complete_dispatches(db, in_progress)
-        
-        # 최종 요약
-        print_summary(db, orders, dispatches)
-        
-    except Exception as e:
-        print_error(f"테스트 실행 중 오류 발생: {str(e)}")
-        import traceback
-        traceback.print_exc()
-    finally:
-        db.close()
 
 
 if __name__ == "__main__":
-    import asyncio
-    asyncio.run(main())
+    main()

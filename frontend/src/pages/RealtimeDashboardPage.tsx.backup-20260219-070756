@@ -189,14 +189,8 @@ const RealtimeDashboardPage: React.FC = () => {
   useEffect(() => {
     fetchRealtimeVehicles();
     
-    // Auto-refresh every 10 seconds (더 빠른 업데이트)
-    const vehicleInterval = setInterval(fetchRealtimeVehicles, 10000);
-    
-    // Auto GPS sync every 2 minutes (UVIS 서버에서 최신 데이터 가져오기)
-    const gpsInterval = setInterval(() => {
-      console.log('🔄 Auto GPS sync triggered');
-      handleSyncGPS();
-    }, 120000);
+    // Auto-refresh every 30 seconds
+    const vehicleInterval = setInterval(fetchRealtimeVehicles, 30000);
     
     // Update clock every second
     const clockInterval = setInterval(() => {
@@ -205,7 +199,6 @@ const RealtimeDashboardPage: React.FC = () => {
     
     return () => {
       clearInterval(vehicleInterval);
-      clearInterval(gpsInterval);
       clearInterval(clockInterval);
     };
   }, []);
@@ -395,9 +388,6 @@ const RealtimeDashboardPage: React.FC = () => {
                     <p className="text-sm text-gray-500 mt-1">
                       UVIS GPS 실시간 추적 - {vehicles.length}대 운행 중
                       {loading && ' (불러오는 중...)'}
-                    </p>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      📡 10초마다 자동 새로고침 · 2분마다 GPS 동기화
                     </p>
                   </div>
                   <button
