@@ -85,7 +85,7 @@ docker exec uvis-db psql -U uvis_user -d uvis_db << 'EOF'
 -- 첫 번째 GPS 포인트 (최근 데이터)
 INSERT INTO vehicle_locations (
     vehicle_id, latitude, longitude, recorded_at,
-    speed_kmh, heading, altitude, accuracy,
+    speed, heading, altitude, accuracy,
     created_at, updated_at
 )
 SELECT 
@@ -93,7 +93,7 @@ SELECT
     35.0 + (RANDOM() * 0.3)::numeric(10,6) as latitude,
     126.8 + (RANDOM() * 0.4)::numeric(10,6) as longitude,
     NOW() - (RANDOM() * INTERVAL '2 hours') as recorded_at,
-    (RANDOM() * 80)::numeric(5,2) as speed_kmh,
+    (RANDOM() * 80)::numeric(5,2) as speed,
     (RANDOM() * 360)::numeric(5,2) as heading,
     (50 + RANDOM() * 150)::numeric(7,2) as altitude,
     (5 + RANDOM() * 15)::numeric(5,2) as accuracy,
@@ -105,7 +105,7 @@ WHERE v.is_active = true;
 -- 추가 GPS 포인트 (경로 시뮬레이션)
 INSERT INTO vehicle_locations (
     vehicle_id, latitude, longitude, recorded_at,
-    speed_kmh, heading, altitude, accuracy,
+    speed, heading, altitude, accuracy,
     created_at, updated_at
 )
 SELECT 
@@ -113,7 +113,7 @@ SELECT
     35.0 + (RANDOM() * 0.3)::numeric(10,6) as latitude,
     126.8 + (RANDOM() * 0.4)::numeric(10,6) as longitude,
     NOW() - ((2 + i) * INTERVAL '2 hours') as recorded_at,
-    (RANDOM() * 70)::numeric(5,2) as speed_kmh,
+    (RANDOM() * 70)::numeric(5,2) as speed,
     (RANDOM() * 360)::numeric(5,2) as heading,
     (50 + RANDOM() * 150)::numeric(7,2) as altitude,
     (5 + RANDOM() * 15)::numeric(5,2) as accuracy,
@@ -155,9 +155,9 @@ FROM vehicle_locations
 UNION ALL
 SELECT 
     '평균 속도' as metric,
-    ROUND(AVG(speed_kmh), 2)::text || ' km/h' as value
+    ROUND(AVG(speed), 2)::text || ' km/h' as value
 FROM vehicle_locations
-WHERE speed_kmh IS NOT NULL
+WHERE speed IS NOT NULL
 UNION ALL
 SELECT 
     '평균 정확도' as metric,
@@ -173,7 +173,7 @@ SELECT
     v.code as vehicle_code,
     COUNT(vl.id) as gps_points,
     TO_CHAR(MAX(vl.recorded_at), 'YYYY-MM-DD HH24:MI') as latest_gps,
-    ROUND(AVG(vl.speed_kmh), 2) as avg_speed_kmh
+    ROUND(AVG(vl.speed), 2) as avg_speed_kmh
 FROM vehicles v
 LEFT JOIN vehicle_locations vl ON v.id = vl.vehicle_id
 WHERE v.is_active = true
