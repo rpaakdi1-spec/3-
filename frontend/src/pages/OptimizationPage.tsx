@@ -187,7 +187,8 @@ const OptimizationPage: React.FC = () => {
         
         // 경로에서 주문 정보 추출
         // 주의: 현재 API 응답에는 routes 정보가 없으므로 빈 배열 반환
-        const assignedOrders = (dispatch.routes || [])
+        const routes = Array.isArray(dispatch.routes) ? dispatch.routes : [];
+        const assignedOrders = routes
           .filter((route: any) => route.route_type === 'PICKUP' || route.route_type === 'DELIVERY')
           .map((route: any) => {
             const order = orders.find(o => o.id === route.order_id);
