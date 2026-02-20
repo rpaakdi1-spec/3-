@@ -288,7 +288,7 @@ class MLRuleSuggestionService:
         # 고객별 자주 사용하는 차량 분석
         query = self.db.query(
             Order.pickup_client_id,
-            Vehicle.vehicle_code,
+            Vehicle.code,
             func.count(Dispatch.id).label('count')
         ).join(
             DispatchRoute, DispatchRoute.order_id == Order.id
@@ -304,7 +304,7 @@ class MLRuleSuggestionService:
             )
         ).group_by(
             Order.pickup_client_id,
-            Vehicle.vehicle_code
+            Vehicle.code
         ).having(
             func.count(Dispatch.id) >= self.min_support
         ).all()
