@@ -85,8 +85,11 @@ class GPSCollectionOptimizer:
             
             time_since_last_update = None
             if latest_gps:
+                # 현재 시간을 timezone-naive로 변환 (데이터베이스가 UTC로 저장)
+                now = datetime.now(timezone.utc).replace(tzinfo=None)
+                
                 time_since_last_update = (
-                    datetime.now(timezone.utc) - latest_gps.recorded_at
+                    now - latest_gps.recorded_at
                 ).total_seconds() / 60  # 분 단위
             
             # 데이터 품질 평가
@@ -134,6 +137,9 @@ class GPSCollectionOptimizer:
         """
         # 최근 24시간 데이터
         since = datetime.now(timezone.utc) - timedelta(days=1)
+        # timezone-naive로 변환하여 비교 (데이터베이스가 timezone-naive 저장)
+        if since.tzinfo is not None:
+            since = since.replace(tzinfo=None)
         
         gps_data = self.db.query(VehicleLocation).filter(
             and_(
@@ -159,6 +165,7 @@ class GPSCollectionOptimizer:
         # 3. 데이터 연속성 (최대 공백 30분 기준)
         gap_scores = []
         for i in range(1, len(gps_data)):
+            # 두 날짜 모두 timezone-naive이므로 직접 비교 가능
             gap_minutes = (
                 gps_data[i].recorded_at - gps_data[i-1].recorded_at
             ).total_seconds() / 60
@@ -243,8 +250,14 @@ class GPSCollectionOptimizer:
         })
         
         # 5. 데이터 저장소 최적화
+        # 데이터베이스의 timezone에 맞춰 비교
+        one_day_ago = datetime.now(timezone.utc) - timedelta(days=1)
+        # timezone-naive로 변환하여 비교 (데이터베이스가 timezone-naive 저장)
+        if one_day_ago.tzinfo is not None:
+            one_day_ago = one_day_ago.replace(tzinfo=None)
+        
         total_points_per_day = self.db.query(func.count(VehicleLocation.id)).filter(
-            VehicleLocation.recorded_at >= datetime.now(timezone.utc) - timedelta(days=1)
+            VehicleLocation.recorded_at >= one_day_ago
         ).scalar() or 0
         
         recommendations.append({
