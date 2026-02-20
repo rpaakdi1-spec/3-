@@ -97,7 +97,7 @@ class VehicleLocationPredictor:
         result = {
             "success": True,
             "vehicle_id": vehicle_id,
-            "vehicle_code": vehicle.vehicle_code,
+            "vehicle_code": vehicle.code,
             "current_location": {
                 "latitude": latest_location.latitude,
                 "longitude": latest_location.longitude,
@@ -138,7 +138,7 @@ class VehicleLocationPredictor:
         logger.info("📍 배차 경로 기반 예측 사용")
         
         # 다음 목적지 찾기
-        routes = sorted(dispatch.routes, key=lambda r: r.sequence_number)
+        routes = sorted(dispatch.routes, key=lambda r: r.sequence)
         
         next_destination = None
         for route in routes:
