@@ -76,7 +76,7 @@ class VehicleLocationPredictor:
             and_(
                 Dispatch.vehicle_id == vehicle_id,
                 Dispatch.status.in_([
-                    DispatchStatus.ASSIGNED,
+                    DispatchStatus.CONFIRMED,
                     DispatchStatus.IN_PROGRESS
                 ])
             )
