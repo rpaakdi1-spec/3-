@@ -80,7 +80,7 @@ class UvisGPSService:
             self._save_api_log(
                 api_type="auth",
                 method="GET",
-                url=response.url,
+                url=str(response.url),
                 request_params=json.dumps(params),
                 response_status=response.status_code,
                 response_data=response.text,
