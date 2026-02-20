@@ -161,8 +161,8 @@ class VehicleLocationPredictor:
                 }
         else:
             # 다음 목적지 좌표
-            dest_lat = next_destination.destination_latitude
-            dest_lon = next_destination.destination_longitude
+            dest_lat = next_destination.latitude
+            dest_lon = next_destination.longitude
         
         # 현재 위치에서 목적지까지 거리
         distance_km = self._calculate_distance(
