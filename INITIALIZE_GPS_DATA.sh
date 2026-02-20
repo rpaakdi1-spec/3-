@@ -43,7 +43,7 @@ echo ""
 
 # 1. 현재 GPS 데이터 상태 확인
 log_info "1. 현재 GPS 데이터 상태 확인 중..."
-CURRENT_COUNT=$(docker exec -it uvis-db psql -U uvis_user -d uvis_db -t -c \
+CURRENT_COUNT=$(docker exec uvis-db psql -U uvis_user -d uvis_db -t -c \
   "SELECT COUNT(*) FROM vehicle_locations;" | tr -d '[:space:]')
 
 echo "   현재 GPS 데이터 포인트: $CURRENT_COUNT 개"
@@ -58,14 +58,14 @@ if [ "$CURRENT_COUNT" -gt 0 ]; then
     fi
     
     log_info "기존 GPS 데이터 삭제 중..."
-    docker exec -it uvis-db psql -U uvis_user -d uvis_db -c \
+    docker exec uvis-db psql -U uvis_user -d uvis_db -c \
       "DELETE FROM vehicle_locations;" > /dev/null
     log_success "기존 데이터 삭제 완료"
 fi
 
 # 2. 활성 차량 수 확인
 log_info "2. 활성 차량 수 확인 중..."
-ACTIVE_VEHICLES=$(docker exec -it uvis-db psql -U uvis_user -d uvis_db -t -c \
+ACTIVE_VEHICLES=$(docker exec uvis-db psql -U uvis_user -d uvis_db -t -c \
   "SELECT COUNT(*) FROM vehicles WHERE is_active = true;" | tr -d '[:space:]')
 
 echo "   활성 차량: $ACTIVE_VEHICLES 대"
@@ -81,7 +81,7 @@ log_info "   - 광주/전남 지역 좌표 (위도: 35.0~35.3, 경도: 126.8~127
 log_info "   - 최근 24시간 내 랜덤 시간"
 log_info "   - 차량당 6개 GPS 포인트 생성"
 
-docker exec -it uvis-db psql -U uvis_user -d uvis_db << 'EOF'
+docker exec uvis-db psql -U uvis_user -d uvis_db << 'EOF'
 -- 첫 번째 GPS 포인트 (최근 데이터)
 INSERT INTO vehicle_locations (
     vehicle_id, latitude, longitude, recorded_at,
@@ -132,7 +132,7 @@ log_success "GPS 데이터 생성 완료"
 
 # 4. 생성된 데이터 확인
 log_info "4. 생성된 데이터 통계 확인..."
-docker exec -it uvis-db psql -U uvis_user -d uvis_db << 'EOF'
+docker exec uvis-db psql -U uvis_user -d uvis_db << 'EOF'
 SELECT 
     '총 GPS 포인트' as metric,
     COUNT(*)::text as value
@@ -168,7 +168,7 @@ EOF
 
 # 5. 차량별 GPS 포인트 확인
 log_info "5. 차량별 GPS 데이터 확인 (상위 10대)..."
-docker exec -it uvis-db psql -U uvis_user -d uvis_db << 'EOF'
+docker exec uvis-db psql -U uvis_user -d uvis_db << 'EOF'
 SELECT 
     v.code as vehicle_code,
     COUNT(vl.id) as gps_points,
