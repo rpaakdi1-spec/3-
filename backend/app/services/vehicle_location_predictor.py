@@ -137,15 +137,13 @@ class VehicleLocationPredictor:
         """
         logger.info("📍 배차 경로 기반 예측 사용")
         
-        # 다음 목적지 찾기
+        # 다음 목적지 찾기 (첫 번째 경로를 다음 목적지로 가정)
         routes = sorted(dispatch.routes, key=lambda r: r.sequence)
         
-        next_destination = None
-        for route in routes:
-            # 아직 방문하지 않은 경로
-            if not route.actual_arrival_time:
-                next_destination = route
-                break
+        if routes:
+            next_destination = routes[0]  # 첫 번째 경로를 다음 목적지로 사용
+        else:
+            next_destination = None
         
         if not next_destination:
             # 모든 경로 완료 - 차고지로 복귀 예측
