@@ -104,10 +104,8 @@ class MLRuleSuggestionService:
             Order.temperature_zone,
             Vehicle.vehicle_type,
             func.count(Dispatch.id).label('count'),
-            func.avg(DispatchRoute.actual_distance_km).label('avg_distance'),
-            func.avg(
-                func.extract('epoch', Dispatch.completed_at - Dispatch.actual_start_time) / 3600
-            ).label('avg_hours')
+            func.avg(DispatchRoute.distance_from_previous_km).label('avg_distance'),
+            func.avg(Dispatch.total_distance_km).label('avg_total_distance')
         ).join(
             DispatchRoute, DispatchRoute.order_id == Order.id
         ).join(
@@ -127,7 +125,7 @@ class MLRuleSuggestionService:
         suggestions = []
         temp_vehicle_map = defaultdict(lambda: {'count': 0, 'total': 0})
         
-        for temp_zone, vehicle_type, count, avg_dist, avg_hours in query:
+        for temp_zone, vehicle_type, count, avg_dist, avg_total_dist in query:
             if temp_zone and vehicle_type:
                 temp_vehicle_map[temp_zone]['count'] += count
                 temp_vehicle_map[temp_zone]['total'] += count
@@ -148,8 +146,7 @@ class MLRuleSuggestionService:
                         confidence=min(count / temp_vehicle_map[temp_zone]['total'], 1.0) if temp_vehicle_map[temp_zone]['total'] > 0 else 0.0,
                         support=count,
                         expected_improvement={
-                            "avg_distance_km": round(avg_dist or 0, 2),
-                            "avg_time_hours": round(avg_hours or 0, 2)
+                            "avg_distance_km": round(avg_total_dist or 0, 2)
                         },
                         priority=90
                     ))
@@ -165,19 +162,17 @@ class MLRuleSuggestionService:
         
         # 거리별 차량 크기 분석
         query = self.db.query(
-            func.floor(DispatchRoute.planned_distance_km / 50).label('distance_bucket'),
+            func.floor(Dispatch.total_distance_km / 50).label('distance_bucket'),
             Vehicle.max_weight_kg,
             func.count(Dispatch.id).label('count'),
-            func.avg(DispatchRoute.actual_distance_km).label('avg_distance')
-        ).join(
-            DispatchRoute, DispatchRoute.dispatch_id == Dispatch.id
+            func.avg(Dispatch.total_distance_km).label('avg_distance')
         ).join(
             Vehicle, Vehicle.id == Dispatch.vehicle_id
         ).filter(
             and_(
                 Dispatch.status == DispatchStatus.COMPLETED,
                 Dispatch.created_at >= cutoff_date,
-                DispatchRoute.planned_distance_km.isnot(None)
+                Dispatch.total_distance_km.isnot(None)
             )
         ).group_by(
             'distance_bucket',
