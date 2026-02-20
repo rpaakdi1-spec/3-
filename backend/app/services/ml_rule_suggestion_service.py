@@ -213,54 +213,12 @@ class MLRuleSuggestionService:
         """시간대별 배차 패턴 분석"""
         logger.info("Analyzing time patterns...")
         
-        cutoff_date = datetime.now() - timedelta(days=days_back)
-        
-        # 시간대별 배차 성공률 분석
-        query = self.db.query(
-            func.extract('hour', Dispatch.planned_start_time).label('hour'),
-            func.count(Dispatch.id).label('total'),
-            func.sum(
-                func.case(
-                    (Dispatch.status == DispatchStatus.COMPLETED, 1),
-                    else_=0
-                )
-            ).label('completed')
-        ).filter(
-            Dispatch.created_at >= cutoff_date
-        ).group_by(
-            'hour'
-        ).having(
-            func.count(Dispatch.id) >= self.min_support
-        ).all()
+        # Note: Dispatch 모델에 시간 필드가 없어서 이 분석은 스킵합니다
+        # 향후 Dispatch 모델에 planned_start_time 필드 추가 시 활성화
         
         suggestions = []
-        
-        for hour, total, completed in query:
-            if hour is not None and total > 0:
-                success_rate = (completed or 0) / total
-                
-                if success_rate >= 0.9:  # 90% 이상 성공률
-                    suggestions.append(RuleSuggestion(
-                        rule_type="optimization",
-                        name=f"{int(hour)}시대 배차 우선 처리",
-                        description=f"{int(hour)}시대 배차는 {success_rate*100:.1f}% 성공률을 보입니다. 우선 처리를 권장합니다.",
-                        conditions={
-                            "dispatch.planned_hour": int(hour)
-                        },
-                        actions={
-                            "priority_boost": 1.2,
-                            "recommend_slot": True
-                        },
-                        confidence=success_rate,
-                        support=total,
-                        expected_improvement={
-                            "success_rate": round(success_rate * 100, 1)
-                        },
-                        priority=60
-                    ))
-        
-        logger.info(f"Found {len(suggestions)} time-based rule suggestions")
-        return suggestions[:3]  # 상위 3개만
+        logger.info(f"Skipped time pattern analysis (no time fields in Dispatch model)")
+        return suggestions
     
     async def _analyze_capacity_patterns(self, days_back: int) -> List[RuleSuggestion]:
         """적재율 최적화 패턴 분석"""
