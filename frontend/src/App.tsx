@@ -48,6 +48,9 @@ const ExportTaskPage = lazy(() => import('./pages/ExportTaskPage'));
 // AI Dispatch Monitoring Dashboard
 const DispatchMonitoringDashboard = lazy(() => import('./pages/DispatchMonitoringDashboard'));
 
+// Dispatch Rules Management Page
+const DispatchRulesPage = lazy(() => import('./pages/DispatchRulesPage'));
+
 // IoT Sensor Pages
 const IoTSensorsPage = lazy(() => import('./pages/IoTSensorsPage'));
 const IoTSensorDetailPage = lazy(() => import('./pages/IoTSensorDetailPage'));
@@ -281,6 +284,14 @@ const App: React.FC = () => {
               element={
                 <ProtectedRoute>
                   <MLTrainingPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dispatch-rules"
+              element={
+                <ProtectedRoute>
+                  <DispatchRulesPage />
                 </ProtectedRoute>
               }
             />

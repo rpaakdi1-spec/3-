@@ -456,3 +456,228 @@ async def get_ml_statistics(
         },
         "reward_trend": reward_trend
     }
+
+
+# ==================== Phase 3: ML-based Rule Suggestions ====================
+
+@router.post("/ml/suggest-rules")
+async def suggest_dispatch_rules(
+    days_back: int = Query(30, ge=7, le=365, description="분석할 과거 일수"),
+    limit: int = Query(10, ge=1, le=50, description="최대 제안 규칙 수"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    🤖 **Phase 3: ML 기반 배차 규칙 자동 제안**
+    
+    과거 배차 데이터를 분석하여 최적의 배차 규칙을 자동으로 추천합니다.
+    
+    - **온도대별 차량 할당 패턴**
+    - **거리 기반 차량 선택 패턴**
+    - **시간대별 배차 패턴**
+    - **적재율 최적화 패턴**
+    - **고객별 선호 차량 패턴**
+    
+    **Parameters:**
+    - days_back: 분석할 과거 일수 (기본 30일)
+    - limit: 최대 제안 규칙 수 (기본 10개)
+    
+    **Returns:**
+    제안된 규칙 목록과 각 규칙의 신뢰도, 지지도, 예상 개선 효과
+    """
+    from app.services.ml_rule_suggestion_service import MLRuleSuggestionService
+    
+    service = MLRuleSuggestionService(db)
+    suggestions = await service.analyze_and_suggest_rules(
+        days_back=days_back,
+        limit=limit
+    )
+    
+    return {
+        "analysis_period_days": days_back,
+        "total_suggestions": len(suggestions),
+        "suggestions": [
+            {
+                "rule_type": s.rule_type,
+                "name": s.name,
+                "description": s.description,
+                "conditions": s.conditions,
+                "actions": s.actions,
+                "confidence": round(s.confidence, 3),
+                "support": s.support,
+                "expected_improvement": s.expected_improvement,
+                "priority": s.priority
+            }
+            for s in suggestions
+        ],
+        "generated_at": datetime.utcnow().isoformat()
+    }
+
+
+@router.post("/ml/apply-suggested-rules")
+async def apply_suggested_rules(
+    days_back: int = Query(30, ge=7, le=365),
+    limit: int = Query(10, ge=1, le=50),
+    auto_activate: bool = Query(False, description="자동 활성화 여부"),
+    min_confidence: float = Query(0.7, ge=0.0, le=1.0, description="최소 신뢰도"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    🚀 **ML이 제안한 규칙을 실제 시스템에 적용**
+    
+    제안된 규칙 중 신뢰도가 높은 규칙들을 자동으로 생성하고 활성화합니다.
+    
+    **Parameters:**
+    - days_back: 분석할 과거 일수
+    - limit: 최대 적용 규칙 수
+    - auto_activate: 생성 즉시 활성화 여부 (기본: False)
+    - min_confidence: 적용할 규칙의 최소 신뢰도 (기본: 0.7)
+    
+    **Returns:**
+    생성된 규칙 목록과 ID
+    """
+    from app.services.ml_rule_suggestion_service import MLRuleSuggestionService
+    
+    service = MLRuleSuggestionService(db)
+    
+    # 1. 규칙 제안 받기
+    suggestions = await service.analyze_and_suggest_rules(
+        days_back=days_back,
+        limit=limit
+    )
+    
+    # 2. 신뢰도 필터링
+    filtered_suggestions = [
+        s for s in suggestions
+        if s.confidence >= min_confidence
+    ]
+    
+    # 3. 규칙 생성
+    created_rules = await service.create_rules_from_suggestions(
+        suggestions=filtered_suggestions,
+        auto_activate=auto_activate
+    )
+    
+    return {
+        "success": True,
+        "total_suggestions": len(suggestions),
+        "filtered_by_confidence": len(filtered_suggestions),
+        "created_rules": len(created_rules),
+        "auto_activated": auto_activate,
+        "rules": [
+            {
+                "id": rule.id,
+                "name": rule.name,
+                "rule_type": rule.rule_type,
+                "priority": rule.priority,
+                "is_active": rule.is_active,
+                "created_at": rule.created_at.isoformat()
+            }
+            for rule in created_rules
+        ]
+    }
+
+
+@router.get("/ml/rule-performance/{rule_id}")
+async def get_rule_performance(
+    rule_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    📊 **규칙 성능 리포트**
+    
+    특정 규칙의 실행 통계와 성능 지표를 조회합니다.
+    
+    **Returns:**
+    - 총 실행 횟수
+    - 성공률
+    - 평균 실행 시간
+    - 총 절감 거리/비용/시간
+    """
+    from app.services.ml_rule_suggestion_service import MLRuleSuggestionService
+    
+    service = MLRuleSuggestionService(db)
+    report = await service.get_rule_performance_report(rule_id)
+    
+    return report
+
+
+@router.post("/ml/auto-optimize")
+async def auto_optimize_rules(
+    days_back: int = Query(30, ge=7, le=365),
+    optimization_target: str = Query("balanced", regex="^(distance|cost|time|balanced)$"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    ⚡ **자동 최적화 (한 번에 모든 작업 실행)**
+    
+    1. 과거 데이터 분석
+    2. 규칙 제안
+    3. 고신뢰도 규칙 자동 생성
+    4. 기존 규칙 성능 평가
+    5. 저성능 규칙 비활성화
+    
+    **Parameters:**
+    - days_back: 분석할 과거 일수
+    - optimization_target: 최적화 목표 (distance/cost/time/balanced)
+    
+    **Returns:**
+    최적화 결과 요약
+    """
+    from app.services.ml_rule_suggestion_service import MLRuleSuggestionService
+    from app.models.dispatch_rule import DispatchRule, RuleExecutionLog
+    
+    service = MLRuleSuggestionService(db)
+    
+    # Step 1: 규칙 제안
+    suggestions = await service.analyze_and_suggest_rules(
+        days_back=days_back,
+        limit=20
+    )
+    
+    # Step 2: 고신뢰도 규칙 생성 (80% 이상)
+    high_confidence = [s for s in suggestions if s.confidence >= 0.8]
+    created_rules = await service.create_rules_from_suggestions(
+        suggestions=high_confidence,
+        auto_activate=True
+    )
+    
+    # Step 3: 기존 규칙 성능 평가
+    existing_rules = db.query(DispatchRule).filter(
+        DispatchRule.is_active == True
+    ).all()
+    
+    poor_performing_rules = []
+    for rule in existing_rules:
+        if rule.execution_count >= 10:  # 최소 10회 이상 실행된 규칙만
+            if rule.success_rate and rule.success_rate < 50:  # 성공률 50% 미만
+                rule.is_active = False
+                poor_performing_rules.append({
+                    "id": rule.id,
+                    "name": rule.name,
+                    "success_rate": rule.success_rate
+                })
+    
+    db.commit()
+    
+    return {
+        "success": True,
+        "optimization_target": optimization_target,
+        "analysis_period_days": days_back,
+        "summary": {
+            "total_suggestions": len(suggestions),
+            "high_confidence_suggestions": len(high_confidence),
+            "rules_created": len(created_rules),
+            "rules_deactivated": len(poor_performing_rules)
+        },
+        "created_rules": [
+            {"id": r.id, "name": r.name, "priority": r.priority}
+            for r in created_rules
+        ],
+        "deactivated_rules": poor_performing_rules,
+        "next_review_date": (datetime.utcnow() + timedelta(days=7)).isoformat()
+    }
+
