@@ -185,7 +185,8 @@ EOF
 # 6. Docker 컨테이너 재시작 (캐시 갱신)
 log_info "6. 백엔드 컨테이너 재시작 중..."
 docker restart uvis-backend > /dev/null
-sleep 10
+log_info "   백엔드 시작 대기 중 (30초)..."
+sleep 30
 log_success "백엔드 재시작 완료"
 
 # 7. 헬스체크
