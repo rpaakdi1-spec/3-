@@ -41,6 +41,8 @@ const DispatchRulesPage: React.FC = () => {
   
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiResult, setAiResult] = useState<any>(null);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editingRuleId, setEditingRuleId] = useState<number | null>(null);
 
   useEffect(() => {
     loadRules();
@@ -68,6 +70,35 @@ const DispatchRulesPage: React.FC = () => {
     } catch (error) {
       showNotification('Failed to create rule', 'error');
     }
+  };
+
+  const handleUpdate = async () => {
+    if (!editingRuleId) return;
+    try {
+      await DispatchRulesAPI.update(editingRuleId, formData);
+      showNotification('규칙이 성공적으로 수정되었습니다', 'success');
+      setOpenDialog(false);
+      setIsEditMode(false);
+      setEditingRuleId(null);
+      loadRules();
+      resetForm();
+    } catch (error) {
+      showNotification('규칙 수정에 실패했습니다', 'error');
+    }
+  };
+
+  const handleEdit = (rule: DispatchRule) => {
+    setIsEditMode(true);
+    setEditingRuleId(rule.id);
+    setFormData({
+      name: rule.name,
+      description: rule.description || '',
+      rule_type: rule.rule_type,
+      priority: rule.priority,
+      conditions: rule.conditions,
+      actions: rule.actions
+    });
+    setOpenDialog(true);
   };
 
   const handleGenerateWithAI = async () => {
@@ -216,6 +247,9 @@ const DispatchRulesPage: React.FC = () => {
       conditions: {},
       actions: {}
     });
+    setIsEditMode(false);
+    setEditingRuleId(null);
+    setAiResult(null);
   };
 
   const getRuleTypeColor = (type: string) => {
@@ -397,6 +431,13 @@ const DispatchRulesPage: React.FC = () => {
                   <span>테스트</span>
                 </button>
                 <button
+                  className="flex-1 px-3 py-2 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 transition-colors text-sm font-medium flex items-center justify-center space-x-1"
+                  onClick={() => handleEdit(rule)}
+                >
+                  <Edit className="w-4 h-4" />
+                  <span>수정</span>
+                </button>
+                <button
                   className="flex-1 px-3 py-2 bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100 transition-colors text-sm font-medium flex items-center justify-center space-x-1"
                   onClick={() => handleViewStats(rule)}
                 >
@@ -431,7 +472,9 @@ const DispatchRulesPage: React.FC = () => {
         {openDialog && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">새 규칙 생성</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">
+                {isEditMode ? '규칙 수정' : '새 규칙 생성'}
+              </h2>
               
               <div className="space-y-4">
                 <div>
@@ -491,18 +534,20 @@ const DispatchRulesPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* AI Generation Button */}
-                <div className="flex items-center justify-center py-2">
-                  <button
-                    type="button"
-                    onClick={handleGenerateWithAI}
-                    disabled={aiGenerating || !formData.name.trim()}
-                    className="flex items-center px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg"
-                  >
-                    <Brain className="w-5 h-5 mr-2" />
-                    {aiGenerating ? '🤖 AI 생성 중...' : '✨ AI로 자동 생성'}
-                  </button>
-                </div>
+                {/* AI Generation Button - Only show in create mode */}
+                {!isEditMode && (
+                  <div className="flex items-center justify-center py-2">
+                    <button
+                      type="button"
+                      onClick={handleGenerateWithAI}
+                      disabled={aiGenerating || !formData.name.trim()}
+                      className="flex items-center px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg"
+                    >
+                      <Brain className="w-5 h-5 mr-2" />
+                      {aiGenerating ? '🤖 AI 생성 중...' : '✨ AI로 자동 생성'}
+                    </button>
+                  </div>
+                )}
 
                 {/* AI Result Display */}
                 {aiResult && (
@@ -563,8 +608,8 @@ const DispatchRulesPage: React.FC = () => {
                 >
                   취소
                 </button>
-                <Button onClick={handleCreate}>
-                  생성
+                <Button onClick={isEditMode ? handleUpdate : handleCreate}>
+                  {isEditMode ? '수정' : '생성'}
                 </Button>
               </div>
             </div>
