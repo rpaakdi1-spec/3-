@@ -38,6 +38,9 @@ const DispatchRulesPage: React.FC = () => {
     conditions: {},
     actions: {}
   });
+  
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiResult, setAiResult] = useState<any>(null);
 
   useEffect(() => {
     loadRules();
@@ -56,7 +59,7 @@ const DispatchRulesPage: React.FC = () => {
   };
 
   const handleCreate = async () => {
-    try {
+    try:
       await DispatchRulesAPI.create(formData);
       showNotification('Rule created successfully', 'success');
       setOpenDialog(false);
@@ -64,6 +67,40 @@ const DispatchRulesPage: React.FC = () => {
       resetForm();
     } catch (error) {
       showNotification('Failed to create rule', 'error');
+    }
+  };
+
+  const handleGenerateWithAI = async () => {
+    if (!formData.name.trim()) {
+      showNotification('규칙 이름을 먼저 입력하세요', 'error');
+      return;
+    }
+    
+    setAiGenerating(true);
+    setAiResult(null);
+    
+    try {
+      const result = await DispatchRulesAPI.generateWithAI({
+        name: formData.name,
+        description: formData.description,
+        rule_type: formData.rule_type
+      });
+      
+      setAiResult(result);
+      
+      // 자동으로 conditions와 actions 채우기
+      setFormData({
+        ...formData,
+        conditions: result.conditions,
+        actions: result.actions
+      });
+      
+      showNotification(`AI 생성 완료 (신뢰도: ${(result.confidence * 100).toFixed(0)}%)`, 'success');
+    } catch (error: any) {
+      console.error('AI generation error:', error);
+      showNotification('AI 생성 실패: ' + (error?.response?.data?.detail || error.message), 'error');
+    } finally {
+      setAiGenerating(false);
     }
   };
 
@@ -453,6 +490,33 @@ const DispatchRulesPage: React.FC = () => {
                     />
                   </div>
                 </div>
+
+                {/* AI Generation Button */}
+                <div className="flex items-center justify-center py-2">
+                  <button
+                    type="button"
+                    onClick={handleGenerateWithAI}
+                    disabled={aiGenerating || !formData.name.trim()}
+                    className="flex items-center px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg"
+                  >
+                    <Brain className="w-5 h-5 mr-2" />
+                    {aiGenerating ? '🤖 AI 생성 중...' : '✨ AI로 자동 생성'}
+                  </button>
+                </div>
+
+                {/* AI Result Display */}
+                {aiResult && (
+                  <div className="bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-200 rounded-lg p-4">
+                    <div className="flex items-center mb-2">
+                      <Brain className="w-5 h-5 text-purple-600 mr-2" />
+                      <span className="font-semibold text-purple-900">AI 분석 결과</span>
+                      <span className="ml-auto text-sm text-purple-700">
+                        신뢰도: {(aiResult.confidence * 100).toFixed(0)}%
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-700 mb-2">{aiResult.reasoning}</p>
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">

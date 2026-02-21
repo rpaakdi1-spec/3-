@@ -115,4 +115,23 @@ export const DispatchRulesAPI = {
     const response = await apiClient.post(`/dispatch-rules/optimize-order/${orderId}`);
     return response.data;
   },
+
+  // AI로 규칙 자동 생성
+  generateWithAI: async (payload: {
+    name: string;
+    description?: string;
+    rule_type?: string;
+  }): Promise<{
+    conditions: Record<string, any>;
+    actions: Record<string, any>;
+    confidence: number;
+    reasoning: string;
+  }> => {
+    const response = await apiClient.post('/dispatch-rules/generate-ai', {
+      name: payload.name,
+      description: payload.description || '',
+      rule_type: payload.rule_type || 'assignment'
+    });
+    return response.data;
+  },
 };
