@@ -403,7 +403,7 @@ class RuleGenerateRequest(BaseModel):
 
 @router.post("/generate-ai", summary="AI로 규칙 자동 생성")
 async def generate_rule_with_ai(
-    data: dict = Body(...),
+    request: Request,
     db: Session = Depends(get_db),
     current_user: dict = None
 ):
@@ -429,6 +429,10 @@ async def generate_rule_with_ai(
     from app.services.rule_ai_generator import RuleAIGenerator
     
     try:
+        # Parse request body
+        data = await request.json()
+        logger.info(f"AI generation request: {data}")
+        
         # Validate required fields
         name = data.get("name")
         if not name or len(name) == 0:
@@ -448,6 +452,7 @@ async def generate_rule_with_ai(
             rule_type=rule_type
         )
         
+        logger.info(f"AI generation result: {result}")
         return result
     
     except HTTPException:
