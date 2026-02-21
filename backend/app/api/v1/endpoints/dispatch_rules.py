@@ -7,12 +7,14 @@ from sqlalchemy import func, Integer
 from datetime import datetime
 from typing import List, Optional
 from pydantic import BaseModel, Field
+import logging
 
 from app.core.database import get_db
 from app.models.dispatch_rule import DispatchRule, RuleExecutionLog
 from app.services.rule_engine import RuleEngine
 from app.services.rule_parser import RuleParser
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # ============ Pydantic Schemas ============
@@ -390,3 +392,55 @@ async def optimize_order(
         raise HTTPException(status_code=404, detail=result['error'])
     
     return result
+
+# ============ AI Rule Generation ============
+
+class RuleGenerateRequest(BaseModel):
+    """AI 규칙 생성 요청"""
+    name: str = Field(..., min_length=1, max_length=200, description="규칙 이름")
+    description: str = Field(default="", max_length=1000, description="규칙 설명")
+    rule_type: str = Field(default="assignment", pattern="^(assignment|constraint|optimization)$")
+
+@router.post("/generate-ai", summary="AI로 규칙 자동 생성")
+async def generate_rule_with_ai(
+    request: RuleGenerateRequest,
+    db: Session = Depends(get_db),
+    current_user: dict = None
+):
+    """
+    AI를 사용하여 규칙 이름과 설명으로부터 conditions와 actions 자동 생성
+    
+    Example:
+        POST /api/v1/dispatch-rules/generate-ai
+        {
+            "name": "지게차가능거래처 -> 지게차가능기사로 배차",
+            "description": "지게차운전필요한거래처 -> 지게차 운전 가능한 기사로 배차",
+            "rule_type": "assignment"
+        }
+    
+    Returns:
+        {
+            "conditions": {...},
+            "actions": {...},
+            "confidence": 0.85,
+            "reasoning": "..."
+        }
+    """
+    from app.services.rule_ai_generator import RuleAIGenerator
+    
+    try:
+        generator = RuleAIGenerator()
+        result = await generator.generate_rule(
+            name=request.name,
+            description=request.description,
+            rule_type=request.rule_type
+        )
+        
+        return result
+    
+    except Exception as e:
+        logger.error(f"AI rule generation failed: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate rule: {str(e)}"
+        )
