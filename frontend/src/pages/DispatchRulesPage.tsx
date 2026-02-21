@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Layout from '../components/common/Layout';
 import {
   Box,
   Button,
@@ -196,33 +197,34 @@ const DispatchRulesPage: React.FC = () => {
   };
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
-        <Typography variant="h4">Dispatch Rules</Typography>
-        <Box display="flex" gap={2}>
-          <Button
-            variant="outlined"
-            startIcon={<SimulationIcon />}
-            onClick={() => setSimulationDialogOpen(true)}
-          >
-            Simulation
-          </Button>
-          <Button
-            variant="outlined"
-            startIcon={<TemplateIcon />}
-            onClick={() => setTemplateGalleryOpen(true)}
-          >
-            Templates
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => setOpenDialog(true)}
-          >
-            Create Rule
-          </Button>
+    <Layout>
+      <Box sx={{ p: 3 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
+          <Typography variant="h4">Dispatch Rules</Typography>
+          <Box display="flex" gap={2}>
+            <Button
+              variant="outlined"
+              startIcon={<SimulationIcon />}
+              onClick={() => setSimulationDialogOpen(true)}
+            >
+              Simulation
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<TemplateIcon />}
+              onClick={() => setTemplateGalleryOpen(true)}
+            >
+              Templates
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setOpenDialog(true)}
+            >
+              Create Rule
+            </Button>
+          </Box>
         </Box>
-      </Box>
 
       <Grid container spacing={3}>
         {rules.map((rule) => (
@@ -467,6 +469,7 @@ const DispatchRulesPage: React.FC = () => {
         onSelectTemplate={handleSelectTemplate}
       />
     </Box>
+    </Layout>
   );
 };
 
