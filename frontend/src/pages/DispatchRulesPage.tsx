@@ -25,6 +25,10 @@ const DispatchRulesPage: React.FC = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedRule, setSelectedRule] = useState<DispatchRule | null>(null);
   const [notification, setNotification] = useState({ show: false, message: '', type: 'success' as 'success' | 'error' });
+  const [testDialogOpen, setTestDialogOpen] = useState(false);
+  const [statsDialogOpen, setStatsDialogOpen] = useState(false);
+  const [ruleStats, setRuleStats] = useState<any>(null);
+  const [testResult, setTestResult] = useState<any>(null);
   
   const [formData, setFormData] = useState<CreateRulePayload>({
     name: '',
@@ -92,6 +96,43 @@ const DispatchRulesPage: React.FC = () => {
   const showNotification = (message: string, type: 'success' | 'error') => {
     setNotification({ show: true, message, type });
     setTimeout(() => setNotification({ show: false, message: '', type: 'success' }), 3000);
+  };
+
+  const handleTestRule = (rule: DispatchRule) => {
+    setSelectedRule(rule);
+    setTestDialogOpen(true);
+  };
+
+  const handleViewStats = async (rule: DispatchRule) => {
+    setSelectedRule(rule);
+    try {
+      const stats = await DispatchRulesAPI.getPerformance(rule.id);
+      setRuleStats(stats);
+      setStatsDialogOpen(true);
+    } catch (error) {
+      showNotification('Failed to load stats', 'error');
+    }
+  };
+
+  const handleRunTest = async () => {
+    if (!selectedRule) return;
+    
+    try {
+      // Sample test data
+      const testData = {
+        order: {
+          temperature_zone: '냉동',
+          distance_km: 75,
+          total_pallets: 10
+        }
+      };
+      
+      const result = await DispatchRulesAPI.test(selectedRule.id, testData);
+      setTestResult(result);
+      showNotification('Test completed successfully', 'success');
+    } catch (error) {
+      showNotification('Test failed', 'error');
+    }
   };
 
   const resetForm = () => {
@@ -278,14 +319,14 @@ const DispatchRulesPage: React.FC = () => {
               <div className="flex space-x-2">
                 <button
                   className="flex-1 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium flex items-center justify-center space-x-1"
-                  onClick={() => {/* TODO: Test rule */}}
+                  onClick={() => handleTestRule(rule)}
                 >
                   <Play className="w-4 h-4" />
                   <span>테스트</span>
                 </button>
                 <button
                   className="flex-1 px-3 py-2 bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100 transition-colors text-sm font-medium flex items-center justify-center space-x-1"
-                  onClick={() => {/* TODO: View stats */}}
+                  onClick={() => handleViewStats(rule)}
                 >
                   <BarChart3 className="w-4 h-4" />
                   <span>통계</span>
@@ -426,6 +467,161 @@ const DispatchRulesPage: React.FC = () => {
                 <Button onClick={handleCreate}>
                   생성
                 </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Test Dialog */}
+        {testDialogOpen && selectedRule && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-bold text-gray-900">규칙 테스트: {selectedRule.name}</h2>
+                <button
+                  onClick={() => {
+                    setTestDialogOpen(false);
+                    setTestResult(null);
+                  }}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <XCircle className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <p className="text-sm text-blue-800 mb-2">
+                    <strong>규칙 타입:</strong> {selectedRule.rule_type}
+                  </p>
+                  <p className="text-sm text-blue-800 mb-2">
+                    <strong>우선순위:</strong> {selectedRule.priority}
+                  </p>
+                  <p className="text-sm text-blue-800">
+                    <strong>설명:</strong> {selectedRule.description || '없음'}
+                  </p>
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-semibold mb-2">테스트 조건</h3>
+                  <pre className="bg-gray-100 p-4 rounded-lg text-sm overflow-x-auto">
+                    {JSON.stringify(selectedRule.conditions, null, 2)}
+                  </pre>
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-semibold mb-2">테스트 액션</h3>
+                  <pre className="bg-gray-100 p-4 rounded-lg text-sm overflow-x-auto">
+                    {JSON.stringify(selectedRule.actions, null, 2)}
+                  </pre>
+                </div>
+
+                {testResult && (
+                  <div className="bg-green-50 p-4 rounded-lg">
+                    <h3 className="text-lg font-semibold text-green-800 mb-2">테스트 결과</h3>
+                    <pre className="bg-white p-4 rounded text-sm overflow-x-auto">
+                      {JSON.stringify(testResult, null, 2)}
+                    </pre>
+                  </div>
+                )}
+
+                <div className="flex justify-end space-x-3">
+                  <button
+                    className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                    onClick={() => {
+                      setTestDialogOpen(false);
+                      setTestResult(null);
+                    }}
+                  >
+                    닫기
+                  </button>
+                  <Button onClick={handleRunTest}>
+                    <Play className="w-4 h-4 mr-2" />
+                    테스트 실행
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Stats Dialog */}
+        {statsDialogOpen && selectedRule && ruleStats && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-bold text-gray-900">규칙 통계: {selectedRule.name}</h2>
+                <button
+                  onClick={() => {
+                    setStatsDialogOpen(false);
+                    setRuleStats(null);
+                  }}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <XCircle className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <Card className="p-4">
+                  <p className="text-sm text-gray-600 mb-1">총 실행 횟수</p>
+                  <p className="text-3xl font-bold text-blue-600">
+                    {ruleStats.total_executions || 0}
+                  </p>
+                </Card>
+                <Card className="p-4">
+                  <p className="text-sm text-gray-600 mb-1">성공 횟수</p>
+                  <p className="text-3xl font-bold text-green-600">
+                    {ruleStats.success_count || 0}
+                  </p>
+                </Card>
+                <Card className="p-4">
+                  <p className="text-sm text-gray-600 mb-1">성공률</p>
+                  <p className="text-3xl font-bold text-green-600">
+                    {ruleStats.success_rate ? (ruleStats.success_rate * 100).toFixed(1) : 0}%
+                  </p>
+                </Card>
+                <Card className="p-4">
+                  <p className="text-sm text-gray-600 mb-1">평균 실행 시간</p>
+                  <p className="text-3xl font-bold text-purple-600">
+                    {ruleStats.avg_execution_time_ms ? ruleStats.avg_execution_time_ms.toFixed(1) : 0}ms
+                  </p>
+                </Card>
+              </div>
+
+              {ruleStats.total_distance_saved_km !== undefined && (
+                <div className="grid grid-cols-3 gap-4 mb-6">
+                  <Card className="p-4">
+                    <p className="text-sm text-gray-600 mb-1">절감 거리</p>
+                    <p className="text-2xl font-bold text-blue-600">
+                      {ruleStats.total_distance_saved_km.toFixed(1)} km
+                    </p>
+                  </Card>
+                  <Card className="p-4">
+                    <p className="text-sm text-gray-600 mb-1">절감 비용</p>
+                    <p className="text-2xl font-bold text-green-600">
+                      {ruleStats.total_cost_saved ? ruleStats.total_cost_saved.toLocaleString() : 0}원
+                    </p>
+                  </Card>
+                  <Card className="p-4">
+                    <p className="text-sm text-gray-600 mb-1">평균 거리 절감</p>
+                    <p className="text-2xl font-bold text-indigo-600">
+                      {ruleStats.avg_distance_saved_km ? ruleStats.avg_distance_saved_km.toFixed(1) : 0} km
+                    </p>
+                  </Card>
+                </div>
+              )}
+
+              <div className="flex justify-end">
+                <button
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                  onClick={() => {
+                    setStatsDialogOpen(false);
+                    setRuleStats(null);
+                  }}
+                >
+                  닫기
+                </button>
               </div>
             </div>
           </div>
