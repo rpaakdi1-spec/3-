@@ -403,7 +403,7 @@ class RuleGenerateRequest(BaseModel):
 
 @router.post("/generate-ai", summary="AI로 규칙 자동 생성")
 async def generate_rule_with_ai(
-    payload: RuleGenerateRequest = Body(...),
+    data: dict = Body(...),
     db: Session = Depends(get_db),
     current_user: dict = None
 ):
@@ -429,15 +429,29 @@ async def generate_rule_with_ai(
     from app.services.rule_ai_generator import RuleAIGenerator
     
     try:
+        # Validate required fields
+        name = data.get("name")
+        if not name or len(name) == 0:
+            raise HTTPException(status_code=400, detail="name is required")
+        
+        description = data.get("description", "")
+        rule_type = data.get("rule_type", "assignment")
+        
+        # Validate rule_type
+        if rule_type not in ["assignment", "constraint", "optimization"]:
+            raise HTTPException(status_code=400, detail="rule_type must be assignment, constraint, or optimization")
+        
         generator = RuleAIGenerator()
         result = await generator.generate_rule(
-            name=payload.name,
-            description=payload.description,
-            rule_type=payload.rule_type
+            name=name,
+            description=description,
+            rule_type=rule_type
         )
         
         return result
     
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"AI rule generation failed: {e}")
         raise HTTPException(
