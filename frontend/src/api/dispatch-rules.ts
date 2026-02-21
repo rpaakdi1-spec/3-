@@ -59,7 +59,7 @@ export const DispatchRulesAPI = {
 
   // 규칙 생성
   create: async (payload: CreateRulePayload): Promise<DispatchRule> => {
-    const response = await apiClient.post('/dispatch-rules', payload);
+    const response = await apiClient.post('/dispatch-rules/', payload);
     return response.data;
   },
 
