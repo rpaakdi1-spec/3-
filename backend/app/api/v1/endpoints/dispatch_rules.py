@@ -3,6 +3,7 @@ Dispatch Rules API Endpoints
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import func, Integer
 from datetime import datetime
 from typing import List, Optional
 from pydantic import BaseModel, Field
@@ -317,11 +318,9 @@ async def get_rule_performance(
         raise HTTPException(status_code=404, detail="Rule not found")
     
     # 통계 계산
-    from sqlalchemy import func
-    
     stats = db.query(
         func.count(RuleExecutionLog.id).label('total'),
-        func.sum(func.cast(RuleExecutionLog.success, db.Integer)).label('success_count'),
+        func.sum(func.cast(RuleExecutionLog.success, Integer)).label('success_count'),
         func.avg(RuleExecutionLog.execution_time_ms).label('avg_time'),
         func.sum(RuleExecutionLog.distance_saved_km).label('total_distance_saved'),
         func.sum(RuleExecutionLog.cost_saved).label('total_cost_saved')
