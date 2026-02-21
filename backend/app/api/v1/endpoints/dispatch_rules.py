@@ -1,7 +1,7 @@
 """
 Dispatch Rules API Endpoints
 """
-from fastapi import APIRouter, Depends, HTTPException, Query, Body
+from fastapi import APIRouter, Depends, HTTPException, Query, Body, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import func, Integer
 from datetime import datetime
@@ -219,7 +219,7 @@ async def delete_rule(
 @router.post("/{rule_id}/test")
 async def test_rule(
     rule_id: int,
-    request_body: dict = Body(...),
+    request: Request,
     db: Session = Depends(get_db),
     current_user: dict = None
 ):
@@ -230,6 +230,9 @@ async def test_rule(
     """
     import logging
     logger = logging.getLogger(__name__)
+    
+    # Parse request body
+    request_body = await request.json()
     logger.info(f"Test request received for rule {rule_id}: {request_body}")
     
     rule = db.query(DispatchRule).filter(DispatchRule.id == rule_id).first()
