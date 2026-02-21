@@ -120,8 +120,8 @@ const DispatchRulesPage: React.FC = () => {
     if (!selectedRule) return;
     
     try {
-      // Sample test data - match backend expected format
-      const testData = {
+      // Generate test data based on rule conditions
+      const testData: any = {
         order: {
           temperature_zone: '냉동',
           distance_km: 75,
@@ -129,6 +129,35 @@ const DispatchRulesPage: React.FC = () => {
           weight_kg: 500
         }
       };
+      
+      // Add fields based on rule conditions
+      const conditions = selectedRule.conditions || {};
+      
+      // Check for distance conditions
+      if (conditions['order.estimated_distance_km']) {
+        const distCondition = conditions['order.estimated_distance_km'];
+        if (distCondition['$gte']) {
+          testData.order.estimated_distance_km = distCondition['$gte'] + 10;
+        } else if (distCondition['$lte']) {
+          testData.order.estimated_distance_km = distCondition['$lte'] - 10;
+        }
+      }
+      
+      // Check for temperature zone
+      if (conditions['order.temperature_zone']) {
+        testData.order.temperature_zone = conditions['order.temperature_zone'];
+      }
+      
+      // Check for client/forklift requirements
+      if (conditions['client.requires_forklift'] !== undefined) {
+        testData.client = testData.client || {};
+        testData.client.requires_forklift = conditions['client.requires_forklift'];
+      }
+      
+      // Check for pickup_client_id
+      if (conditions['order.pickup_client_id']) {
+        testData.order.pickup_client_id = conditions['order.pickup_client_id'];
+      }
       
       const result = await DispatchRulesAPI.test(selectedRule.id, testData);
       setTestResult(result);
