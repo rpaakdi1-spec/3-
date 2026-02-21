@@ -59,7 +59,7 @@ const DispatchRulesPage: React.FC = () => {
   };
 
   const handleCreate = async () => {
-    try:
+    try {
       await DispatchRulesAPI.create(formData);
       showNotification('Rule created successfully', 'success');
       setOpenDialog(false);
