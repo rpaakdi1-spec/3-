@@ -403,7 +403,7 @@ class RuleGenerateRequest(BaseModel):
 
 @router.post("/generate-ai", summary="AI로 규칙 자동 생성")
 async def generate_rule_with_ai(
-    request: RuleGenerateRequest,
+    payload: RuleGenerateRequest,
     db: Session = Depends(get_db),
     current_user: dict = None
 ):
@@ -431,9 +431,9 @@ async def generate_rule_with_ai(
     try:
         generator = RuleAIGenerator()
         result = await generator.generate_rule(
-            name=request.name,
-            description=request.description,
-            rule_type=request.rule_type
+            name=payload.name,
+            description=payload.description,
+            rule_type=payload.rule_type
         )
         
         return result
