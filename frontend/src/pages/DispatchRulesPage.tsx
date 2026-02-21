@@ -75,7 +75,9 @@ const DispatchRulesPage: React.FC = () => {
   const handleUpdate = async () => {
     if (!editingRuleId) return;
     try {
-      await DispatchRulesAPI.update(editingRuleId, formData);
+      // Extract only the fields allowed for update (exclude rule_type)
+      const { rule_type, ...updatePayload } = formData;
+      await DispatchRulesAPI.update(editingRuleId, updatePayload);
       showNotification('규칙이 성공적으로 수정되었습니다', 'success');
       setOpenDialog(false);
       setIsEditMode(false);
