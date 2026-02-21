@@ -164,22 +164,24 @@ async def get_rule(
 @router.put("/{rule_id}", response_model=DispatchRuleResponse)
 async def update_rule(
     rule_id: int,
-    rule_update: DispatchRuleUpdate,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: dict = None
 ):
     """
     배차 규칙 수정
     """
+    # Parse request body directly to avoid FastAPI parameter name conflicts
+    update_data = await request.json()
+    
+    logger.info(f"Update request for rule {rule_id}: {update_data}")
+    
     db_rule = db.query(DispatchRule).filter(DispatchRule.id == rule_id).first()
     if not db_rule:
         raise HTTPException(status_code=404, detail="Rule not found")
     
     # 버전 증가
     db_rule.version += 1
-    
-    # 업데이트
-    update_data = rule_update.dict(exclude_unset=True)
     
     # 규칙 검증 (conditions나 actions가 업데이트되는 경우)
     if 'conditions' in update_data or 'actions' in update_data:
@@ -198,6 +200,7 @@ async def update_rule(
     db.commit()
     db.refresh(db_rule)
     
+    logger.info(f"Successfully updated rule {rule_id}, new version: {db_rule.version}")
     return db_rule
 
 @router.delete("/{rule_id}", status_code=204)
