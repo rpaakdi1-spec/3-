@@ -216,7 +216,7 @@ async def delete_rule(
     
     return
 
-@router.post("/{rule_id}/test", response_model=RuleTestResponse)
+@router.post("/{rule_id}/test")
 async def test_rule(
     rule_id: int,
     test_request: RuleTestRequest,
@@ -226,17 +226,27 @@ async def test_rule(
     """
     규칙 테스트 (dry run)
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"Test request received for rule {rule_id}: {test_request.dict()}")
+    
     rule = db.query(DispatchRule).filter(DispatchRule.id == rule_id).first()
     if not rule:
         raise HTTPException(status_code=404, detail="Rule not found")
     
-    engine = RuleEngine(db)
-    result = engine.evaluate_single_rule(rule_id, test_request.test_data)
-    
-    if 'error' in result:
-        raise HTTPException(status_code=400, detail=result['error'])
-    
-    return result
+    try:
+        engine = RuleEngine(db)
+        result = engine.evaluate_single_rule(rule_id, test_request.test_data)
+        
+        if 'error' in result:
+            logger.error(f"Rule evaluation error: {result['error']}")
+            return {"success": False, "error": result['error']}
+        
+        logger.info(f"Test completed successfully: {result}")
+        return {"success": True, "result": result}
+    except Exception as e:
+        logger.error(f"Test failed with exception: {str(e)}")
+        return {"success": False, "error": str(e)}
 
 @router.post("/{rule_id}/activate")
 async def activate_rule(
