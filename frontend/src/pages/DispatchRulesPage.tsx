@@ -109,8 +109,10 @@ const DispatchRulesPage: React.FC = () => {
       const stats = await DispatchRulesAPI.getPerformance(rule.id);
       setRuleStats(stats);
       setStatsDialogOpen(true);
-    } catch (error) {
-      showNotification('Failed to load stats', 'error');
+    } catch (error: any) {
+      console.error('Stats error:', error);
+      const message = error?.response?.data?.detail || 'Failed to load stats';
+      showNotification(message, 'error');
     }
   };
 
@@ -118,20 +120,24 @@ const DispatchRulesPage: React.FC = () => {
     if (!selectedRule) return;
     
     try {
-      // Sample test data
+      // Sample test data - match backend expected format
       const testData = {
         order: {
           temperature_zone: '냉동',
           distance_km: 75,
-          total_pallets: 10
+          total_pallets: 10,
+          weight_kg: 500
         }
       };
       
       const result = await DispatchRulesAPI.test(selectedRule.id, testData);
       setTestResult(result);
       showNotification('Test completed successfully', 'success');
-    } catch (error) {
-      showNotification('Test failed', 'error');
+    } catch (error: any) {
+      console.error('Test error:', error);
+      const message = error?.response?.data?.detail || 'Test failed';
+      showNotification(message, 'error');
+      setTestResult({ error: message });
     }
   };
 
