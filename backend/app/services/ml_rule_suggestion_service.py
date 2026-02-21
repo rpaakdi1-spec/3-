@@ -67,8 +67,8 @@ class MLRuleSuggestionService:
         # 2. 거리 기반 차량 선택 패턴 분석
         distance_rules = await self._analyze_distance_patterns(days_back)
         
-        # 3. 시간대별 배차 패턴 분석
-        time_rules = await self._analyze_time_patterns(days_back)
+        # 3. 시간대별 배차 패턴 분석 - DISABLED (Dispatch model lacks time fields)
+        # time_rules = await self._analyze_time_patterns(days_back)
         
         # 4. 적재율 최적화 패턴 분석
         capacity_rules = await self._analyze_capacity_patterns(days_back)
@@ -80,7 +80,7 @@ class MLRuleSuggestionService:
         all_suggestions = []
         all_suggestions.extend(temp_rules)
         all_suggestions.extend(distance_rules)
-        all_suggestions.extend(time_rules)
+        # all_suggestions.extend(time_rules)  # DISABLED
         all_suggestions.extend(capacity_rules)
         all_suggestions.extend(client_rules)
         
