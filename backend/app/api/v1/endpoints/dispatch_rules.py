@@ -147,6 +147,83 @@ async def list_rules(
     
     return rules
 
+@router.get("/conflicts")
+async def detect_rule_conflicts(
+    db: Session = Depends(get_db),
+):
+    """
+    규칙 충돌 감지
+    
+    활성화된 모든 규칙을 분석하여 충돌 가능성을 감지합니다.
+    """
+    try:
+        # 활성 규칙만 조회
+        rules = db.query(DispatchRule).filter(
+            DispatchRule.is_active == True
+        ).all()
+        
+        # 규칙을 dict로 변환
+        rules_dict = [
+            {
+                'id': rule.id,
+                'name': rule.name,
+                'is_active': rule.is_active,
+                'priority': rule.priority,
+                'conditions': rule.conditions or {},
+                'actions': rule.actions or {},
+            }
+            for rule in rules
+        ]
+        
+        # 충돌 감지 (간단한 로직)
+        conflicts = []
+        
+        # 우선순위 충돌 검사
+        priority_groups = {}
+        for rule in rules_dict:
+            priority = rule['priority']
+            if priority not in priority_groups:
+                priority_groups[priority] = []
+            priority_groups[priority].append(rule)
+        
+        for priority, group in priority_groups.items():
+            if len(group) > 1:
+                # 동일 우선순위 규칙들끼리 조건 유사도 검사
+                for i, rule1 in enumerate(group):
+                    for rule2 in group[i+1:]:
+                        cond1_keys = set(rule1['conditions'].keys())
+                        cond2_keys = set(rule2['conditions'].keys())
+                        
+                        if cond1_keys & cond2_keys:  # 조건 키가 겹치면
+                            conflicts.append({
+                                'rule1_id': rule1['id'],
+                                'rule1_name': rule1['name'],
+                                'rule2_id': rule2['id'],
+                                'rule2_name': rule2['name'],
+                                'type': 'priority_conflict',
+                                'type_name': '우선순위 충돌',
+                                'description': f"규칙 '{rule1['name']}'와 '{rule2['name']}'이(가) 동일한 우선순위({priority})를 가지며 조건이 유사합니다.",
+                                'severity': 'medium',
+                                'recommendation': f"우선순위를 다르게 설정하거나 조건을 명확히 구분하세요."
+                            })
+        
+        return {
+            'total_conflicts': len(conflicts),
+            'by_severity': {
+                'high': len([c for c in conflicts if c.get('severity') == 'high']),
+                'medium': len([c for c in conflicts if c.get('severity') == 'medium']),
+                'low': len([c for c in conflicts if c.get('severity') == 'low']),
+            },
+            'conflicts': conflicts
+        }
+    
+    except Exception as e:
+        logger.error(f"Conflict detection failed: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to detect conflicts: {str(e)}"
+        )
+
 @router.get("/{rule_id}", response_model=DispatchRuleResponse)
 async def get_rule(
     rule_id: int,
@@ -468,79 +545,3 @@ async def generate_rule_with_ai(
         )
 
 
-@router.get("/conflicts")
-async def detect_rule_conflicts(
-    db: Session = Depends(get_db),
-):
-    """
-    규칙 충돌 감지
-    
-    활성화된 모든 규칙을 분석하여 충돌 가능성을 감지합니다.
-    """
-    try:
-        # 활성 규칙만 조회
-        rules = db.query(DispatchRule).filter(
-            DispatchRule.is_active == True
-        ).all()
-        
-        # 규칙을 dict로 변환
-        rules_dict = [
-            {
-                'id': rule.id,
-                'name': rule.name,
-                'is_active': rule.is_active,
-                'priority': rule.priority,
-                'conditions': rule.conditions or {},
-                'actions': rule.actions or {},
-            }
-            for rule in rules
-        ]
-        
-        # 충돌 감지 (간단한 로직)
-        conflicts = []
-        
-        # 우선순위 충돌 검사
-        priority_groups = {}
-        for rule in rules_dict:
-            priority = rule['priority']
-            if priority not in priority_groups:
-                priority_groups[priority] = []
-            priority_groups[priority].append(rule)
-        
-        for priority, group in priority_groups.items():
-            if len(group) > 1:
-                # 동일 우선순위 규칙들끼리 조건 유사도 검사
-                for i, rule1 in enumerate(group):
-                    for rule2 in group[i+1:]:
-                        cond1_keys = set(rule1['conditions'].keys())
-                        cond2_keys = set(rule2['conditions'].keys())
-                        
-                        if cond1_keys & cond2_keys:  # 조건 키가 겹치면
-                            conflicts.append({
-                                'rule1_id': rule1['id'],
-                                'rule1_name': rule1['name'],
-                                'rule2_id': rule2['id'],
-                                'rule2_name': rule2['name'],
-                                'type': 'priority_conflict',
-                                'type_name': '우선순위 충돌',
-                                'description': f"규칙 '{rule1['name']}'와 '{rule2['name']}'이(가) 동일한 우선순위({priority})를 가지며 조건이 유사합니다.",
-                                'severity': 'medium',
-                                'recommendation': f"우선순위를 다르게 설정하거나 조건을 명확히 구분하세요."
-                            })
-        
-        return {
-            'total_conflicts': len(conflicts),
-            'by_severity': {
-                'high': len([c for c in conflicts if c.get('severity') == 'high']),
-                'medium': len([c for c in conflicts if c.get('severity') == 'medium']),
-                'low': len([c for c in conflicts if c.get('severity') == 'low']),
-            },
-            'conflicts': conflicts
-        }
-    
-    except Exception as e:
-        logger.error(f"Conflict detection failed: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to detect conflicts: {str(e)}"
-        )
