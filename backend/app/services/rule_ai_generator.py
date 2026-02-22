@@ -99,7 +99,7 @@ class RuleAIGenerator:
             }
     
     def _build_prompt(self, name: str, description: str, rule_type: str) -> str:
-        """AI 프롬프트 생성"""
+        """AI 프롬프트 생성 (개선된 버전)"""
         
         prompt = f"""당신은 물류 배차 시스템의 규칙 생성 전문가입니다.
 
@@ -111,45 +111,90 @@ class RuleAIGenerator:
 
 이 규칙을 JSON 형태의 조건(conditions)과 액션(actions)으로 변환해주세요.
 
+## 중요한 해석 지침
+
+1. **차량 관련 용어 해석**:
+   - "5톤 차량", "대형 차량" → min_vehicle_weight 또는 prefer_vehicle_weight (단위: kg)
+   - "차량 적재량", "최대 적재량" → vehicle_weight 필드 사용
+   - "팔레트" → total_pallets 필드 사용
+
+2. **조건(conditions)과 액션(actions) 구분**:
+   - conditions: 주문이나 거래처의 속성 (무엇을 필터링할지)
+   - actions: 차량이나 기사 선택 방법 (어떻게 배정할지)
+
+3. **필드 사용 우선순위**:
+   - 온도: order.temperature_zone (조건) + prefer_vehicle_type (액션)
+   - 거리: order.estimated_distance_km (조건) + prefer_vehicle_weight (액션)
+   - 기사 스킬: client.requires_forklift (조건) + require_driver_skill (액션)
+   - 중량: order.weight_kg (조건) + min_vehicle_weight (액션)
+
 ## 사용 가능한 필드
 
-### Conditions (조건)
+### Conditions (조건) - 주문/거래처 속성
 - order.temperature_zone: "냉동", "냉장", "상온"
-- order.estimated_distance_km: 거리 (숫자)
+- order.estimated_distance_km: 배송 거리 (숫자, km)
 - order.total_pallets: 팔레트 수 (숫자)
-- order.weight_kg: 중량 (숫자)
-- order.pickup_client_id: 고객 ID (숫자)
+- order.weight_kg: 화물 중량 (숫자, kg)
+- order.pickup_client_id: 픽업 거래처 ID (숫자)
+- order.delivery_time_start: 배송 시작 시간 (HH:MM 형식)
+- order.is_fragile: 깨지기 쉬운 화물 (true/false)
+- order.cargo_value: 화물 가격 (숫자, 원)
 - client.requires_forklift: 지게차 필요 여부 (true/false)
+- client.is_vip: VIP 고객 여부 (true/false)
 - client.special_requirements: 특수 요구사항 (문자열)
-- vehicle.vehicle_type: "냉동탑차", "냉장탑차", "상온탑차"
+- weather.condition: 날씨 상태 ("rain", "snow", "clear")
 
-### Actions (액션)
-- prefer_vehicle_type: 선호 차량 타입
-- require_driver_skill: 필요 기사 기술 (예: "forklift", "hazmat")
-- priority_weight: 우선순위 가중치 (1.0-2.0)
-- max_distance_km: 최대 거리 제한
-- prefer_driver_id: 선호 기사 ID
-- require_vehicle_capacity: 필요 차량 용량
+### Actions (액션) - 차량/기사 선택 방법
+- prefer_vehicle_type: 선호 차량 타입 ("냉동탑차", "냉장탑차", "상온탑차", "대형차량")
+- prefer_vehicle_weight: 선호 차량 적재량 (숫자, kg)
+- min_vehicle_weight: 최소 차량 적재량 (숫자, kg)
+- max_vehicle_weight: 최대 차량 적재량 (숫자, kg)
+- require_driver_skill: 필요 기사 기술 ("forklift", "hazmat", "careful_driving", "winter_driving")
+- min_driver_experience_years: 최소 경력 (숫자, 년)
+- min_driver_rating: 최소 평점 (숫자, 1-5)
+- priority_weight: 우선순위 가중치 (1.0-2.0, 높을수록 우선)
+- max_distance_km: 최대 배송 거리 제한 (숫자, km)
+- max_speed_limit: 최대 속도 제한 (숫자, km/h)
+- require_insurance: 보험 필수 (true/false)
+- require_gps_tracking: GPS 추적 필수 (true/false)
+- consolidate_orders: 주문 통합 (true/false)
 
-### 거리 조건 표현
-- {{"$gte": 50}} - 50 이상
-- {{"$lte": 100}} - 100 이하
+### 거리/중량 조건 표현 예시
+- {{"$gte": 100}} - 100 이상
+- {{"$lte": 50}} - 50 이하
 - {{"$between": [50, 100]}} - 50-100 사이
 
-## 응답 형식 (반드시 JSON만 출력)
+## 응답 형식 (반드시 유효한 JSON만 출력)
 
 {{
   "conditions": {{
-    "조건_필드명": 조건_값
+    "필드명": 값_또는_조건
   }},
   "actions": {{
-    "액션_필드명": 액션_값
+    "필드명": 값
   }},
-  "confidence": 0.85,
-  "reasoning": "이 규칙을 이렇게 해석했습니다: ..."
+  "confidence": 0.90,
+  "reasoning": "이 규칙을 이렇게 해석했습니다: [상세한 설명]"
 }}
 
-**중요**: JSON만 출력하고 다른 설명은 넣지 마세요.
+## 예시
+
+입력: "100km 이상 장거리는 5톤 이상 차량"
+출력:
+{{
+  "conditions": {{
+    "order.estimated_distance_km": {{"$gte": 100}}
+  }},
+  "actions": {{
+    "min_vehicle_weight": 5000,
+    "prefer_vehicle_weight": 5000,
+    "priority_weight": 1.5
+  }},
+  "confidence": 0.95,
+  "reasoning": "100km 이상 장거리 배송은 연료 효율과 안정성을 위해 최소 5톤(5000kg) 적재량의 차량이 필요합니다. min_vehicle_weight로 최소 요구사항을 설정하고 prefer_vehicle_weight로 선호도를 표현했습니다."
+}}
+
+**중요**: JSON만 출력하고 다른 텍스트는 넣지 마세요. 마크다운 코드 블록도 사용하지 마세요.
 """
         return prompt
     

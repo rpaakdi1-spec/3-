@@ -856,7 +856,11 @@ const DispatchRulesPage: React.FC = () => {
                         templateCategories[template.category].color === 'green' ? 'bg-green-100 text-green-800' :
                         templateCategories[template.category].color === 'purple' ? 'bg-purple-100 text-purple-800' :
                         templateCategories[template.category].color === 'yellow' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-red-100 text-red-800'
+                        templateCategories[template.category].color === 'red' ? 'bg-red-100 text-red-800' :
+                        templateCategories[template.category].color === 'indigo' ? 'bg-indigo-100 text-indigo-800' :
+                        templateCategories[template.category].color === 'pink' ? 'bg-pink-100 text-pink-800' :
+                        templateCategories[template.category].color === 'cyan' ? 'bg-cyan-100 text-cyan-800' :
+                        'bg-gray-100 text-gray-800'
                       }`}>
                         {templateCategories[template.category].icon} {templateCategories[template.category].label}
                       </span>

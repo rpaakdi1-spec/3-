@@ -7,7 +7,7 @@ export interface RuleTemplate {
   id: string;
   name: string;
   description: string;
-  category: 'temperature' | 'distance' | 'skill' | 'client' | 'capacity';
+  category: 'temperature' | 'distance' | 'skill' | 'client' | 'capacity' | 'time' | 'special' | 'weather';
   rule_type: 'assignment' | 'constraint' | 'optimization';
   priority: number;
   conditions: Record<string, any>;
@@ -188,6 +188,118 @@ export const ruleTemplates: RuleTemplate[] = [
       'priority_weight': 1.5
     },
     icon: '⚖️'
+  },
+
+  // 시간 관련 템플릿 (추가)
+  {
+    id: 'early-morning-delivery',
+    name: '새벽 배송 (02:00-06:00) → 경력 기사 배정',
+    description: '새벽 시간대 배송은 경험 많은 기사에게 우선 배정',
+    category: 'time',
+    rule_type: 'assignment',
+    priority: 88,
+    conditions: {
+      'order.delivery_time_start': { '$gte': '02:00', '$lte': '06:00' }
+    },
+    actions: {
+      'min_driver_experience_years': 2,
+      'priority_weight': 1.7
+    },
+    icon: '🌙'
+  },
+  {
+    id: 'rush-hour-avoidance',
+    name: '출퇴근 시간 회피 (07:00-09:00, 18:00-20:00)',
+    description: '혼잡 시간대는 지역 전문 기사 우선 배정',
+    category: 'time',
+    rule_type: 'optimization',
+    priority: 70,
+    conditions: {
+      'order.delivery_time_start': { 
+        '$in': [
+          { '$gte': '07:00', '$lte': '09:00' },
+          { '$gte': '18:00', '$lte': '20:00' }
+        ]
+      }
+    },
+    actions: {
+      'prefer_local_driver': true,
+      'priority_weight': 1.4
+    },
+    icon: '🚦'
+  },
+
+  // 특수 주문 템플릿 (추가)
+  {
+    id: 'fragile-items',
+    name: '깨지기 쉬운 화물 → 조심 운전 기사',
+    description: '유리, 도자기 등 파손 위험 화물은 조심 운전 기사 배정',
+    category: 'special',
+    rule_type: 'assignment',
+    priority: 92,
+    conditions: {
+      'order.is_fragile': true
+    },
+    actions: {
+      'require_driver_skill': 'careful_driving',
+      'max_speed_limit': 80,
+      'priority_weight': 1.8
+    },
+    icon: '🔴'
+  },
+  {
+    id: 'high-value-cargo',
+    name: '고가 화물 (1000만원 이상) → 보험 가입 차량',
+    description: '고가 화물은 보험 가입 차량으로만 배송',
+    category: 'special',
+    rule_type: 'constraint',
+    priority: 98,
+    conditions: {
+      'order.cargo_value': { '$gte': 10000000 }
+    },
+    actions: {
+      'require_insurance': true,
+      'require_gps_tracking': true,
+      'priority_weight': 2.0
+    },
+    icon: '💎'
+  },
+
+  // 날씨 관련 템플릿 (추가)
+  {
+    id: 'rain-weather',
+    name: '우천 시 → 4WD 차량 우선',
+    description: '비오는 날은 4륜구동 차량으로 안전 배송',
+    category: 'weather',
+    rule_type: 'assignment',
+    priority: 75,
+    conditions: {
+      'weather.condition': 'rain'
+    },
+    actions: {
+      'prefer_vehicle_feature': '4WD',
+      'max_speed_limit': 70,
+      'priority_weight': 1.4
+    },
+    icon: '🌧️'
+  },
+  {
+    id: 'snow-weather',
+    name: '적설 시 → 체인 장착 차량만',
+    description: '눈 오는 날은 체인 장착 차량으로만 배송',
+    category: 'weather',
+    rule_type: 'constraint',
+    priority: 95,
+    conditions: {
+      'weather.condition': 'snow'
+    },
+    actions: {
+      'require_snow_chains': true,
+      'require_driver_skill': 'winter_driving',
+      'max_speed_limit': 60,
+      'priority_weight': 2.0
+    },
+    icon: '❄️'
   }
 ];
 
@@ -196,5 +308,8 @@ export const templateCategories = {
   distance: { label: '거리 최적화', color: 'green', icon: '🚛' },
   skill: { label: '기사 스킬', color: 'purple', icon: '🏗️' },
   client: { label: '고객사 관리', color: 'yellow', icon: '⭐' },
-  capacity: { label: '적재 최적화', color: 'red', icon: '📦' }
+  capacity: { label: '적재 최적화', color: 'red', icon: '📦' },
+  time: { label: '시간대 관리', color: 'indigo', icon: '🌙' },
+  special: { label: '특수 화물', color: 'pink', icon: '💎' },
+  weather: { label: '날씨 대응', color: 'cyan', icon: '🌧️' }
 };
