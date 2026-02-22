@@ -37,6 +37,8 @@ class Dispatch(Base, IDMixin, TimestampMixin):
     total_distance_km: Mapped[Optional[float]] = mapped_column(Float, comment="총 주행거리(km)")
     empty_distance_km: Mapped[Optional[float]] = mapped_column(Float, comment="공차거리(km)")
     estimated_duration_minutes: Mapped[Optional[int]] = mapped_column(Integer, comment="예상 소요시간(분)")
+    planned_start_time: Mapped[Optional[str]] = mapped_column(String(5), comment="계획 출발시간(HH:MM)")
+    planned_end_time: Mapped[Optional[str]] = mapped_column(String(5), comment="계획 종료시간(HH:MM)")
     
     # 비용
     estimated_cost: Mapped[Optional[float]] = mapped_column(Float, comment="예상 비용")
@@ -114,6 +116,7 @@ class DispatchRoute(Base, IDMixin, TimestampMixin):
     
     # 이전 지점으로부터의 거리/시간
     distance_from_previous_km: Mapped[Optional[float]] = mapped_column(Float, comment="이전 지점 거리(km)")
+    actual_distance_km: Mapped[Optional[float]] = mapped_column(Float, comment="실제 주행거리(km)")
     duration_from_previous_minutes: Mapped[Optional[int]] = mapped_column(Integer, comment="이전 지점 소요시간(분)")
     
     # 예상 도착/작업 시간
