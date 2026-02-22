@@ -73,6 +73,10 @@ services:
       
       # API
       API_PREFIX: /api/v1
+
+      # Naver Map API
+      NAVER_MAP_CLIENT_ID: ${NAVER_MAP_CLIENT_ID}
+      NAVER_MAP_CLIENT_SECRET: ${NAVER_MAP_CLIENT_SECRET}
       
       # AI API Keys
       OPENAI_API_KEY: ${OPENAI_API_KEY}
