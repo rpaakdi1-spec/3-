@@ -210,6 +210,7 @@ class RuleAIGenerator:
         AI 없이 규칙 기반으로 생성 (폴백)
         
         키워드 매칭으로 간단한 규칙 생성
+        우선순위: 지게차 > 온도 > 거리 > 중량
         """
         conditions = {}
         actions = {}
@@ -217,8 +218,18 @@ class RuleAIGenerator:
         
         text = (name + " " + description).lower()
         
-        # 온도 관련
-        if "냉동" in text:
+        # 우선순위 1: 지게차 관련 (가장 명확한 요구사항)
+        if "지게차" in text or "forklift" in text:
+            conditions["client.requires_forklift"] = True
+            actions["require_driver_skill"] = "forklift"
+            actions["priority_weight"] = 1.5
+            reasoning.append("지게차 요구사항 감지")
+            
+            # 지게차 규칙이면 온도는 무시 (지게차가 주 조건)
+            logger.info(f"🔧 Forklift rule detected, ignoring temperature keywords")
+        
+        # 우선순위 2: 온도 관련 (지게차 규칙이 아닐 때만)
+        elif "냉동" in text:
             conditions["order.temperature_zone"] = "냉동"
             actions["prefer_vehicle_type"] = "냉동탑차"
             reasoning.append("냉동 온도대 감지")
@@ -231,14 +242,7 @@ class RuleAIGenerator:
             actions["prefer_vehicle_type"] = "상온탑차"
             reasoning.append("상온 감지")
         
-        # 지게차 관련
-        if "지게차" in text or "forklift" in text:
-            conditions["client.requires_forklift"] = True
-            actions["require_driver_skill"] = "forklift"
-            actions["priority_weight"] = 1.5
-            reasoning.append("지게차 요구사항 감지")
-        
-        # 거리 관련
+        # 우선순위 3: 거리 관련
         import re
         distance_match = re.search(r'(\d+)\s*km\s*(이상|이하|초과|미만)', text)
         if distance_match:
@@ -248,21 +252,39 @@ class RuleAIGenerator:
             if operator in ["이상", "초과"]:
                 conditions["order.estimated_distance_km"] = {"$gte": distance}
                 reasoning.append(f"{distance}km 이상 조건 감지")
+                # 거리 제한이 있으면 차량 용량도 추가
+                if distance >= 100:
+                    actions["prefer_vehicle_weight"] = 5000
+                    reasoning.append("장거리는 대형 차량 선호")
             elif operator in ["이하", "미만"]:
                 conditions["order.estimated_distance_km"] = {"$lte": distance}
                 reasoning.append(f"{distance}km 이하 조건 감지")
         
-        # 우선순위 설정
+        # 우선순위 4: 우선순위 가중치
         if "우선" in text or "먼저" in text:
             if "priority_weight" not in actions:
                 actions["priority_weight"] = 1.3
             reasoning.append("우선순위 설정")
         
-        confidence = 0.6 if conditions and actions else 0.3
+        # 경고: 조건이 없으면 낮은 신뢰도
+        if not conditions:
+            logger.warning(f"⚠️ No conditions detected from: '{name}' - '{description}'")
+            confidence = 0.2
+            reasoning.append("⚠️ 명확한 조건을 찾지 못했습니다. 수동으로 조건을 입력해주세요.")
+        elif not actions:
+            logger.warning(f"⚠️ No actions detected from: '{name}' - '{description}'")
+            confidence = 0.3
+            reasoning.append("⚠️ 명확한 액션을 찾지 못했습니다. 수동으로 액션을 입력해주세요.")
+        else:
+            # 조건과 액션이 모두 있으면 중간 신뢰도
+            confidence = 0.65
         
-        return {
+        result = {
             "conditions": conditions,
             "actions": actions,
             "confidence": confidence,
-            "reasoning": "규칙 기반 생성: " + ", ".join(reasoning) if reasoning else "패턴을 찾지 못했습니다."
+            "reasoning": "규칙 기반 생성: " + ", ".join(reasoning) if reasoning else "패턴을 찾지 못했습니다. AI 모델(OpenAI/Gemini)을 설정하면 더 정확합니다."
         }
+        
+        logger.info(f"📋 Rule-based generation result: confidence={confidence:.2f}, conditions={len(conditions)}, actions={len(actions)}")
+        return result
