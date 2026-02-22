@@ -1,226 +1,137 @@
 #!/bin/bash
+# =============================================================================
+# UVIS 배차 시스템 빠른 배포 스크립트
+# 작성일: 2026-02-22
+# 용도: 서버에서 최신 코드 배포 및 검증
+# =============================================================================
 
-# 프로덕션 배포 스크립트
-# 사용법: ./deploy.sh [start|stop|restart|status|logs]
+set -e  # 에러 발생 시 즉시 중단
 
-set -e
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "🚀 UVIS 배차 시스템 배포 시작"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
 
-# 색상 정의
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+# 1. 코드 업데이트
+echo "📥 1/6: Git 코드 업데이트..."
+cd /root/uvis
+git pull origin main
+echo "✅ 코드 업데이트 완료"
+echo ""
 
-# 로그 함수
-log_info() {
-    echo -e "${GREEN}[INFO]${NC} $1"
-}
+# 2. 백업 스크립트 확인
+echo "💾 2/6: 백업 스크립트 확인..."
+if [ ! -f "/root/uvis/backup_database.sh" ]; then
+    echo "⚠️  백업 스크립트가 없습니다. 생성 중..."
+    cat > /root/uvis/backup_database.sh << 'BACKUP_EOF'
+#!/bin/bash
+BACKUP_DIR="/root/uvis/backups"
+LOG_FILE="/var/log/db_backup.log"
+DB_CONTAINER=$(docker ps --format '{{.Names}}' | grep -iE '(uvis.*db|.*postgres|.*db)' | head -1)
 
-log_warn() {
-    echo -e "${YELLOW}[WARN]${NC} $1"
-}
+if [ -z "$DB_CONTAINER" ]; then
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] ❌ DB 컨테이너를 찾을 수 없습니다" | tee -a "$LOG_FILE"
+  exit 1
+fi
 
-log_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
+DB_NAME="uvis_db"
+DB_USER="uvis_user"
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+BACKUP_FILE="$BACKUP_DIR/uvis_backup_$TIMESTAMP.sql"
 
-# 환경 변수 확인
-check_env() {
-    log_info "환경 변수 확인 중..."
-    
-    if [ ! -f .env ]; then
-        log_error ".env 파일이 없습니다."
-        log_info ".env.example을 복사하여 .env 파일을 생성하세요."
-        exit 1
-    fi
-    
-    # 필수 환경 변수 확인
-    source .env
-    
-    required_vars=(
-        "SECRET_KEY"
-        "DB_PASSWORD"
-        "REDIS_PASSWORD"
-    )
-    
-    for var in "${required_vars[@]}"; do
-        if [ -z "${!var}" ]; then
-            log_error "필수 환경 변수가 설정되지 않았습니다: $var"
-            exit 1
-        fi
-    done
-    
-    log_info "환경 변수 확인 완료 ✓"
-}
+mkdir -p "$BACKUP_DIR"
 
-# 사전 배포 점검
-pre_deploy_check() {
-    log_info "사전 배포 점검 시작..."
-    
-    # Docker 확인
-    if ! command -v docker &> /dev/null; then
-        log_error "Docker가 설치되어 있지 않습니다."
-        exit 1
-    fi
-    
-    # Docker Compose 확인
-    if ! command -v docker-compose &> /dev/null; then
-        log_error "Docker Compose가 설치되어 있지 않습니다."
-        exit 1
-    fi
-    
-    # 디스크 공간 확인
-    available_space=$(df -BG . | awk 'NR==2 {print $4}' | sed 's/G//')
-    if [ "$available_space" -lt 10 ]; then
-        log_warn "디스크 공간이 부족합니다: ${available_space}GB"
-    fi
-    
-    log_info "사전 배포 점검 완료 ✓"
-}
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] 📦 백업 시작 (컨테이너: $DB_CONTAINER)" | tee -a "$LOG_FILE"
 
-# 서비스 시작
-start_services() {
-    log_info "서비스 시작 중..."
-    
-    check_env
-    pre_deploy_check
-    
-    # Docker 이미지 빌드
-    log_info "Docker 이미지 빌드 중..."
-    docker-compose -f docker-compose.prod.yml build
-    
-    # 서비스 시작
-    log_info "컨테이너 시작 중..."
-    docker-compose -f docker-compose.prod.yml up -d
-    
-    # 헬스체크 대기
-    log_info "서비스 헬스체크 대기 중..."
-    sleep 10
-    
-    # 헬스체크
-    if curl -f http://localhost:8000/health > /dev/null 2>&1; then
-        log_info "서비스가 정상적으로 시작되었습니다 ✓"
-        log_info "API 문서: http://localhost:8000/docs"
-    else
-        log_error "서비스 헬스체크 실패"
-        log_info "로그를 확인하세요: docker-compose -f docker-compose.prod.yml logs"
-        exit 1
-    fi
-}
+docker exec $DB_CONTAINER pg_dump -U $DB_USER $DB_NAME > "$BACKUP_FILE" 2>&1
 
-# 서비스 중지
-stop_services() {
-    log_info "서비스 중지 중..."
-    docker-compose -f docker-compose.prod.yml down
-    log_info "서비스가 중지되었습니다 ✓"
-}
+if [ $? -eq 0 ] && [ -s "$BACKUP_FILE" ]; then
+  gzip "$BACKUP_FILE"
+  FILE_SIZE=$(du -h "${BACKUP_FILE}.gz" | cut -f1)
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] ✅ 백업 성공! 파일 크기: $FILE_SIZE" | tee -a "$LOG_FILE"
+  
+  find "$BACKUP_DIR" -name "uvis_backup_*.sql.gz" -mtime +30 -delete 2>/dev/null
+  
+  TOTAL=$(ls -1 "$BACKUP_DIR"/uvis_backup_*.sql.gz 2>/dev/null | wc -l)
+  TOTAL_SIZE=$(du -sh "$BACKUP_DIR" 2>/dev/null | cut -f1)
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] 📊 총 $TOTAL 개 백업 파일, 용량 $TOTAL_SIZE" | tee -a "$LOG_FILE"
+  exit 0
+else
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] ❌ 백업 실패" | tee -a "$LOG_FILE"
+  rm -f "$BACKUP_FILE"
+  exit 1
+fi
+BACKUP_EOF
+    chmod +x /root/uvis/backup_database.sh
+    echo "✅ 백업 스크립트 생성 완료"
+else
+    echo "✅ 백업 스크립트 확인 완료"
+fi
 
-# 서비스 재시작
-restart_services() {
-    log_info "서비스 재시작 중..."
-    stop_services
-    start_services
-}
+# Cron 등록 확인
+if ! crontab -l 2>/dev/null | grep -q "backup_database.sh"; then
+    echo "⚠️  Cron 작업이 등록되지 않았습니다. 등록 중..."
+    (crontab -l 2>/dev/null; echo "0 2 * * * /root/uvis/backup_database.sh >> /var/log/db_backup.log 2>&1") | crontab -
+    echo "✅ Cron 작업 등록 완료 (매일 02:00)"
+else
+    echo "✅ Cron 작업 확인 완료"
+fi
+echo ""
 
-# 서비스 상태 확인
-check_status() {
-    log_info "서비스 상태 확인 중..."
-    docker-compose -f docker-compose.prod.yml ps
-}
+# 3. 환경 변수 확인
+echo "🔧 3/6: 환경 변수 확인..."
+if grep -q "^#.*GEMINI_API_KEY" /root/uvis/.env 2>/dev/null; then
+    echo "⚠️  GEMINI_API_KEY가 주석 처리되어 있습니다. 활성화 중..."
+    sed -i 's/^# *GEMINI_API_KEY=/GEMINI_API_KEY=/' /root/uvis/.env
+    echo "✅ GEMINI_API_KEY 활성화 완료"
+elif grep -q "^GEMINI_API_KEY" /root/uvis/.env 2>/dev/null; then
+    echo "✅ GEMINI_API_KEY 활성화 확인 완료"
+else
+    echo "⚠️  GEMINI_API_KEY가 .env 파일에 없습니다. 수동 추가가 필요합니다."
+fi
+echo ""
 
-# 로그 확인
-view_logs() {
-    service=${2:-all}
-    if [ "$service" = "all" ]; then
-        docker-compose -f docker-compose.prod.yml logs -f
-    else
-        docker-compose -f docker-compose.prod.yml logs -f "$service"
-    fi
-}
+# 4. 백엔드 업데이트
+echo "🔄 4/6: 백엔드 코드 업데이트..."
+docker cp /root/uvis/backend/app/api/v1/endpoints/dispatch_rules.py \
+    uvis-backend:/app/app/api/v1/endpoints/
+echo "✅ 백엔드 파일 복사 완료"
+echo ""
 
-# 백업
-backup_data() {
-    log_info "데이터 백업 시작..."
-    
-    backup_dir="backups/$(date +%Y%m%d_%H%M%S)"
-    mkdir -p "$backup_dir"
-    
-    # PostgreSQL 백업
-    log_info "데이터베이스 백업 중..."
-    docker-compose -f docker-compose.prod.yml exec -T postgres \
-        pg_dump -U coldchain coldchain_dispatch > "$backup_dir/database.sql"
-    
-    # Redis 백업
-    log_info "Redis 백업 중..."
-    docker-compose -f docker-compose.prod.yml exec -T redis \
-        redis-cli --rdb "$backup_dir/redis.rdb" || true
-    
-    # 압축
-    tar -czf "$backup_dir.tar.gz" "$backup_dir"
-    rm -rf "$backup_dir"
-    
-    log_info "백업 완료: $backup_dir.tar.gz ✓"
-}
+# 5. 백엔드 재시작
+echo "♻️  5/6: 백엔드 재시작..."
+cd /root/uvis
+docker-compose restart backend
+echo "⏳ 백엔드 시작 대기 (30초)..."
+sleep 30
+echo "✅ 백엔드 재시작 완료"
+echo ""
 
-# 무중단 배포
-zero_downtime_deploy() {
-    log_info "무중단 배포 시작..."
-    
-    # 백업
-    backup_data
-    
-    # 새 버전 빌드
-    log_info "새 버전 빌드 중..."
-    docker-compose -f docker-compose.prod.yml build backend
-    
-    # 롤링 업데이트
-    log_info "롤링 업데이트 시작..."
-    docker-compose -f docker-compose.prod.yml up -d --no-deps backend
-    
-    # 헬스체크
-    sleep 10
-    if curl -f http://localhost:8000/health > /dev/null 2>&1; then
-        log_info "무중단 배포 완료 ✓"
-    else
-        log_error "헬스체크 실패. 이전 버전으로 롤백하세요."
-        exit 1
-    fi
-}
+# 6. 시스템 진단
+echo "🔍 6/6: 시스템 진단 실행..."
+if [ -f "/root/uvis/system_diagnosis.sh" ]; then
+    /root/uvis/system_diagnosis.sh
+else
+    echo "⚠️  system_diagnosis.sh 파일이 없습니다."
+    echo "ℹ️  수동으로 API 테스트를 진행하세요:"
+    echo "   curl -s -X POST http://localhost:8000/api/v1/auth/login \\"
+    echo "     -H 'Content-Type: application/x-www-form-urlencoded' \\"
+    echo "     -d 'username=admin&password=admin123'"
+fi
+echo ""
 
-# 메인 스크립트
-case "$1" in
-    start)
-        start_services
-        ;;
-    stop)
-        stop_services
-        ;;
-    restart)
-        restart_services
-        ;;
-    status)
-        check_status
-        ;;
-    logs)
-        view_logs "$@"
-        ;;
-    backup)
-        backup_data
-        ;;
-    deploy)
-        zero_downtime_deploy
-        ;;
-    *)
-        echo "사용법: $0 {start|stop|restart|status|logs [service]|backup|deploy}"
-        echo ""
-        echo "명령어:"
-        echo "  start   - 서비스 시작"
-        echo "  stop    - 서비스 중지"
-        echo "  restart - 서비스 재시작"
-        echo "  status  - 서비스 상태 확인"
-        echo "  logs    - 로그 확인 (옵션: 서비스명)"
-        echo "  backup  - 데이터 백업"
-        echo "  deploy  - 무중단 배포"
-        exit 1
-        ;;
-esac
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "✅ 배포 완료!"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+echo "📊 다음 단계:"
+echo "   1. 웹 UI 접속: http://139.150.11.99/dispatch-rules"
+echo "   2. 대시보드 접속: http://139.150.11.99/dashboard"
+echo "   3. 백엔드 로그 확인: docker logs uvis-backend --tail 50"
+echo "   4. 백업 테스트: /root/uvis/backup_database.sh"
+echo "   5. 충돌 감지 테스트: (위 스크립트 참조)"
+echo ""
+echo "📝 상세 가이드:"
+echo "   - DEPLOYMENT_SUMMARY.md (영문)"
+echo "   - FINAL_STATUS_REPORT_KO.md (한글)"
+echo ""
