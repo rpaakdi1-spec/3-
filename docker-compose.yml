@@ -74,6 +74,10 @@ services:
       # API
       API_PREFIX: /api/v1
       
+      # AI API Keys
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      
     depends_on:
       db:
         condition: service_healthy

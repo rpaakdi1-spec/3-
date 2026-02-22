@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import Layout from '../components/common/Layout';
 import Card from '../components/common/Card';
@@ -6,7 +6,7 @@ import Loading from '../components/common/Loading';
 import apiClient from '../api/client';
 import { Dispatch } from '../types';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import { Truck, Navigation, Clock, CheckCircle, Trash2, Edit2, X, Package, MapPin, AlertCircle } from 'lucide-react';
+import { Truck, Navigation, Clock, CheckCircle, Trash2, Edit2, X, Package, MapPin, AlertCircle, Filter, Search, Calendar } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 import toast from 'react-hot-toast';
 import { useResponsive } from '../hooks/useResponsive';
@@ -20,6 +20,12 @@ const DispatchesPage: React.FC = () => {
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [showModal, setShowModal] = useState(false);
   const { isMobile } = useResponsive();
+
+  // Filter states
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterVehicle, setFilterVehicle] = useState<string>('');
+  const [filterDate, setFilterDate] = useState<string>('');
+  const [searchText, setSearchText] = useState<string>('');
 
   useEffect(() => {
     fetchDispatches();
@@ -68,10 +74,10 @@ const DispatchesPage: React.FC = () => {
   };
 
   const handleSelectAll = () => {
-    if (selectedIds.length === dispatches.length) {
+    if (selectedIds.length === filteredDispatches.length) {
       setSelectedIds([]);
     } else {
-      setSelectedIds(dispatches.map(d => d.id));
+      setSelectedIds(filteredDispatches.map(d => d.id));
     }
   };
 
@@ -159,6 +165,57 @@ const DispatchesPage: React.FC = () => {
     }
   };
 
+  // Filtered dispatches
+  const filteredDispatches = useMemo(() => {
+    let filtered = [...dispatches];
+
+    // Status filter
+    if (filterStatus && filterStatus !== 'all') {
+      filtered = filtered.filter(d => d.status === filterStatus);
+    }
+
+    // Vehicle filter
+    if (filterVehicle) {
+      filtered = filtered.filter(d => 
+        d.vehicle_plate?.toLowerCase().includes(filterVehicle.toLowerCase()) ||
+        d.driver_name?.toLowerCase().includes(filterVehicle.toLowerCase())
+      );
+    }
+
+    // Date filter
+    if (filterDate) {
+      filtered = filtered.filter(d => {
+        const dispatchDate = new Date(d.dispatch_date).toISOString().split('T')[0];
+        return dispatchDate === filterDate;
+      });
+    }
+
+    // Search text filter
+    if (searchText) {
+      const search = searchText.toLowerCase();
+      filtered = filtered.filter(d =>
+        d.dispatch_number?.toLowerCase().includes(search) ||
+        d.vehicle_plate?.toLowerCase().includes(search) ||
+        d.driver_name?.toLowerCase().includes(search)
+      );
+    }
+
+    return filtered;
+  }, [dispatches, filterStatus, filterVehicle, filterDate, searchText]);
+
+  // Get unique vehicles for filter dropdown
+  const uniqueVehicles = useMemo(() => {
+    const vehicles = new Set(dispatches.map(d => d.vehicle_plate).filter(Boolean));
+    return Array.from(vehicles).sort();
+  }, [dispatches]);
+
+  const clearFilters = () => {
+    setFilterStatus('all');
+    setFilterVehicle('');
+    setFilterDate('');
+    setSearchText('');
+  };
+
   const getStatusBadge = (status: string) => {
     const styles = {
       임시저장: 'bg-gray-100 text-gray-800',
@@ -200,13 +257,92 @@ const DispatchesPage: React.FC = () => {
           </div>
         </div>
 
+        {/* Filters */}
+        <Card>
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Filter className="text-gray-400" size={20} />
+              <h3 className="font-semibold text-gray-700">필터</h3>
+              {(filterStatus !== 'all' || filterVehicle || filterDate || searchText) && (
+                <button
+                  onClick={clearFilters}
+                  className="ml-auto text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                >
+                  <X size={14} />
+                  필터 초기화
+                </button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              {/* Search */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                <input
+                  type="text"
+                  placeholder="배차번호, 차량, 기사 검색..."
+                  value={searchText}
+                  onChange={(e) => setSearchText(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              {/* Status Filter */}
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="all">전체 상태</option>
+                <option value="임시저장">임시저장</option>
+                <option value="확정">확정</option>
+                <option value="진행중">진행중</option>
+                <option value="완료">완료</option>
+                <option value="취소">취소</option>
+              </select>
+
+              {/* Vehicle Filter */}
+              <select
+                value={filterVehicle}
+                onChange={(e) => setFilterVehicle(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">전체 차량</option>
+                {uniqueVehicles.map(vehicle => (
+                  <option key={vehicle} value={vehicle}>{vehicle}</option>
+                ))}
+              </select>
+
+              {/* Date Filter */}
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                <input
+                  type="date"
+                  value={filterDate}
+                  onChange={(e) => setFilterDate(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="날짜 선택"
+                />
+              </div>
+            </div>
+
+            {/* Filter Results */}
+            <div className="text-sm text-gray-600">
+              <span className="font-semibold">{filteredDispatches.length}</span>개의 배차가 검색되었습니다.
+              {filteredDispatches.length !== dispatches.length && (
+                <span className="ml-2">(전체 {dispatches.length}개 중)</span>
+              )}
+            </div>
+          </div>
+        </Card>
+
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">전체 배차</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">{dispatches.length}</p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">{filteredDispatches.length}</p>
               </div>
               <Truck className="text-gray-400" size={32} />
             </div>
@@ -216,7 +352,7 @@ const DispatchesPage: React.FC = () => {
               <div>
                 <p className="text-sm text-gray-600">진행 중</p>
                 <p className="text-2xl font-bold text-green-600 mt-1">
-                  {dispatches.filter((d) => d.status === '진행중').length}
+                  {filteredDispatches.filter((d) => d.status === '진행중').length}
                 </p>
               </div>
               <Navigation className="text-green-400" size={32} />
@@ -227,7 +363,7 @@ const DispatchesPage: React.FC = () => {
               <div>
                 <p className="text-sm text-gray-600">배차 확정</p>
                 <p className="text-2xl font-bold text-yellow-600 mt-1">
-                  {dispatches.filter((d) => d.status === '확정').length}
+                  {filteredDispatches.filter((d) => d.status === '확정').length}
                 </p>
               </div>
               <Clock className="text-yellow-400" size={32} />
@@ -238,7 +374,7 @@ const DispatchesPage: React.FC = () => {
               <div>
                 <p className="text-sm text-gray-600">완료</p>
                 <p className="text-2xl font-bold text-gray-600 mt-1">
-                  {dispatches.filter((d) => d.status === 'COMPLETED').length}
+                  {filteredDispatches.filter((d) => d.status === 'COMPLETED').length}
                 </p>
               </div>
               <CheckCircle className="text-gray-400" size={32} />
@@ -258,7 +394,7 @@ const DispatchesPage: React.FC = () => {
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               />
-              {dispatches
+              {filteredDispatches
                 .filter((d) => d.current_location_lat && d.current_location_lon)
                 .map((dispatch) => (
                   <Marker
@@ -354,7 +490,7 @@ const DispatchesPage: React.FC = () => {
                 <p className="text-gray-500">진행 중인 배차가 없습니다</p>
               </div>
             ) : (
-              dispatches.map((dispatch) => (
+              filteredDispatches.map((dispatch) => (
                 <MobileDispatchCard
                   key={dispatch.id}
                   dispatch={{
@@ -416,7 +552,7 @@ const DispatchesPage: React.FC = () => {
                       </td>
                     </tr>
                   ) : (
-                    dispatches.map((dispatch) => (
+                    filteredDispatches.map((dispatch) => (
                       <tr
                         key={dispatch.id}
                         className="border-b border-gray-100 hover:bg-gray-50"

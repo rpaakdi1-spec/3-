@@ -1,13 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/common/Layout';
 import { Settings, User, Bell, Shield, Save } from 'lucide-react';
-import Layout from '../components/common/Layout';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
 import api from '../api/client';
 import { useAuthStore } from '../store/authStore';
-import Sidebar from '../components/common/Sidebar';
 
 const SettingsPage: React.FC = () => {
   const { user } = useAuthStore();
@@ -149,14 +147,11 @@ const SettingsPage: React.FC = () => {
 
   return (
     <Layout>
-    <div className="flex h-screen bg-gray-100">
-      <Sidebar />
-      <div className="flex-1 overflow-auto">
-        <div className="p-6">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-800">설정</h1>
-        <p className="text-gray-600 mt-1">시스템 및 개인 설정을 관리합니다</p>
-      </div>
+      <div className="p-6">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-gray-800">설정</h1>
+          <p className="text-gray-600 mt-1">시스템 및 개인 설정을 관리합니다</p>
+        </div>
 
       {message && (
         <div className={`mb-4 p-4 rounded-lg ${
@@ -168,31 +163,28 @@ const SettingsPage: React.FC = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-12 gap-6">
-        {/* Sidebar */}
-        <div className="col-span-12 md:col-span-3">
-          <Card className="p-2">
-            <nav className="space-y-1">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`w-full flex items-center px-4 py-3 rounded-lg transition-colors ${
-                    activeTab === tab.id
-                      ? 'bg-blue-50 text-blue-700 font-medium'
-                      : 'text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  <tab.icon size={20} className="mr-3" />
-                  {tab.label}
-                </button>
-              ))}
-            </nav>
-          </Card>
-        </div>
+      {/* Horizontal Tabs */}
+      <div className="mb-6 border-b border-gray-200">
+        <nav className="flex space-x-8">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center px-1 py-4 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === tab.id
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <tab.icon size={20} className="mr-2" />
+              {tab.label}
+            </button>
+          ))}
+        </nav>
+      </div>
 
-        {/* Content */}
-        <div className="col-span-12 md:col-span-9">
+      {/* Content */}
+      <div>
           {/* Profile Tab */}
           {activeTab === 'profile' && (
             <Card>
@@ -443,11 +435,8 @@ const SettingsPage: React.FC = () => {
               </div>
             </Card>
           )}
-        </div>
       </div>
-        </div>
       </div>
-    </div>
     </Layout>
   );
 };

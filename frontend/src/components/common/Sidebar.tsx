@@ -30,6 +30,7 @@ import {
   Download,
   ChevronDown,
   ChevronRight,
+  ListChecks,
 } from 'lucide-react';
 
 interface MenuItem {
@@ -56,6 +57,8 @@ const Sidebar: React.FC = () => {
     { path: '/ai-cost', label: 'AI 비용 모니터링', icon: DollarSign, roles: ['ADMIN'] },
     { path: '/ab-test', label: 'AB Test 모니터링', icon: Activity, roles: ['ADMIN'] },
     { path: '/dispatches', label: '배차 관리', icon: Truck, roles: ['ADMIN', 'DISPATCHER'] },
+    { path: '/dispatch-rules', label: '규칙 관리', icon: ListChecks, roles: ['ADMIN', 'DISPATCHER'], isNew: true },
+    { path: '/dispatch/monitoring', label: '실시간 배차 모니터링', icon: Radio, roles: ['ADMIN', 'DISPATCHER'], isNew: true },
     { path: '/realtime', label: '실시간 모니터링', icon: Radio, roles: ['ADMIN', 'DISPATCHER'] },
     { path: '/temperature-monitoring', label: '온도 모니터링', icon: Thermometer, roles: ['ADMIN', 'DISPATCHER'] },
     { path: '/temperature-analytics', label: '온도 분석', icon: BarChart3, roles: ['ADMIN', 'DISPATCHER'] },

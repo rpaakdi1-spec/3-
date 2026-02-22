@@ -2,6 +2,7 @@
  * useRealtimeData Hook
  * 
  * Custom React hook for WebSocket real-time data connections
+ * Enhanced with exponential backoff and network status detection
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -44,7 +45,7 @@ export function useRealtimeData<T = any>(
     onDisconnect,
     onError,
     autoReconnect = true,
-    reconnectInterval = 3000,
+    reconnectInterval = 1000, // Start with 1 second
     maxReconnectAttempts = 10
   } = options;
 
@@ -56,12 +57,36 @@ export function useRealtimeData<T = any>(
   const reconnectAttemptsRef = useRef(0);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const shouldReconnectRef = useRef(true);
+  const isOnlineRef = useRef(navigator.onLine);
+
+  // Calculate exponential backoff with jitter
+  const getBackoffDelay = useCallback((attempts: number) => {
+    // Exponential backoff: 1s, 2s, 4s, 8s, 16s (max 30s)
+    const baseDelay = Math.min(1000 * Math.pow(2, attempts), 30000);
+    // Add random jitter (±20%)
+    const jitter = baseDelay * 0.2 * (Math.random() - 0.5);
+    return baseDelay + jitter;
+  }, []);
 
   const connect = useCallback(() => {
+    // Check network connectivity
+    if (!isOnlineRef.current) {
+      console.log('⚠️ Network offline, waiting for connection...');
+      setError('Network offline');
+      return;
+    }
+
     try {
+      // Prevent duplicate connections
+      if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) {
+        console.log(`⚠️ WebSocket already ${wsRef.current.readyState === WebSocket.OPEN ? 'connected' : 'connecting'}`);
+        return;
+      }
+
       // Build WebSocket URL with token if provided
       const wsUrl = token ? `${url}?token=${token}` : url;
       
+      console.log(`🔌 Connecting to WebSocket: ${url}`);
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
@@ -69,7 +94,7 @@ export function useRealtimeData<T = any>(
         console.log(`✅ WebSocket connected: ${url}`);
         setIsConnected(true);
         setError(null);
-        reconnectAttemptsRef.current = 0;
+        reconnectAttemptsRef.current = 0; // Reset counter on successful connection
         
         if (onConnect) {
           onConnect();
@@ -86,10 +111,14 @@ export function useRealtimeData<T = any>(
             return;
           }
           
-          // Update data
-          setData(message.data || message);
+          // Skip state update for system messages (connected, keepalive, etc.)
+          // Only update state for actual data messages or messages with meaningful data
+          if (message.type !== 'connected' && message.type !== 'keepalive') {
+            // Update data
+            setData(message.data || message);
+          }
           
-          // Call custom message handler
+          // Call custom message handler (even for system messages)
           if (onMessage) {
             onMessage(message);
           }
@@ -107,30 +136,34 @@ export function useRealtimeData<T = any>(
         }
       };
 
-      ws.onclose = () => {
-        console.log(`🔌 WebSocket disconnected: ${url}`);
+      ws.onclose = (event) => {
+        console.log(`🔌 WebSocket disconnected: ${url} (code: ${event.code}, reason: ${event.reason || 'none'})`);
         setIsConnected(false);
+        wsRef.current = null;
         
         if (onDisconnect) {
           onDisconnect();
         }
         
-        // Attempt reconnection
+        // Attempt reconnection with exponential backoff
         if (
           autoReconnect &&
           shouldReconnectRef.current &&
+          isOnlineRef.current &&
           reconnectAttemptsRef.current < maxReconnectAttempts
         ) {
+          const delay = getBackoffDelay(reconnectAttemptsRef.current);
           reconnectAttemptsRef.current += 1;
           console.log(
-            `🔄 Reconnecting (${reconnectAttemptsRef.current}/${maxReconnectAttempts})...`
+            `🔄 Reconnecting (${reconnectAttemptsRef.current}/${maxReconnectAttempts}) in ${(delay / 1000).toFixed(1)}s...`
           );
           
           reconnectTimeoutRef.current = setTimeout(() => {
             connect();
-          }, reconnectInterval);
+          }, delay);
         } else if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
           setError('Max reconnection attempts reached');
+          console.error('❌ Max reconnection attempts reached');
         }
       };
     } catch (err) {
@@ -145,8 +178,8 @@ export function useRealtimeData<T = any>(
     onDisconnect,
     onError,
     autoReconnect,
-    reconnectInterval,
-    maxReconnectAttempts
+    maxReconnectAttempts,
+    getBackoffDelay
   ]);
 
   const disconnect = useCallback(() => {
@@ -158,7 +191,7 @@ export function useRealtimeData<T = any>(
     }
     
     if (wsRef.current) {
-      wsRef.current.close();
+      wsRef.current.close(1000, 'Client disconnect'); // 1000 = normal closure
       wsRef.current = null;
     }
     
@@ -180,6 +213,36 @@ export function useRealtimeData<T = any>(
     }
   }, []);
 
+  // Network status monitoring
+  useEffect(() => {
+    const handleOnline = () => {
+      console.log('📶 Network back online');
+      isOnlineRef.current = true;
+      setError(null);
+      
+      // Attempt to reconnect if not connected
+      if (!isConnected && shouldReconnectRef.current) {
+        console.log('🔄 Attempting to reconnect...');
+        reconnectAttemptsRef.current = 0; // Reset attempts on network recovery
+        connect();
+      }
+    };
+
+    const handleOffline = () => {
+      console.log('📵 Network offline');
+      isOnlineRef.current = false;
+      setError('Network offline');
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [isConnected, connect]);
+
   // Connect on mount
   useEffect(() => {
     connect();
@@ -193,7 +256,7 @@ export function useRealtimeData<T = any>(
       }
       
       if (wsRef.current) {
-        wsRef.current.close();
+        wsRef.current.close(1000, 'Component unmount');
       }
     };
   }, [connect]);
@@ -227,14 +290,15 @@ export interface DashboardMetrics {
 export function useRealtimeDashboard(token?: string) {
   const wsUrl = `${
     window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  }//${window.location.host}/ws/dashboard`;
+  }//${window.location.host}/api/v1/dispatches/ws/dashboard`;
 
   return useRealtimeData<DashboardMetrics>({
     url: wsUrl,
     token,
     onConnect: () => console.log('📊 Dashboard WebSocket connected'),
     onDisconnect: () => console.log('📊 Dashboard WebSocket disconnected'),
-    autoReconnect: true
+    autoReconnect: true,
+    maxReconnectAttempts: 15 // Allow more attempts for dashboard
   });
 }
 
@@ -260,7 +324,7 @@ export interface VehicleLocation {
 export function useRealtimeVehicle(vehicleId: number, token?: string) {
   const wsUrl = `${
     window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  }//${window.location.host}/ws/vehicles/${vehicleId}`;
+  }//${window.location.host}/api/v1/ws/vehicles/${vehicleId}`;
 
   return useRealtimeData<VehicleLocation>({
     url: wsUrl,
@@ -295,7 +359,7 @@ export function useRealtimeAlerts(
 ) {
   const wsUrl = `${
     window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  }//${window.location.host}/ws/alerts`;
+  }//${window.location.host}/api/v1/dispatches/ws/alerts`;
 
   return useRealtimeData<Alert>({
     url: wsUrl,
@@ -327,7 +391,7 @@ export interface DispatchUpdate {
 export function useRealtimeDispatches(token?: string) {
   const wsUrl = `${
     window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  }//${window.location.host}/ws/dispatches`;
+  }//${window.location.host}/api/v1/ws/dispatches`;
 
   return useRealtimeData<DispatchUpdate>({
     url: wsUrl,

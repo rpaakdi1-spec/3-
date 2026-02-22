@@ -33,6 +33,8 @@ interface RealtimeVehicle {
   gps_datetime: string;
   temperature_datetime: string;
   last_updated: string;
+  driver_name?: string | null;
+  driver_phone?: string | null;
 }
 
 // Vehicle icon creator with plate number label
@@ -187,8 +189,14 @@ const RealtimeDashboardPage: React.FC = () => {
   useEffect(() => {
     fetchRealtimeVehicles();
     
-    // Auto-refresh every 30 seconds
-    const vehicleInterval = setInterval(fetchRealtimeVehicles, 30000);
+    // Auto-refresh every 10 seconds (더 빠른 업데이트)
+    const vehicleInterval = setInterval(fetchRealtimeVehicles, 10000);
+    
+    // Auto GPS sync every 2 minutes (UVIS 서버에서 최신 데이터 가져오기)
+    const gpsInterval = setInterval(() => {
+      console.log('🔄 Auto GPS sync triggered');
+      handleSyncGPS();
+    }, 120000);
     
     // Update clock every second
     const clockInterval = setInterval(() => {
@@ -197,6 +205,7 @@ const RealtimeDashboardPage: React.FC = () => {
     
     return () => {
       clearInterval(vehicleInterval);
+      clearInterval(gpsInterval);
       clearInterval(clockInterval);
     };
   }, []);
@@ -387,6 +396,9 @@ const RealtimeDashboardPage: React.FC = () => {
                       UVIS GPS 실시간 추적 - {vehicles.length}대 운행 중
                       {loading && ' (불러오는 중...)'}
                     </p>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      📡 10초마다 자동 새로고침 · 2분마다 GPS 동기화
+                    </p>
                   </div>
                   <button
                     onClick={handleSyncGPS}
@@ -499,9 +511,34 @@ const RealtimeDashboardPage: React.FC = () => {
                         icon={createVehicleIcon(vehicle.vehicle_plate_number, status, temp || undefined)}
                       >
                         <Popup>
-                          <div className="p-2 min-w-[220px]">
+                          <div className="p-2 min-w-[240px]">
                             <h3 className="font-bold text-base mb-2">{vehicle.vehicle_plate_number}</h3>
                             <div className="space-y-1 text-sm">
+                              {/* Driver Information */}
+                              {(vehicle.driver_name || vehicle.driver_phone) && (
+                                <div className="pb-2 mb-2 border-b border-gray-200">
+                                  {vehicle.driver_name && (
+                                    <p className="text-gray-700 font-medium">
+                                      👤 운전자: {vehicle.driver_name}
+                                    </p>
+                                  )}
+                                  {vehicle.driver_phone && (
+                                    <p className="text-gray-700">
+                                      📞 연락처:{' '}
+                                      <a
+                                        href={`tel:${vehicle.driver_phone}`}
+                                        className="text-blue-600 hover:text-blue-800 hover:underline font-medium"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          console.log(`📞 Calling ${vehicle.driver_name || vehicle.vehicle_plate_number}: ${vehicle.driver_phone}`);
+                                        }}
+                                      >
+                                        {vehicle.driver_phone}
+                                      </a>
+                                    </p>
+                                  )}
+                                </div>
+                              )}
                               <p>
                                 <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${
                                   vehicle.is_engine_on ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'

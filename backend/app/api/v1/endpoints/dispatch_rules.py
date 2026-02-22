@@ -1,17 +1,20 @@
 """
 Dispatch Rules API Endpoints
 """
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Body, Request
 from sqlalchemy.orm import Session
+from sqlalchemy import func, Integer
 from datetime import datetime
 from typing import List, Optional
 from pydantic import BaseModel, Field
+import logging
 
 from app.core.database import get_db
 from app.models.dispatch_rule import DispatchRule, RuleExecutionLog
 from app.services.rule_engine import RuleEngine
 from app.services.rule_parser import RuleParser
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # ============ Pydantic Schemas ============
@@ -161,22 +164,24 @@ async def get_rule(
 @router.put("/{rule_id}", response_model=DispatchRuleResponse)
 async def update_rule(
     rule_id: int,
-    rule_update: DispatchRuleUpdate,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: dict = None
 ):
     """
     배차 규칙 수정
     """
+    # Parse request body directly to avoid FastAPI parameter name conflicts
+    update_data = await request.json()
+    
+    logger.info(f"Update request for rule {rule_id}: {update_data}")
+    
     db_rule = db.query(DispatchRule).filter(DispatchRule.id == rule_id).first()
     if not db_rule:
         raise HTTPException(status_code=404, detail="Rule not found")
     
     # 버전 증가
     db_rule.version += 1
-    
-    # 업데이트
-    update_data = rule_update.dict(exclude_unset=True)
     
     # 규칙 검증 (conditions나 actions가 업데이트되는 경우)
     if 'conditions' in update_data or 'actions' in update_data:
@@ -195,6 +200,7 @@ async def update_rule(
     db.commit()
     db.refresh(db_rule)
     
+    logger.info(f"Successfully updated rule {rule_id}, new version: {db_rule.version}")
     return db_rule
 
 @router.delete("/{rule_id}", status_code=204)
@@ -215,27 +221,45 @@ async def delete_rule(
     
     return
 
-@router.post("/{rule_id}/test", response_model=RuleTestResponse)
+@router.post("/{rule_id}/test")
 async def test_rule(
     rule_id: int,
-    test_request: RuleTestRequest,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: dict = None
 ):
     """
     규칙 테스트 (dry run)
+    
+    Request body: { "test_data": { ... } }
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    # Parse request body
+    request_body = await request.json()
+    logger.info(f"Test request received for rule {rule_id}: {request_body}")
+    
     rule = db.query(DispatchRule).filter(DispatchRule.id == rule_id).first()
     if not rule:
         raise HTTPException(status_code=404, detail="Rule not found")
     
-    engine = RuleEngine(db)
-    result = engine.evaluate_single_rule(rule_id, test_request.test_data)
+    # Extract test_data from request body
+    test_data = request_body.get("test_data", {})
     
-    if 'error' in result:
-        raise HTTPException(status_code=400, detail=result['error'])
-    
-    return result
+    try:
+        engine = RuleEngine(db)
+        result = engine.evaluate_single_rule(rule_id, test_data)
+        
+        if 'error' in result:
+            logger.error(f"Rule evaluation error: {result['error']}")
+            return {"success": False, "error": result['error']}
+        
+        logger.info(f"Test completed successfully: {result}")
+        return {"success": True, "result": result}
+    except Exception as e:
+        logger.error(f"Test failed with exception: {str(e)}")
+        return {"success": False, "error": str(e)}
 
 @router.post("/{rule_id}/activate")
 async def activate_rule(
@@ -317,11 +341,9 @@ async def get_rule_performance(
         raise HTTPException(status_code=404, detail="Rule not found")
     
     # 통계 계산
-    from sqlalchemy import func
-    
     stats = db.query(
         func.count(RuleExecutionLog.id).label('total'),
-        func.sum(func.cast(RuleExecutionLog.success, db.Integer)).label('success_count'),
+        func.sum(func.cast(RuleExecutionLog.success, Integer)).label('success_count'),
         func.avg(RuleExecutionLog.execution_time_ms).label('avg_time'),
         func.sum(RuleExecutionLog.distance_saved_km).label('total_distance_saved'),
         func.sum(RuleExecutionLog.cost_saved).label('total_cost_saved')
@@ -373,3 +395,74 @@ async def optimize_order(
         raise HTTPException(status_code=404, detail=result['error'])
     
     return result
+
+# ============ AI Rule Generation ============
+
+class RuleGenerateRequest(BaseModel):
+    """AI 규칙 생성 요청"""
+    name: str = Field(..., min_length=1, max_length=200, description="규칙 이름")
+    description: str = Field(default="", max_length=1000, description="규칙 설명")
+    rule_type: str = Field(default="assignment", pattern="^(assignment|constraint|optimization)$")
+
+@router.post("/generate-ai", summary="AI로 규칙 자동 생성")
+async def generate_rule_with_ai(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: dict = None
+):
+    """
+    AI를 사용하여 규칙 이름과 설명으로부터 conditions와 actions 자동 생성
+    
+    Example:
+        POST /api/v1/dispatch-rules/generate-ai
+        {
+            "name": "지게차가능거래처 -> 지게차가능기사로 배차",
+            "description": "지게차운전필요한거래처 -> 지게차 운전 가능한 기사로 배차",
+            "rule_type": "assignment"
+        }
+    
+    Returns:
+        {
+            "conditions": {...},
+            "actions": {...},
+            "confidence": 0.85,
+            "reasoning": "..."
+        }
+    """
+    from app.services.rule_ai_generator import RuleAIGenerator
+    
+    try:
+        # Parse request body
+        data = await request.json()
+        logger.info(f"AI generation request: {data}")
+        
+        # Validate required fields
+        name = data.get("name")
+        if not name or len(name) == 0:
+            raise HTTPException(status_code=400, detail="name is required")
+        
+        description = data.get("description", "")
+        rule_type = data.get("rule_type", "assignment")
+        
+        # Validate rule_type
+        if rule_type not in ["assignment", "constraint", "optimization"]:
+            raise HTTPException(status_code=400, detail="rule_type must be assignment, constraint, or optimization")
+        
+        generator = RuleAIGenerator()
+        result = await generator.generate_rule(
+            name=name,
+            description=description,
+            rule_type=rule_type
+        )
+        
+        logger.info(f"AI generation result: {result}")
+        return result
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"AI rule generation failed: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate rule: {str(e)}"
+        )

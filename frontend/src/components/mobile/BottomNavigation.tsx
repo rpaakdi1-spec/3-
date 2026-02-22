@@ -25,11 +25,6 @@ export const BottomNavigation: React.FC = () => {
   };
 
   const handleNavigation = (path: string) => {
-    if (path === '/more') {
-      // Show more menu modal
-      // TODO: Implement more menu
-      return;
-    }
     navigate(path);
   };
 

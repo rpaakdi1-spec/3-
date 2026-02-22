@@ -221,6 +221,7 @@ class TopClientResponse(BaseModel):
     client_id: int
     client_name: str
     total_revenue: float
+    total_collected: float
     invoice_count: int
     collection_rate: float
 

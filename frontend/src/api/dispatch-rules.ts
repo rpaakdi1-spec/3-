@@ -1,7 +1,5 @@
 // Dispatch Rules API Client
-import axios from 'axios';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+import apiClient from './client';
 
 export interface DispatchRule {
   id: number;
@@ -49,46 +47,46 @@ export const DispatchRulesAPI = {
     rule_type?: string;
     is_active?: boolean;
   }): Promise<DispatchRule[]> => {
-    const response = await axios.get(`${API_BASE_URL}/dispatch-rules`, { params });
+    const response = await apiClient.get('/dispatch-rules', { params });
     return response.data;
   },
 
   // 규칙 조회
   get: async (ruleId: number): Promise<DispatchRule> => {
-    const response = await axios.get(`${API_BASE_URL}/dispatch-rules/${ruleId}`);
+    const response = await apiClient.get(`/dispatch-rules/${ruleId}`);
     return response.data;
   },
 
   // 규칙 생성
   create: async (payload: CreateRulePayload): Promise<DispatchRule> => {
-    const response = await axios.post(`${API_BASE_URL}/dispatch-rules`, payload);
+    const response = await apiClient.post('/dispatch-rules/', payload);
     return response.data;
   },
 
   // 규칙 수정
   update: async (ruleId: number, payload: UpdateRulePayload): Promise<DispatchRule> => {
-    const response = await axios.put(`${API_BASE_URL}/dispatch-rules/${ruleId}`, payload);
+    const response = await apiClient.put(`/dispatch-rules/${ruleId}`, payload);
     return response.data;
   },
 
   // 규칙 삭제
   delete: async (ruleId: number): Promise<void> => {
-    await axios.delete(`${API_BASE_URL}/dispatch-rules/${ruleId}`);
+    await apiClient.delete(`/dispatch-rules/${ruleId}`);
   },
 
   // 규칙 활성화
   activate: async (ruleId: number): Promise<void> => {
-    await axios.post(`${API_BASE_URL}/dispatch-rules/${ruleId}/activate`);
+    await apiClient.post(`/dispatch-rules/${ruleId}/activate`);
   },
 
   // 규칙 비활성화
   deactivate: async (ruleId: number): Promise<void> => {
-    await axios.post(`${API_BASE_URL}/dispatch-rules/${ruleId}/deactivate`);
+    await apiClient.post(`/dispatch-rules/${ruleId}/deactivate`);
   },
 
   // 규칙 테스트
   test: async (ruleId: number, testData: Record<string, any>): Promise<any> => {
-    const response = await axios.post(`${API_BASE_URL}/dispatch-rules/${ruleId}/test`, {
+    const response = await apiClient.post(`/dispatch-rules/${ruleId}/test`, {
       test_data: testData
     });
     return response.data;
@@ -96,25 +94,44 @@ export const DispatchRulesAPI = {
 
   // 규칙 로그 조회
   getLogs: async (ruleId: number, params?: { skip?: number; limit?: number }): Promise<any[]> => {
-    const response = await axios.get(`${API_BASE_URL}/dispatch-rules/${ruleId}/logs`, { params });
+    const response = await apiClient.get(`/dispatch-rules/${ruleId}/logs`, { params });
     return response.data;
   },
 
   // 규칙 성능 조회
   getPerformance: async (ruleId: number): Promise<any> => {
-    const response = await axios.get(`${API_BASE_URL}/dispatch-rules/${ruleId}/performance`);
+    const response = await apiClient.get(`/dispatch-rules/${ruleId}/performance`);
     return response.data;
   },
 
   // 시뮬레이션
   simulate: async (testData: Record<string, any>): Promise<any> => {
-    const response = await axios.post(`${API_BASE_URL}/dispatch-rules/simulate`, testData);
+    const response = await apiClient.post('/dispatch-rules/simulate', testData);
     return response.data;
   },
 
   // 주문 최적화
   optimizeOrder: async (orderId: number): Promise<any> => {
-    const response = await axios.post(`${API_BASE_URL}/dispatch-rules/optimize-order/${orderId}`);
+    const response = await apiClient.post(`/dispatch-rules/optimize-order/${orderId}`);
+    return response.data;
+  },
+
+  // AI로 규칙 자동 생성
+  generateWithAI: async (payload: {
+    name: string;
+    description?: string;
+    rule_type?: string;
+  }): Promise<{
+    conditions: Record<string, any>;
+    actions: Record<string, any>;
+    confidence: number;
+    reasoning: string;
+  }> => {
+    const response = await apiClient.post('/dispatch-rules/generate-ai', {
+      name: payload.name,
+      description: payload.description || '',
+      rule_type: payload.rule_type || 'assignment'
+    });
     return response.data;
   },
 };

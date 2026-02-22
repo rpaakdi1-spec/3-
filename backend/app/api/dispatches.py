@@ -1,12 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, and_
 from typing import Optional
-from datetime import date
+from datetime import date, datetime
 import pandas as pd
 from pathlib import Path
 import tempfile
+import asyncio
 
 from app.core.database import get_db
 from app.models.dispatch import Dispatch, DispatchStatus
@@ -16,7 +17,7 @@ from app.schemas.dispatch import (
     DispatchResponse, DispatchDetailResponse, DispatchListResponse,
     OptimizationRequest, OptimizationResponse, DispatchUpdate,
     DispatchConfirmRequest, DispatchCompleteRequest, DispatchCancelRequest,
-    DispatchStatsResponse
+    DispatchStatsResponse, DashboardStatsResponse
 )
 from app.services.dispatch_optimization_service import DispatchOptimizationService
 from app.services.cvrptw_service import AdvancedDispatchOptimizationService
@@ -31,19 +32,25 @@ async def optimize_dispatch(
     db: Session = Depends(get_db)
 ):
     """
-    AI 기반 배차 최적화 (기본 Greedy 알고리즘)
+    AI 기반 배차 최적화 (기본 알고리즘)
     
     주어진 주문들에 대해 최적의 배차 계획을 생성합니다.
     - 온도대별 차량 매칭
     - 적재 용량 제약 (팔레트, 중량)
     - 거리 최적화
-    """
-    optimizer = DispatchOptimizationService(db)
     
-    result = await optimizer.optimize_dispatch(
+    Note: 내부적으로 CVRPTW 알고리즘을 사용합니다 (빠른 설정).
+    """
+    # 기본 최적화는 CVRPTW를 사용 (빠른 실행)
+    optimizer = AdvancedDispatchOptimizationService(db)
+    
+    result = await optimizer.optimize_dispatch_cvrptw(
         order_ids=request.order_ids,
         vehicle_ids=request.vehicle_ids,
-        dispatch_date=request.dispatch_date
+        dispatch_date=request.dispatch_date,
+        time_limit_seconds=15,  # 빠른 실행 (15초)
+        use_time_windows=False,  # 시간 제약 비활성화
+        use_real_routing=False   # Haversine 거리 사용
     )
     
     return OptimizationResponse(**result)
@@ -150,6 +157,229 @@ def get_dispatches(
         item.delivery_address = ", ".join(set(delivery_addresses)) if delivery_addresses else None
     
     return DispatchListResponse(total=total, items=items)
+
+
+@router.get("/dashboard", response_model=DashboardStatsResponse)
+def get_dashboard_stats(db: Session = Depends(get_db)):
+    """대시보드 통계 조회"""
+    from datetime import date, datetime
+    from app.models.vehicle import Vehicle
+    
+    today = date.today()
+    
+    # 전체 주문 수 (오늘)
+    total_orders = db.query(func.count(Order.id)).filter(
+        Order.created_at >= datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    ).scalar() or 0
+    
+    # 배차 대기 중인 주문 수
+    pending_orders = db.query(func.count(Order.id)).filter(
+        Order.status == OrderStatus.PENDING
+    ).scalar() or 0
+    
+    # 진행 중인 배차 수 (확정 + 진행중)
+    active_dispatches = db.query(func.count(Dispatch.id)).filter(
+        Dispatch.status.in_([DispatchStatus.CONFIRMED, DispatchStatus.IN_PROGRESS])
+    ).scalar() or 0
+    
+    # 오늘 완료된 배차 수
+    completed_today = db.query(func.count(Dispatch.id)).filter(
+        Dispatch.dispatch_date == today,
+        Dispatch.status == DispatchStatus.COMPLETED
+    ).scalar() or 0
+    
+    # 사용 가능한 차량 수
+    available_vehicles = db.query(func.count(Vehicle.id)).filter(
+        Vehicle.status == VehicleStatus.AVAILABLE,
+        Vehicle.is_active == True
+    ).scalar() or 0
+    
+    # 운행 중인 차량 수
+    active_vehicles = db.query(func.count(Vehicle.id)).filter(
+        Vehicle.status == VehicleStatus.IN_USE
+    ).scalar() or 0
+    
+    logger.info(f"Dashboard stats: orders={total_orders}, pending={pending_orders}, "
+                f"active_dispatches={active_dispatches}, completed_today={completed_today}, "
+                f"available_vehicles={available_vehicles}, active_vehicles={active_vehicles}")
+    
+    return DashboardStatsResponse(
+        total_orders=total_orders,
+        pending_orders=pending_orders,
+        active_dispatches=active_dispatches,
+        completed_today=completed_today,
+        available_vehicles=available_vehicles,
+        active_vehicles=active_vehicles,
+        revenue_today=0,  # TODO: 실제 수익 계산 로직 추가
+        revenue_month=0   # TODO: 실제 수익 계산 로직 추가
+    )
+
+
+@router.websocket("/ws/dashboard")
+async def websocket_dashboard(websocket: WebSocket):
+    """
+    대시보드 실시간 업데이트 WebSocket
+    
+    클라이언트에게 5초마다 대시보드 통계를 전송합니다.
+    """
+    from app.core.database import SessionLocal
+    from datetime import date, datetime
+    
+    await websocket.accept()
+    logger.info("✅ Dashboard WebSocket connected, will send real data immediately")
+    
+    try:
+        while True:
+            # 연결 상태 먼저 체크
+            if websocket.client_state.name != "CONNECTED":
+                logger.info(f"WebSocket not in CONNECTED state: {websocket.client_state.name}, exiting loop")
+                break
+            
+            # DB 쿼리를 비동기로 실행하여 성능 향상
+            try:
+                logger.info("🔄 Starting to collect dashboard stats...")
+                # Define sync helper function
+                def collect_stats():
+                    from app.models.vehicle import Vehicle
+                    
+                    db = SessionLocal()
+                    try:
+                        today = date.today()
+                        today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+                        
+                        # Optimize: Use single query with conditional aggregation
+                        from sqlalchemy import case
+                        
+                        # Single optimized query for orders
+                        order_stats = db.query(
+                            func.count(Order.id).label('total'),
+                            func.sum(case((Order.status == OrderStatus.PENDING, 1), else_=0)).label('pending')
+                        ).filter(
+                            Order.created_at >= today_start
+                        ).first()
+                        
+                        total_orders = order_stats.total or 0
+                        pending_orders = order_stats.pending or 0
+                        
+                        # Single optimized query for dispatches  
+                        dispatch_stats = db.query(
+                            func.sum(case((Dispatch.status.in_([DispatchStatus.CONFIRMED, DispatchStatus.IN_PROGRESS]), 1), else_=0)).label('active'),
+                            func.sum(case((and_(Dispatch.status == DispatchStatus.COMPLETED, Dispatch.dispatch_date == today), 1), else_=0)).label('completed')
+                        ).first()
+                        
+                        active_dispatches = dispatch_stats.active or 0
+                        completed_today = dispatch_stats.completed or 0
+                        
+                        # Single optimized query for vehicles
+                        vehicle_stats = db.query(
+                            func.sum(case((and_(Vehicle.status == VehicleStatus.AVAILABLE, Vehicle.is_active == True), 1), else_=0)).label('available'),
+                            func.sum(case((Vehicle.status == VehicleStatus.IN_USE, 1), else_=0)).label('active')
+                        ).first()
+                        
+                        available_vehicles = vehicle_stats.available or 0
+                        active_vehicles = vehicle_stats.active or 0
+                        
+                        return {
+                            "total_orders": total_orders,
+                            "pending_orders": pending_orders,
+                            "active_dispatches": active_dispatches,
+                            "completed_today": completed_today,
+                            "available_vehicles": available_vehicles,
+                            "active_vehicles": active_vehicles,
+                            "revenue_today": 0.0,
+                            "revenue_month": 0.0,
+                            "timestamp": datetime.now().isoformat(),
+                            "loading": False
+                        }
+                    finally:
+                        db.close()
+                
+                # Run in thread pool to avoid blocking
+                logger.info("⏳ Executing DB queries in thread pool...")
+                stats = await asyncio.to_thread(collect_stats)
+                logger.info(f"✅ Stats collected successfully: {stats}")
+                
+                # Try to send data
+                try:
+                    await websocket.send_json(stats)
+                    logger.info(f"📊 Sent dashboard stats: pending={stats['pending_orders']}, active={stats['active_dispatches']}")
+                except Exception as send_error:
+                    logger.warning(f"Failed to send stats: {type(send_error).__name__}: {send_error}")
+                    break  # Exit loop if send fails
+                
+            except Exception as inner_e:
+                error_type = type(inner_e).__name__
+                logger.error(f"Error collecting stats: {error_type}: {str(inner_e)}", exc_info=True)
+                # Break on any error
+                break
+            
+            # Wait 5 seconds before next update
+            await asyncio.sleep(5)
+    
+    except WebSocketDisconnect:
+        logger.info("WebSocket disconnected: dashboard")
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}", exc_info=True)
+        try:
+            await websocket.close()
+        except:
+            pass
+
+
+@router.websocket("/ws/alerts")
+async def websocket_alerts(websocket: WebSocket):
+    """
+    실시간 알림 WebSocket
+    
+    클라이언트에게 시스템 알림을 실시간으로 전송합니다.
+    """
+    from datetime import datetime
+    import asyncio
+    
+    await websocket.accept()
+    logger.info("WebSocket connected: alerts")
+    
+    try:
+        # Send initial connection confirmation
+        initial_message = {
+            "type": "connected",
+            "message": "Alerts WebSocket connected",
+            "data": None,
+            "timestamp": datetime.now().isoformat()
+        }
+        await websocket.send_json(initial_message)
+        logger.info("Sent initial alerts connection message")
+        
+        # Keep connection alive with periodic keepalive messages
+        while True:
+            await asyncio.sleep(5)  # Send keepalive every 5 seconds
+            
+            # Check connection state
+            if websocket.client_state.name != "CONNECTED":
+                logger.info(f"Alerts WebSocket not in CONNECTED state: {websocket.client_state.name}")
+                break
+            
+            try:
+                keepalive = {
+                    "type": "keepalive",
+                    "data": None,
+                    "timestamp": datetime.now().isoformat()
+                }
+                await websocket.send_json(keepalive)
+                logger.debug("Sent alerts keepalive")
+            except Exception as e:
+                logger.warning(f"Failed to send alerts keepalive: {type(e).__name__}: {e}")
+                break
+                
+    except WebSocketDisconnect:
+        logger.info("WebSocket disconnected: alerts")
+    except Exception as e:
+        logger.error(f"WebSocket alerts error: {type(e).__name__}: {e}")
+    finally:
+        try:
+            await websocket.close()
+        except:
+            pass
 
 
 @router.get("/{dispatch_id}", response_model=DispatchDetailResponse)

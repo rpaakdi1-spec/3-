@@ -85,23 +85,19 @@ class RealtimeMetricsService:
             db_gen = get_db()
             db = next(db_gen)
             try:
-                metrics = await self._collect_dashboard_metrics(db)
+                metrics = self._collect_dashboard_metrics(db)  # Call synchronously
                 
-                await manager.broadcast_to_channel(
-                    "dashboard",
-                    {
-                        "type": "dashboard_update",
-                        "data": metrics,
-                        "timestamp": datetime.utcnow().isoformat()
-                    }
-                )
-                
-                # Also publish to Redis for multi-server setup
-                await manager.publish_to_redis("dashboard", {
-                    "type": "dashboard_update",
-                    "data": metrics,
-                    "timestamp": datetime.utcnow().isoformat()
-                })
+                # Only broadcast if there are active connections
+                if "dashboard" in manager.active_connections and len(manager.active_connections["dashboard"]) > 0:
+                    await manager.broadcast_to_channel(
+                        "dashboard",
+                        {
+                            "type": "dashboard_update",
+                            "data": metrics,
+                            "timestamp": datetime.utcnow().isoformat()
+                        }
+                    )
+                    logger.debug(f"📊 Broadcasted dashboard metrics to {len(manager.active_connections['dashboard'])} clients")
             finally:
                 # Close the session
                 try:
@@ -109,10 +105,12 @@ class RealtimeMetricsService:
                 except StopIteration:
                     pass
         except Exception as e:
-            logger.error(f"❌ Error broadcasting dashboard metrics: {e}")
+            import traceback
+            logger.error(f"❌ Error broadcasting dashboard metrics: {type(e).__name__}: {e}")
+            logger.debug(f"Traceback: {traceback.format_exc()}")
     
-    async def _collect_dashboard_metrics(self, db: AsyncSession) -> dict:
-        """Collect dashboard metrics from database"""
+    def _collect_dashboard_metrics(self, db) -> dict:
+        """Collect dashboard metrics from database (synchronous)"""
         from app.models.dispatch import Dispatch, DispatchStatus
         from app.models.order import Order, OrderStatus
         from app.models.vehicle import Vehicle
@@ -120,47 +118,54 @@ class RealtimeMetricsService:
         now = datetime.utcnow()
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         
-        # Active dispatches
-        active_dispatches_query = select(func.count(Dispatch.id)).where(
-            Dispatch.status.in_([
-                DispatchStatus.ASSIGNED,
-                DispatchStatus.IN_PROGRESS
-            ])
-        )
-        active_dispatches = await db.scalar(active_dispatches_query) or 0
-        
-        # Completed today
-        completed_today_query = select(func.count(Dispatch.id)).where(
-            and_(
-                Dispatch.status == DispatchStatus.COMPLETED,
-                Dispatch.completed_at >= today_start
-            )
-        )
-        completed_today = await db.scalar(completed_today_query) or 0
-        
-        # Pending orders
-        pending_orders_query = select(func.count(Order.id)).where(
-            Order.status == OrderStatus.PENDING
-        )
-        pending_orders = await db.scalar(pending_orders_query) or 0
-        
-        # Vehicles in transit
-        vehicles_in_transit_query = select(func.count(Vehicle.id)).where(
-            Vehicle.status == VehicleStatus.IN_USE
-        )
-        vehicles_in_transit = await db.scalar(vehicles_in_transit_query) or 0
-        
-        # Temperature alerts (mock data for now)
-        temperature_alerts = 0
-        
-        return {
-            "active_dispatches": active_dispatches,
-            "completed_today": completed_today,
-            "pending_orders": pending_orders,
-            "vehicles_in_transit": vehicles_in_transit,
-            "temperature_alerts": temperature_alerts,
-            "timestamp": now.isoformat()
-        }
+        try:
+            # Active dispatches (CONFIRMED or IN_PROGRESS)
+            active_dispatches = db.query(Dispatch).filter(
+                Dispatch.status.in_([
+                    DispatchStatus.CONFIRMED,
+                    DispatchStatus.IN_PROGRESS
+                ])
+            ).count()
+            
+            # Completed today (using dispatch_date and status)
+            completed_today = db.query(Dispatch).filter(
+                and_(
+                    Dispatch.status == DispatchStatus.COMPLETED,
+                    Dispatch.dispatch_date == datetime.utcnow().date()
+                )
+            ).count()
+            
+            # Pending orders
+            pending_orders = db.query(Order).filter(
+                Order.status == OrderStatus.PENDING
+            ).count()
+            
+            # Vehicles in transit
+            vehicles_in_transit = db.query(Vehicle).filter(
+                Vehicle.status == VehicleStatus.IN_USE
+            ).count()
+            
+            # Temperature alerts (mock data for now)
+            temperature_alerts = 0
+            
+            return {
+                "active_dispatches": active_dispatches,
+                "completed_today": completed_today,
+                "pending_orders": pending_orders,
+                "vehicles_in_transit": vehicles_in_transit,
+                "temperature_alerts": temperature_alerts,
+                "timestamp": now.isoformat()
+            }
+        except Exception as e:
+            logger.error(f"❌ Error collecting dashboard metrics: {type(e).__name__}: {e}")
+            return {
+                "active_dispatches": 0,
+                "completed_today": 0,
+                "pending_orders": 0,
+                "vehicles_in_transit": 0,
+                "temperature_alerts": 0,
+                "timestamp": now.isoformat()
+            }
     
     async def _broadcast_vehicle_updates(self):
         """Broadcast vehicle location updates"""
@@ -172,27 +177,31 @@ class RealtimeMetricsService:
                 # Get vehicles that have active tracking
                 from app.models.vehicle import Vehicle
                 
-                vehicles_query = select(Vehicle).where(
+                # Query vehicles synchronously
+                vehicles = db.query(Vehicle).filter(
                     Vehicle.status == VehicleStatus.IN_USE
-                ).limit(50)
+                ).limit(50).all()
                 
-                result = await db.execute(vehicles_query)
-                vehicles = result.scalars().all()
                 
+                # Broadcast each vehicle update
                 for vehicle in vehicles:
-                    # Broadcast to vehicle-specific channel
-                    vehicle_data = {
-                        "type": "vehicle_location",
-                        "vehicle_id": vehicle.id,
-                        "license_plate": vehicle.license_plate,
-                        "status": vehicle.status,
-                        "timestamp": datetime.utcnow().isoformat()
-                    }
-                    
-                    await manager.broadcast_to_channel(
-                        f"vehicles/{vehicle.id}",
-                        vehicle_data
-                    )
+                    try:
+                        vehicle_data = {
+                            "type": "vehicle_location",
+                            "vehicle_id": vehicle.id,
+                            "plate_number": vehicle.plate_number,  # Fixed: license_plate → plate_number
+                            "status": vehicle.status.value if hasattr(vehicle.status, 'value') else str(vehicle.status),
+                            "timestamp": datetime.utcnow().isoformat()
+                        }
+                        
+                        await manager.broadcast_to_channel(
+                            f"vehicles/{vehicle.id}",
+                            vehicle_data
+                        )
+                    except Exception as ve:
+                        logger.error(f"❌ Error broadcasting vehicle {vehicle.id}: {type(ve).__name__}: {ve}")
+                        continue
+                        
             finally:
                 # Close the session
                 try:
@@ -200,7 +209,7 @@ class RealtimeMetricsService:
                 except StopIteration:
                     pass
         except Exception as e:
-            logger.error(f"❌ Error broadcasting vehicle updates: {e}")
+            logger.error(f"❌ Error broadcasting vehicle updates: {type(e).__name__}: {e}")
     
     async def _broadcast_alerts(self):
         """Broadcast new alerts"""

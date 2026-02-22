@@ -1,452 +1,313 @@
-# UVIS 시스템 배포 가이드
+# 🚀 AI 배차 모니터링 대시보드 배포 가이드
 
 ## 📋 목차
-1. [사전 요구사항](#사전-요구사항)
-2. [초기 설치](#초기-설치)
-3. [환경 설정](#환경-설정)
-4. [Docker 배포](#docker-배포)
-5. [데이터베이스 마이그레이션](#데이터베이스-마이그레이션)
-6. [모니터링 설정](#모니터링-설정)
-7. [백업 설정](#백업-설정)
-8. [트러블슈팅](#트러블슈팅)
+1. [자동 배포 (권장)](#자동-배포)
+2. [수동 배포](#수동-배포)
+3. [Docker 배포](#docker-배포)
+4. [확인 및 테스트](#확인-및-테스트)
+5. [문제 해결](#문제-해결)
 
 ---
 
-## 사전 요구사항
+## 🎯 자동 배포 (권장)
 
-### 서버 사양
-- **CPU**: 4 코어 이상
-- **메모리**: 8GB 이상
-- **디스크**: 100GB 이상 (SSD 권장)
-- **OS**: Ubuntu 22.04 LTS 또는 CentOS 8
+서버에서 다음 명령어를 실행하세요:
 
-### 소프트웨어
-- Docker 24.0+
-- Docker Compose 2.20+
-- Git 2.30+
-- (선택) AWS CLI 2.0+ (S3 백업 사용시)
+```bash
+cd /root/uvis
+chmod +x DEPLOY_DISPATCH_MONITORING.sh
+./DEPLOY_DISPATCH_MONITORING.sh
+```
+
+이 스크립트는 자동으로:
+- ✅ Git pull로 최신 코드 가져오기
+- ✅ 백엔드 재시작
+- ✅ 프론트엔드 빌드
+- ✅ 빌드 파일 배포
+- ✅ 헬스 체크
 
 ---
 
-## 초기 설치
+## 🔧 수동 배포
 
-### 1. 서버 업데이트
+### Step 1: Git Pull
 ```bash
-sudo apt update && sudo apt upgrade -y
+cd /root/uvis
+git pull origin main
 ```
 
-### 2. Docker 설치
+### Step 2: 백엔드 재시작
+
+#### Docker 사용 시:
 ```bash
-# Docker 설치
-curl -fsSL https://get.docker.com -o get-docker.sh
-sudo sh get-docker.sh
-
-# 현재 사용자를 docker 그룹에 추가
-sudo usermod -aG docker $USER
-
-# Docker Compose 설치
-sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" \
-    -o /usr/local/bin/docker-compose
-sudo chmod +x /usr/local/bin/docker-compose
-
-# 설치 확인
-docker --version
-docker-compose --version
-```
-
-### 3. 프로젝트 클론
-```bash
-cd /opt
-sudo git clone https://github.com/rpaakdi1-spec/3-.git uvis
-cd uvis
-```
-
----
-
-## 환경 설정
-
-### 1. 환경 변수 파일 생성
-```bash
-cp .env.example .env
-```
-
-### 2. 환경 변수 편집
-```bash
-nano .env
-```
-
-필수 설정 항목:
-```bash
-# 데이터베이스 (강력한 비밀번호로 변경)
-DB_PASSWORD=your_secure_db_password_here
-
-# JWT (최소 32자 이상의 랜덤 문자열)
-JWT_SECRET=your_secure_jwt_secret_at_least_32_characters_here
-
-# Redis (강력한 비밀번호로 변경)
-REDIS_PASSWORD=your_secure_redis_password_here
-
-# 도메인 설정
-CORS_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
-```
-
-선택 설정:
-```bash
-# S3 백업 (선택사항)
-S3_ENABLED=true
-AWS_ACCESS_KEY_ID=your_aws_key
-AWS_SECRET_ACCESS_KEY=your_aws_secret
-S3_BUCKET=uvis-backups
-
-# Slack 알림 (선택사항)
-SLACK_WEBHOOK=https://hooks.slack.com/services/YOUR/WEBHOOK/URL
-```
-
-### 3. 강력한 비밀번호 생성
-```bash
-# JWT Secret 생성
-openssl rand -base64 48
-
-# DB Password 생성
-openssl rand -base64 32
-
-# Redis Password 생성
-openssl rand -base64 32
-```
-
----
-
-## Docker 배포
-
-### 1. 이미지 빌드
-```bash
-# 모든 서비스 빌드
-docker-compose build
-
-# 또는 개별 빌드
-docker-compose build backend
-docker-compose build frontend
-```
-
-### 2. 서비스 시작
-```bash
-# 전체 서비스 시작
-docker-compose up -d
+cd /root/uvis
+docker-compose restart backend
 
 # 로그 확인
-docker-compose logs -f
-
-# 특정 서비스 로그
 docker-compose logs -f backend
 ```
 
-### 3. 서비스 상태 확인
+#### PM2 사용 시:
 ```bash
-# 컨테이너 상태
-docker-compose ps
-
-# 헬스 체크
-curl http://localhost:8000/api/v1/health
+pm2 restart uvis-backend
+pm2 logs uvis-backend
 ```
 
----
-
-## 데이터베이스 마이그레이션
-
-### 1. 마이그레이션 실행
+#### systemd 사용 시:
 ```bash
-# 최신 마이그레이션 적용
-docker-compose exec backend alembic upgrade head
-
-# 마이그레이션 이력 확인
-docker-compose exec backend alembic history
-
-# 현재 버전 확인
-docker-compose exec backend alembic current
+sudo systemctl restart uvis-backend
+sudo systemctl status uvis-backend
 ```
 
-### 2. 초기 데이터 생성
+### Step 3: 프론트엔드 빌드
 ```bash
-# 관리자 계정 생성 스크립트 실행
-docker-compose exec backend python scripts/create_admin.py
+cd /root/uvis/frontend
+npm run build
 ```
 
----
+### Step 4: 프론트엔드 배포
 
-## 모니터링 설정
-
-### 1. 모니터링 스택 시작
+#### Docker 사용 시:
 ```bash
-# Prometheus + Grafana 시작
-docker-compose --profile monitoring up -d
+# 기존 파일 삭제
+docker exec uvis-frontend rm -rf /usr/share/nginx/html/*
 
-# 접속 확인
-# Prometheus: http://localhost:9090
-# Grafana: http://localhost:3001 (admin/admin)
-```
-
-### 2. Grafana 대시보드 설정
-1. http://localhost:3001 접속
-2. 초기 비밀번호 변경
-3. Data Source 추가: Prometheus (http://prometheus:9090)
-4. 대시보드 import: `monitoring/grafana/dashboards/system.json`
-
----
-
-## 백업 설정
-
-### 1. 백업 스크립트 권한 설정
-```bash
-chmod +x scripts/backup.sh
-chmod +x scripts/restore.sh
-```
-
-### 2. Cron 설정
-```bash
-# Cron 편집
-crontab -e
-
-# 매일 새벽 3시 자동 백업
-0 3 * * * /opt/uvis/scripts/backup.sh >> /var/log/uvis-backup.log 2>&1
-```
-
-### 3. 수동 백업
-```bash
-# 백업 실행
-./scripts/backup.sh
-
-# 백업 확인
-ls -lh /backups/database/
-```
-
-### 4. 복구 테스트
-```bash
-# 백업 목록 확인
-ls -lh /backups/database/
-
-# 복구 실행
-./scripts/restore.sh 20260205_030000
-```
-
----
-
-## SSL/TLS 설정 (HTTPS)
-
-### 1. Let's Encrypt 인증서 발급
-```bash
-# Certbot 설치
-sudo apt install certbot
-
-# 인증서 발급
-sudo certbot certonly --standalone -d yourdomain.com -d www.yourdomain.com
-
-# 인증서 위치
-# /etc/letsencrypt/live/yourdomain.com/fullchain.pem
-# /etc/letsencrypt/live/yourdomain.com/privkey.pem
-```
-
-### 2. Nginx SSL 설정
-```nginx
-server {
-    listen 443 ssl http2;
-    server_name yourdomain.com www.yourdomain.com;
-
-    ssl_certificate /etc/letsencrypt/live/yourdomain.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/yourdomain.com/privkey.pem;
-
-    # SSL 최적화
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers HIGH:!aNULL:!MD5;
-    ssl_prefer_server_ciphers on;
-    ssl_session_cache shared:SSL:10m;
-    ssl_session_timeout 10m;
-
-    # HSTS
-    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
-
-    location / {
-        proxy_pass http://frontend:80;
-        # ... 나머지 설정
-    }
-}
-
-# HTTP to HTTPS 리다이렉트
-server {
-    listen 80;
-    server_name yourdomain.com www.yourdomain.com;
-    return 301 https://$server_name$request_uri;
-}
-```
-
-### 3. 자동 갱신 설정
-```bash
-# Cron에 추가
-0 0 1 * * certbot renew --quiet && docker-compose restart nginx
-```
-
----
-
-## 무중단 배포 (Blue-Green)
-
-### 1. 블루 환경 준비
-```bash
-# 현재 실행 중 (Green)
-docker-compose up -d
-
-# 새 이미지 빌드 (Blue)
-docker-compose build --no-cache
-```
-
-### 2. 블루 환경 테스트
-```bash
-# 테스트 포트로 블루 환경 시작
-docker-compose -f docker-compose.blue.yml up -d
-
-# 헬스 체크
-curl http://localhost:8001/api/v1/health
-```
-
-### 3. 트래픽 전환
-```bash
-# Nginx 설정 변경 (8000 -> 8001)
-# 기존 요청 완료 대기
-sleep 30
-
-# Green 환경 중지
-docker-compose down
-
-# Blue를 Green으로 승격
-docker-compose up -d
-```
-
----
-
-## 성능 최적화
-
-### 1. PostgreSQL 튜닝
-```sql
--- /etc/postgresql/postgresql.conf
-shared_buffers = 2GB
-effective_cache_size = 6GB
-maintenance_work_mem = 512MB
-checkpoint_completion_target = 0.9
-wal_buffers = 16MB
-default_statistics_target = 100
-random_page_cost = 1.1
-effective_io_concurrency = 200
-work_mem = 10MB
-max_worker_processes = 4
-max_parallel_workers_per_gather = 2
-max_parallel_workers = 4
-```
-
-### 2. Redis 튜닝
-```conf
-# redis.conf
-maxmemory 2gb
-maxmemory-policy allkeys-lru
-save 900 1
-save 300 10
-save 60 10000
-```
-
-### 3. Nginx 튜닝
-```nginx
-worker_processes auto;
-worker_connections 2048;
-keepalive_timeout 65;
-client_max_body_size 50M;
-
-# 캐싱
-proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=my_cache:10m max_size=1g inactive=60m;
-proxy_cache_key "$scheme$request_method$host$request_uri";
-```
-
----
-
-## 트러블슈팅
-
-### 데이터베이스 연결 오류
-```bash
-# 데이터베이스 상태 확인
-docker-compose exec db psql -U uvis_user -d uvis_db -c "SELECT 1"
-
-# 로그 확인
-docker-compose logs db
+# 새 빌드 복사
+docker cp dist/. uvis-frontend:/usr/share/nginx/html/
 
 # 재시작
-docker-compose restart db
+docker-compose restart frontend
 ```
 
-### 메모리 부족
+#### Nginx 직접 사용 시:
 ```bash
-# 메모리 사용량 확인
-docker stats
+# 빌드 파일 복사
+sudo cp -r dist/* /var/www/html/
 
-# 불필요한 컨테이너 정리
-docker system prune -a
-```
-
-### 디스크 공간 부족
-```bash
-# 디스크 사용량 확인
-df -h
-
-# Docker 볼륨 정리
-docker volume prune
-
-# 오래된 로그 삭제
-find /var/log -name "*.log" -mtime +30 -delete
-```
-
-### 포트 충돌
-```bash
-# 포트 사용 확인
-sudo netstat -tulpn | grep :8000
-
-# 프로세스 종료
-sudo kill -9 <PID>
+# Nginx 재시작
+sudo systemctl reload nginx
 ```
 
 ---
 
-## 보안 체크리스트
+## 🐳 Docker 배포 (상세)
 
-- [ ] 강력한 비밀번호 사용
-- [ ] JWT Secret 변경
-- [ ] 방화벽 설정 (UFW)
-- [ ] SSH 키 기반 인증
-- [ ] 불필요한 포트 차단
-- [ ] 정기적인 보안 업데이트
-- [ ] SSL/TLS 인증서 적용
-- [ ] Rate limiting 활성화
-- [ ] 로그 모니터링
-- [ ] 정기적인 백업 확인
+### 1. Docker Compose 확인
+```bash
+cd /root/uvis
+cat docker-compose.yml | grep -A 5 backend
+cat docker-compose.yml | grep -A 5 frontend
+```
+
+### 2. 컨테이너 상태 확인
+```bash
+docker-compose ps
+```
+
+### 3. 전체 재시작 (필요시)
+```bash
+# 모든 컨테이너 재시작
+docker-compose restart
+
+# 또는 개별 재시작
+docker-compose restart backend
+docker-compose restart frontend
+```
+
+### 4. 로그 확인
+```bash
+# 실시간 로그
+docker-compose logs -f backend
+docker-compose logs -f frontend
+
+# 최근 100줄
+docker-compose logs --tail=100 backend
+```
 
 ---
 
-## 유지보수
+## ✅ 확인 및 테스트
 
-### 일일 점검
-- [ ] 서비스 상태 확인
-- [ ] 에러 로그 확인
-- [ ] 디스크 사용량 확인
-- [ ] 백업 성공 확인
+### 1. 백엔드 API 테스트
+```bash
+# 헬스 체크
+curl http://139.150.11.99/api/v1/health
 
-### 주간 점검
-- [ ] 보안 업데이트 적용
-- [ ] 성능 메트릭 리뷰
-- [ ] 백업 복구 테스트
-- [ ] 알림 규칙 검토
+# 실시간 통계
+curl http://139.150.11.99/api/v1/dispatch/monitoring/live-stats
 
-### 월간 점검
-- [ ] 전체 시스템 백업
-- [ ] 보안 감사
-- [ ] 성능 최적화
-- [ ] 용량 계획 검토
+# Agent 성능
+curl http://139.150.11.99/api/v1/dispatch/monitoring/agent-performance?days=30
+
+# 최고 성과 차량
+curl http://139.150.11.99/api/v1/dispatch/monitoring/top-vehicles?limit=10
+```
+
+### 2. 프론트엔드 접속
+```
+브라우저에서 접속:
+http://139.150.11.99/dispatch/monitoring
+
+Ctrl + Shift + R (강력 새로고침)
+```
+
+### 3. 브라우저 개발자 도구 확인
+```
+1. F12 키를 눌러 개발자 도구 열기
+2. Console 탭: JavaScript 에러 확인
+3. Network 탭: API 요청 확인
+4. 필터: "monitoring" 입력
+```
 
 ---
 
-**배포 가이드 작성 완료**  
-**버전**: 1.0.0  
-**최종 업데이트**: 2026-02-05
+## 🔍 문제 해결
+
+### 문제 1: 백엔드 API 404 에러
+
+**증상:**
+```
+GET /api/v1/dispatch/monitoring/live-stats → 404 Not Found
+```
+
+**해결:**
+```bash
+# 1. 백엔드 로그 확인
+docker-compose logs backend | grep "dispatch/monitoring"
+
+# 2. 라우터 등록 확인
+docker exec uvis-backend cat /app/main.py | grep "dispatch_monitoring"
+
+# 3. 백엔드 재시작
+docker-compose restart backend
+```
+
+### 문제 2: 프론트엔드 페이지 404 에러
+
+**증상:**
+```
+http://139.150.11.99/dispatch/monitoring → 404 Not Found
+```
+
+**해결:**
+```bash
+# 1. 빌드 파일 존재 확인
+docker exec uvis-frontend ls -la /usr/share/nginx/html/assets/ | grep DispatchMonitoring
+
+# 2. Nginx 설정 확인
+docker exec uvis-frontend cat /etc/nginx/conf.d/default.conf
+
+# 3. 프론트엔드 재배포
+cd /root/uvis/frontend
+npm run build
+docker cp dist/. uvis-frontend:/usr/share/nginx/html/
+docker-compose restart frontend
+```
+
+### 문제 3: 빌드 파일이 로드되지 않음
+
+**증상:**
+```
+브라우저 Console:
+Failed to load resource: net::ERR_FILE_NOT_FOUND
+```
+
+**해결:**
+```bash
+# 1. 브라우저 캐시 완전 삭제
+F12 → Application → Storage → Clear site data
+
+# 2. 시크릿 모드로 접속
+Ctrl + Shift + N (Chrome)
+Ctrl + Shift + P (Firefox)
+
+# 3. 파일 존재 확인
+docker exec uvis-frontend ls -lh /usr/share/nginx/html/assets/ | grep -i dispatch
+```
+
+### 문제 4: WebSocket 연결 실패
+
+**증상:**
+```
+WebSocket connection to 'ws://...' failed
+```
+
+**해결:**
+```bash
+# 1. Nginx WebSocket 설정 확인
+docker exec uvis-frontend cat /etc/nginx/conf.d/default.conf | grep -A 5 "websocket"
+
+# 2. 백엔드 WebSocket 엔드포인트 확인
+curl http://139.150.11.99/api/v1/health
+
+# 3. 방화벽 확인
+sudo firewall-cmd --list-all | grep 8000
+```
+
+### 문제 5: 모듈 import 에러
+
+**증상:**
+```
+ModuleNotFoundError: No module named 'app.api.dispatch_monitoring'
+```
+
+**해결:**
+```bash
+# 1. 파일 존재 확인
+ls -la /root/uvis/backend/app/api/dispatch_monitoring.py
+
+# 2. Python 경로 확인
+docker exec uvis-backend python3 -c "import sys; print('\n'.join(sys.path))"
+
+# 3. 컨테이너 재빌드 (필요시)
+docker-compose down
+docker-compose up -d --build
+```
+
+---
+
+## 📞 지원
+
+문제가 지속되면 다음 정보를 제공해주세요:
+
+```bash
+# 시스템 정보
+docker-compose ps
+docker-compose logs --tail=50 backend
+docker-compose logs --tail=50 frontend
+
+# API 테스트
+curl -v http://139.150.11.99/api/v1/health
+curl -v http://139.150.11.99/api/v1/dispatch/monitoring/live-stats
+
+# 파일 확인
+ls -la /root/uvis/backend/app/api/ | grep dispatch
+ls -la /root/uvis/frontend/dist/assets/ | grep Dispatch
+```
+
+---
+
+## 🎯 빠른 체크리스트
+
+배포 전:
+- [ ] Git pull 완료
+- [ ] 백엔드 코드 수정 확인
+- [ ] 프론트엔드 코드 수정 확인
+
+배포 중:
+- [ ] 백엔드 재시작 완료
+- [ ] 프론트엔드 빌드 성공
+- [ ] 빌드 파일 배포 완료
+- [ ] 컨테이너 재시작 완료
+
+배포 후:
+- [ ] API 헬스 체크 성공
+- [ ] 프론트엔드 접속 성공
+- [ ] 브라우저 캐시 삭제
+- [ ] 실시간 통계 확인
+- [ ] WebSocket 연결 확인
+
+---
+
+**작성일**: 2026-02-14  
+**버전**: 1.0

@@ -692,12 +692,13 @@ export const downloadFinancialDashboardExcel = async (
 
     // 파일명 추출 (Content-Disposition 헤더에서)
     const contentDisposition = response.headers['content-disposition'];
-    let filename = '재무대시보드.xlsx';
+    let filename = 'Financial_Dashboard.xlsx';
     
     if (contentDisposition) {
-      const filenameMatch = contentDisposition.match(/filename\*=UTF-8''(.+)/);
+      // 새 형식: filename=Financial_Dashboard_20260101_20260212.xlsx
+      const filenameMatch = contentDisposition.match(/filename=([^;]+)/);
       if (filenameMatch && filenameMatch[1]) {
-        filename = decodeURIComponent(filenameMatch[1]);
+        filename = filenameMatch[1].trim();
       }
     }
 
@@ -744,12 +745,13 @@ export const downloadFinancialDashboardPDF = async (
 
     // 파일명 추출
     const contentDisposition = response.headers['content-disposition'];
-    let filename = '재무대시보드.pdf';
+    let filename = 'Financial_Dashboard.pdf';
     
     if (contentDisposition) {
-      const filenameMatch = contentDisposition.match(/filename\*=UTF-8''(.+)/);
+      // 새 형식: filename=Financial_Dashboard_20260101_20260212.pdf
+      const filenameMatch = contentDisposition.match(/filename=([^;]+)/);
       if (filenameMatch && filenameMatch[1]) {
-        filename = decodeURIComponent(filenameMatch[1]);
+        filename = filenameMatch[1].trim();
       }
     }
 

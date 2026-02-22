@@ -137,3 +137,15 @@ class DispatchStatsResponse(BaseModel):
     total_vehicles_used: int
     avg_orders_per_dispatch: float
     avg_pallets_per_dispatch: float
+
+
+class DashboardStatsResponse(BaseModel):
+    """Schema for dashboard statistics"""
+    total_orders: int = Field(0, description="전체 주문 수")
+    pending_orders: int = Field(0, description="배차 대기 주문 수")
+    active_dispatches: int = Field(0, description="진행 중인 배차 수")
+    completed_today: int = Field(0, description="오늘 완료된 배차 수")
+    available_vehicles: int = Field(0, description="사용 가능한 차량 수")
+    active_vehicles: int = Field(0, description="운행 중인 차량 수")
+    revenue_today: float = Field(0, description="오늘의 수익")
+    revenue_month: float = Field(0, description="이번 달 수익")

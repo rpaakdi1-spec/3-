@@ -61,10 +61,10 @@ async def process_chat_message(
         ai_service = AIChatService(model_name=model_name)
         
         # 확인 요청인 경우 주문 생성
-        if confirm and pending_order:
+        pending_orders = context.get("pending_orders")
+        if confirm and (pending_order or pending_orders):
             try:
                 # 여러 주문 생성 (pending_orders가 리스트인 경우)
-                pending_orders = context.get("pending_orders")
                 if pending_orders and isinstance(pending_orders, list):
                     created_orders = []
                     for order_data in pending_orders:

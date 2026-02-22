@@ -582,3 +582,46 @@ class BillingEnhancedService:
     def get_export_task(self, task_id: str) -> Optional[ExportTask]:
         """내보내기 작업 조회"""
         return self.db.query(ExportTask).filter(ExportTask.task_id == task_id).first()
+
+    def get_top_clients(
+        self,
+        start_date: date,
+        end_date: date,
+        limit: int = 10
+    ) -> List[Dict[str, Any]]:
+        """상위 고객 조회"""
+        from sqlalchemy import func
+        from app.models.client import Client
+        
+        # 고객별 매출 집계
+        results = self.db.query(
+            Client.id,
+            Client.name,
+            func.sum(Invoice.total_amount).label('total_revenue'),
+            func.sum(Invoice.paid_amount).label('total_collected'),
+            func.count(Invoice.id).label('invoice_count')
+        ).join(
+            Invoice, Invoice.client_id == Client.id
+        ).filter(
+            and_(
+                Invoice.issue_date >= start_date,
+                Invoice.issue_date <= end_date
+            )
+        ).group_by(
+            Client.id, Client.name
+        ).order_by(
+            func.sum(Invoice.total_amount).desc()
+        ).limit(limit).all()
+        
+        top_clients = []
+        for result in results:
+            top_clients.append({
+                'client_id': result.id,
+                'client_name': result.name,
+                'total_revenue': round(result.total_revenue, 2),
+                'total_collected': round(result.total_collected, 2),
+                'invoice_count': result.invoice_count,
+                'collection_rate': round((result.total_collected / result.total_revenue * 100) if result.total_revenue > 0 else 0, 2)
+            })
+        
+        return top_clients

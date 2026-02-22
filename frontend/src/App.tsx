@@ -24,6 +24,7 @@ const ClientsPage = lazy(() => import('./pages/ClientsPage'));
 const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'));
 const ReportsPage = lazy(() => import('./pages/ReportsPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const MorePage = lazy(() => import('./pages/MorePage'));
 const MLTrainingPage = lazy(() => import('./pages/MLTrainingPage'));
 const ABTestMonitorPage = lazy(() => import('./pages/ABTestMonitorPage'));
 const RecurringOrdersPage = lazy(() => import('./pages/RecurringOrdersPage'));
@@ -43,6 +44,12 @@ const AutoInvoiceSchedulePage = lazy(() => import('./pages/AutoInvoiceSchedulePa
 const SettlementApprovalPage = lazy(() => import('./pages/SettlementApprovalPage'));
 const PaymentReminderPage = lazy(() => import('./pages/PaymentReminderPage'));
 const ExportTaskPage = lazy(() => import('./pages/ExportTaskPage'));
+
+// AI Dispatch Monitoring Dashboard
+const DispatchMonitoringDashboard = lazy(() => import('./pages/DispatchMonitoringDashboard'));
+
+// Dispatch Rules Management Page
+const DispatchRulesPage = lazy(() => import('./pages/DispatchRulesPage'));
 
 // IoT Sensor Pages
 const IoTSensorsPage = lazy(() => import('./pages/IoTSensorsPage'));
@@ -193,6 +200,14 @@ const App: React.FC = () => {
               }
             />
             <Route
+              path="/dispatch/monitoring"
+              element={
+                <ProtectedRoute>
+                  <DispatchMonitoringDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/ai-chat"
               element={
                 <ProtectedRoute>
@@ -257,10 +272,26 @@ const App: React.FC = () => {
               }
             />
             <Route
+              path="/more"
+              element={
+                <ProtectedRoute>
+                  <MorePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/ml-training"
               element={
                 <ProtectedRoute>
                   <MLTrainingPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dispatch-rules"
+              element={
+                <ProtectedRoute>
+                  <DispatchRulesPage />
                 </ProtectedRoute>
               }
             />
