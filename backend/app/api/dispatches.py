@@ -160,6 +160,7 @@ def get_dispatches(
 
 
 @router.get("/dashboard", response_model=DashboardStatsResponse)
+@router.get("/dashboard/stats", response_model=DashboardStatsResponse)
 def get_dashboard_stats(db: Session = Depends(get_db)):
     """대시보드 통계 조회"""
     from datetime import date, datetime
