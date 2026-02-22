@@ -14,9 +14,9 @@ class NaverMapService:
     - 주소 ↔ 좌표 변환
     """
     
-    BASE_URL_GEOCODING = "https://naveropenapi.apigw.ntruss.com/map-geocode/v2/geocode"
-    BASE_URL_REVERSE_GEOCODING = "https://naveropenapi.apigw.ntruss.com/map-reversegeocode/v2/gc"
-    BASE_URL_DIRECTIONS = "https://naveropenapi.apigw.ntruss.com/map-direction/v1/driving"
+    BASE_URL_GEOCODING = "https://maps.apigw.ntruss.com/map-geocode/v2/geocode"
+    BASE_URL_REVERSE_GEOCODING = "https://maps.apigw.ntruss.com/map-reversegeocode/v2/gc"
+    BASE_URL_DIRECTIONS = "https://maps.apigw.ntruss.com/map-direction/v1/driving"
     
     def __init__(self, client_id: Optional[str] = None, client_secret: Optional[str] = None):
         """

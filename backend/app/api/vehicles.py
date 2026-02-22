@@ -120,12 +120,19 @@ async def get_vehicles(
                         current_address = None
                         if latest_gps and latest_gps.latitude and latest_gps.longitude:
                             try:
+                                import asyncio
                                 naver_map_service = NaverMapService()
-                                # Use await in async function
-                                current_address = await naver_map_service.reverse_geocode(
-                                    latest_gps.latitude,
-                                    latest_gps.longitude
+                                # Use await with timeout (2 seconds max)
+                                current_address = await asyncio.wait_for(
+                                    naver_map_service.reverse_geocode(
+                                        latest_gps.latitude,
+                                        latest_gps.longitude
+                                    ),
+                                    timeout=2.0
                                 )
+                            except asyncio.TimeoutError:
+                                logger.warning(f"Reverse geocode timeout for vehicle {vehicle.id}")
+                                current_address = None
                             except Exception as e:
                                 logger.warning(f"Failed to reverse geocode for vehicle {vehicle.id}: {e}")
                                 # Continue even if reverse geocoding fails
