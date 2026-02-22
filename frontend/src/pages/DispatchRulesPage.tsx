@@ -3,6 +3,7 @@ import Layout from '../components/common/Layout';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Loading from '../components/common/Loading';
+import { ruleTemplates, templateCategories, RuleTemplate } from '../data/ruleTemplates';
 import { 
   Plus, 
   Edit, 
@@ -43,6 +44,8 @@ const DispatchRulesPage: React.FC = () => {
   const [aiResult, setAiResult] = useState<any>(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingRuleId, setEditingRuleId] = useState<number | null>(null);
+  const [showAiReview, setShowAiReview] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
 
   useEffect(() => {
     loadRules();
@@ -120,13 +123,7 @@ const DispatchRulesPage: React.FC = () => {
       });
       
       setAiResult(result);
-      
-      // 자동으로 conditions와 actions 채우기
-      setFormData({
-        ...formData,
-        conditions: result.conditions,
-        actions: result.actions
-      });
+      setShowAiReview(true);  // Show review dialog
       
       showNotification(`AI 생성 완료 (신뢰도: ${(result.confidence * 100).toFixed(0)}%)`, 'success');
     } catch (error: any) {
@@ -135,6 +132,37 @@ const DispatchRulesPage: React.FC = () => {
     } finally {
       setAiGenerating(false);
     }
+  };
+
+  const handleAcceptAI = () => {
+    if (aiResult) {
+      setFormData({
+        ...formData,
+        conditions: aiResult.conditions,
+        actions: aiResult.actions
+      });
+      setShowAiReview(false);
+      showNotification('AI 생성 결과가 적용되었습니다', 'success');
+    }
+  };
+
+  const handleRejectAI = () => {
+    setShowAiReview(false);
+    setAiResult(null);
+    showNotification('AI 생성 결과를 취소했습니다. 수동으로 입력해주세요.', 'info');
+  };
+
+  const handleSelectTemplate = (template: RuleTemplate) => {
+    setFormData({
+      name: template.name,
+      description: template.description,
+      rule_type: template.rule_type,
+      priority: template.priority,
+      conditions: template.conditions,
+      actions: template.actions
+    });
+    setShowTemplates(false);
+    showNotification(`템플릿 "${template.name}"이(가) 적용되었습니다`, 'success');
   };
 
   const handleToggle = async (ruleId: number, isActive: boolean) => {
@@ -474,9 +502,20 @@ const DispatchRulesPage: React.FC = () => {
         {openDialog && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">
-                {isEditMode ? '규칙 수정' : '새 규칙 생성'}
-              </h2>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-gray-900">
+                  {isEditMode ? '규칙 수정' : '새 규칙 생성'}
+                </h2>
+                {!isEditMode && (
+                  <button
+                    type="button"
+                    onClick={() => setShowTemplates(true)}
+                    className="flex items-center px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium"
+                  >
+                    📋 템플릿에서 선택
+                  </button>
+                )}
+              </div>
               
               <div className="space-y-4">
                 <div>
@@ -618,6 +657,80 @@ const DispatchRulesPage: React.FC = () => {
           </div>
         )}
 
+        {/* AI Review Dialog */}
+        {showAiReview && aiResult && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center mb-4">
+                <Brain className="w-8 h-8 text-purple-600 mr-3" />
+                <h2 className="text-2xl font-bold text-gray-900">AI 규칙 생성 결과 검토</h2>
+              </div>
+
+              {/* Confidence Badge */}
+              <div className="mb-4 flex items-center space-x-3">
+                <span className={`px-4 py-2 rounded-full text-sm font-semibold ${
+                  aiResult.confidence >= 0.8 ? 'bg-green-100 text-green-800' :
+                  aiResult.confidence >= 0.6 ? 'bg-yellow-100 text-yellow-800' :
+                  'bg-red-100 text-red-800'
+                }`}>
+                  신뢰도: {(aiResult.confidence * 100).toFixed(0)}%
+                </span>
+                {aiResult.confidence < 0.6 && (
+                  <span className="text-sm text-red-600">⚠️ 신뢰도가 낮습니다. 수동으로 확인해주세요.</span>
+                )}
+              </div>
+
+              {/* Reasoning */}
+              <div className="mb-6 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                <h3 className="font-semibold text-purple-900 mb-2">📝 분석 근거</h3>
+                <p className="text-sm text-gray-700">{aiResult.reasoning}</p>
+              </div>
+
+              {/* Conditions Preview */}
+              <div className="mb-4">
+                <h3 className="font-semibold text-gray-900 mb-2">✅ 생성된 조건 (Conditions)</h3>
+                <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                  <pre className="text-sm font-mono text-gray-800 overflow-x-auto">
+                    {JSON.stringify(aiResult.conditions, null, 2)}
+                  </pre>
+                </div>
+                {Object.keys(aiResult.conditions).length === 0 && (
+                  <p className="text-sm text-red-600 mt-2">⚠️ 조건이 비어있습니다. 수동으로 입력해주세요.</p>
+                )}
+              </div>
+
+              {/* Actions Preview */}
+              <div className="mb-6">
+                <h3 className="font-semibold text-gray-900 mb-2">⚡ 생성된 액션 (Actions)</h3>
+                <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                  <pre className="text-sm font-mono text-gray-800 overflow-x-auto">
+                    {JSON.stringify(aiResult.actions, null, 2)}
+                  </pre>
+                </div>
+                {Object.keys(aiResult.actions).length === 0 && (
+                  <p className="text-sm text-red-600 mt-2">⚠️ 액션이 비어있습니다. 수동으로 입력해주세요.</p>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-end space-x-3">
+                <button
+                  className="px-6 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+                  onClick={handleRejectAI}
+                >
+                  ❌ 취소하고 수동 입력
+                </button>
+                <button
+                  className="px-6 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all shadow-lg font-medium"
+                  onClick={handleAcceptAI}
+                >
+                  ✅ 이대로 사용
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Test Dialog */}
         {testDialogOpen && selectedRule && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -686,6 +799,87 @@ const DispatchRulesPage: React.FC = () => {
                     테스트 실행
                   </Button>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Template Selection Dialog */}
+        {showTemplates && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-5xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-gray-900">📋 규칙 템플릿 선택</h2>
+                <button
+                  onClick={() => setShowTemplates(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <p className="text-gray-600 mb-6">
+                자주 사용하는 규칙 템플릿을 선택하여 빠르게 규칙을 생성하세요. 선택 후 필요에 따라 수정할 수 있습니다.
+              </p>
+
+              {/* Category Tabs - Could be added later */}
+              
+              {/* Templates Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {ruleTemplates.map((template) => (
+                  <div
+                    key={template.id}
+                    onClick={() => handleSelectTemplate(template)}
+                    className="p-4 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 cursor-pointer transition-all"
+                  >
+                    <div className="flex items-start mb-3">
+                      <span className="text-3xl mr-3">{template.icon}</span>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-900 mb-1">{template.name}</h3>
+                        <p className="text-sm text-gray-600">{template.description}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center space-x-2 text-xs">
+                      <span className={`px-2 py-1 rounded-full ${
+                        template.rule_type === 'assignment' ? 'bg-blue-100 text-blue-800' :
+                        template.rule_type === 'constraint' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-green-100 text-green-800'
+                      }`}>
+                        {template.rule_type}
+                      </span>
+                      <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded-full">
+                        우선순위: {template.priority}
+                      </span>
+                      <span className={`px-2 py-1 rounded-full ${
+                        templateCategories[template.category].color === 'blue' ? 'bg-blue-100 text-blue-800' :
+                        templateCategories[template.category].color === 'green' ? 'bg-green-100 text-green-800' :
+                        templateCategories[template.category].color === 'purple' ? 'bg-purple-100 text-purple-800' :
+                        templateCategories[template.category].color === 'yellow' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-red-100 text-red-800'
+                      }`}>
+                        {templateCategories[template.category].icon} {templateCategories[template.category].label}
+                      </span>
+                    </div>
+
+                    {/* Preview */}
+                    <div className="mt-3 pt-3 border-t border-gray-200">
+                      <div className="text-xs text-gray-500 mb-1">조건 미리보기:</div>
+                      <div className="text-xs font-mono bg-gray-50 p-2 rounded overflow-x-auto">
+                        {JSON.stringify(template.conditions, null, 2).substring(0, 100)}...
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-6 flex justify-end">
+                <button
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                  onClick={() => setShowTemplates(false)}
+                >
+                  취소
+                </button>
               </div>
             </div>
           </div>
