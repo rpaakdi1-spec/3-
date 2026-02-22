@@ -78,8 +78,8 @@ const OptimizationPage: React.FC = () => {
       const orderIdsParam = searchParams.get('order_ids');
       const orderIds = orderIdsParam ? orderIdsParam.split(',').map(id => parseInt(id)) : [];
 
-      // 차량 목록 조회 (GPS 데이터 포함)
-      const vehiclesData = await apiClient.getVehicles({ include_gps: true });
+      // 차량 목록 조회 (GPS 데이터 제외 - 성능 최적화)
+      const vehiclesData = await apiClient.getVehicles({ include_gps: false });
       const availableVehicles = (vehiclesData.items || vehiclesData || []).filter(
         (v: Vehicle) => v.status === '운행가능'
       );
