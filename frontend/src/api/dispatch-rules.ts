@@ -65,7 +65,9 @@ export const DispatchRulesAPI = {
 
   // 규칙 수정
   update: async (ruleId: number, payload: UpdateRulePayload): Promise<DispatchRule> => {
-    const response = await apiClient.put(`/dispatch-rules/${ruleId}`, payload);
+    const response = await apiClient.put(`/dispatch-rules/${ruleId}`, {
+      rule_update: payload  // Wrap payload in rule_update for backend
+    });
     return response.data;
   },
 
