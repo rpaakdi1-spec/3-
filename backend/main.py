@@ -155,7 +155,7 @@ async def internal_error_handler(request, exc):
 
 # Import and include routers
 # from app.api import auth, clients, vehicles, orders, dispatches, tracking, uvis, redispatch, notices, purchase_orders, band_messages, uvis_gps, analytics, delivery_tracking, traffic, monitoring, cache
-from app.api import auth, clients, vehicles, orders, dispatches, tracking, uvis, redispatch, notices, purchase_orders, band_messages, uvis_gps, delivery_tracking, traffic, monitoring, cache, emergency, ml_training, ai_chat, ai_usage, ml_dispatch, ab_test, recurring_orders, order_templates, driver_schedules, urgent_dispatches, notifications, temperature_monitoring, temperature_analytics, billing, vehicle_maintenance, ml_predictions, telemetry, dispatch_optimization, analytics, mobile, dispatch_monitoring, ml_autolearning
+from app.api import auth, clients, vehicles, orders, dispatches, tracking, uvis, redispatch, notices, purchase_orders, band_messages, uvis_gps, delivery_tracking, traffic, monitoring, cache, emergency, ml_training, ai_chat, ai_usage, ml_dispatch, ab_test, recurring_orders, order_templates, driver_schedules, urgent_dispatches, notifications, temperature_monitoring, temperature_analytics, billing, vehicle_maintenance, ml_predictions, telemetry, dispatch_optimization, analytics, mobile, dispatch_monitoring, ml_autolearning, files
 from app.api.v1 import reports, realtime_monitoring, ml_models, fcm_notifications, performance, security, websocket, mobile_enhanced, billing_enhanced
 from app.api.v1.endpoints import dispatch_rules
 app.include_router(auth.router, prefix=f"{settings.API_PREFIX}/auth", tags=["Authentication"])
@@ -207,6 +207,7 @@ app.include_router(mobile.router, prefix=f"{settings.API_PREFIX}/mobile", tags=[
 app.include_router(mobile_enhanced.router, prefix=f"{settings.API_PREFIX}", tags=["Mobile App Enhanced"])  # Phase 7: Mobile API Enhancements
 app.include_router(billing_enhanced.router, prefix=f"{settings.API_PREFIX}", tags=["Billing Enhanced"])  # Phase 8: Billing Enhanced
 app.include_router(dispatch_monitoring.router, prefix=f"{settings.API_PREFIX}/dispatch/monitoring", tags=["Dispatch Monitoring"])  # AI Dispatch Monitoring Dashboard
+app.include_router(files.router, prefix=f"{settings.API_PREFIX}/files", tags=["File Upload"])  # Phase 16.2: File Upload System
 
 # Mount static files for uploads
 import os

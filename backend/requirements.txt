@@ -84,3 +84,4 @@ qrcode[pil]==7.4.2
 
 # Error Tracking
 sentry-sdk[fastapi]==1.40.0
+boto3==1.34.34  # AWS S3 / MinIO client
