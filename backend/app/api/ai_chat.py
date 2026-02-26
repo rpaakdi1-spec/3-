@@ -228,6 +228,14 @@ async def _create_order_from_parsed_data(db: Session, parsed_order: Dict[str, An
         if not parsed_order.get("order_date"):
             parsed_order["order_date"] = date.today()
         
+        # delivery_date 설정 (NOT NULL 제약 조건)
+        if not parsed_order.get("delivery_date"):
+            # requested_delivery_date가 있으면 사용, 없으면 오늘 날짜 사용
+            if parsed_order.get("requested_delivery_date"):
+                parsed_order["delivery_date"] = parsed_order["requested_delivery_date"]
+            else:
+                parsed_order["delivery_date"] = date.today()
+        
         # 상태 설정
         parsed_order["status"] = OrderStatus.PENDING
         
