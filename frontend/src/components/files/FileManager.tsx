@@ -34,7 +34,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
     try {
       const response = await fetch(`/api/files/list?folder=${folder}&limit=100`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
         }
       });
 
@@ -60,7 +60,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
       const response = await fetch(`/api/files/delete/${encodeURIComponent(key)}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
         }
       });
 
@@ -87,7 +87,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
       
       const response = await fetch(`/api/files/download/${encodeURIComponent(key)}`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
         }
       });
 
@@ -124,7 +124,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
       fetch(`/api/files/delete/${encodeURIComponent(key)}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
         }
       })
     );

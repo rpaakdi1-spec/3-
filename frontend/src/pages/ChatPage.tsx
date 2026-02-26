@@ -38,7 +38,7 @@ export const ChatPage: React.FC<ChatPageProps> = () => {
   useEffect(() => {
     const fetchCurrentUser = async () => {
       try {
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('access_token');
         const response = await fetch('/api/v1/auth/me', {
           headers: {
             'Authorization': `Bearer ${token}`
@@ -66,7 +66,7 @@ export const ChatPage: React.FC<ChatPageProps> = () => {
 
     const fetchRoomInfo = async () => {
       try {
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('access_token');
         const response = await fetch(`/api/v1/chat/rooms/${selectedRoomId}`, {
           headers: {
             'Authorization': `Bearer ${token}`
@@ -98,7 +98,7 @@ export const ChatPage: React.FC<ChatPageProps> = () => {
     }
 
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('access_token');
       const response = await fetch('/api/v1/chat/rooms', {
         method: 'POST',
         headers: {

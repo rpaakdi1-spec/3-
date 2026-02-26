@@ -100,7 +100,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
       const formData = new FormData();
       formData.append('file', file);
 
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('access_token');
       const endpoint = file.type.startsWith('image/') 
         ? '/api/files/upload-image'
         : '/api/files/upload';
