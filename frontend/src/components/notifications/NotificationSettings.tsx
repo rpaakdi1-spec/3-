@@ -5,7 +5,7 @@
 import React from 'react';
 import { Bell, BellOff, Check, X } from 'lucide-react';
 import { useFCM } from '../../hooks/useFCM';
-import { toast } from 'sonner';
+import toast from 'react-hot-toast';
 
 interface NotificationSettingsProps {
   className?: string;

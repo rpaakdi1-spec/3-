@@ -4,7 +4,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { File, Download, Trash2, RefreshCw, Image as ImageIcon, FileText } from 'lucide-react';
-import { toast } from 'sonner';
+import toast from 'react-hot-toast';
 
 interface FileItem {
   key: string;

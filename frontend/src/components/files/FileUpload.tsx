@@ -4,7 +4,7 @@
 
 import React, { useState, useRef, DragEvent, ChangeEvent } from 'react';
 import { Upload, X, File, Image as ImageIcon, CheckCircle, AlertCircle } from 'lucide-react';
-import { toast } from 'sonner';
+import toast from 'react-hot-toast';
 
 interface FileUploadProps {
   onUploadComplete?: (files: UploadedFile[]) => void;

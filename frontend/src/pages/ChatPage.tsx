@@ -8,7 +8,7 @@ import { ChatRoomList } from '../components/chat/ChatRoomList';
 import { MessageList } from '../components/chat/MessageList';
 import { MessageInput } from '../components/chat/MessageInput';
 import { useChatWebSocket } from '../hooks/useChatWebSocket';
-import { toast } from 'sonner';
+import toast from 'react-hot-toast';
 
 interface ChatPageProps {}
 

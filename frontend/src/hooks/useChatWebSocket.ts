@@ -3,7 +3,7 @@
  */
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { toast } from 'sonner';
+import toast from 'react-hot-toast';
 
 export interface ChatMessage {
   id: number;

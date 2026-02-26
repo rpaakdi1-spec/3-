@@ -5,7 +5,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { getToken, onMessage, deleteToken } from 'firebase/messaging';
 import { messaging } from '../firebase/config';
-import { toast } from 'sonner';
+import toast from 'react-hot-toast';
 
 interface UseFCMReturn {
   token: string | null;

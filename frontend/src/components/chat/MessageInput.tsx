@@ -4,7 +4,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Paperclip, Image as ImageIcon, X } from 'lucide-react';
-import { toast } from 'sonner';
+import toast from 'react-hot-toast';
 
 interface MessageInputProps {
   onSendMessage: (content: string, messageType: 'text' | 'image' | 'file', fileUrl?: string) => void;

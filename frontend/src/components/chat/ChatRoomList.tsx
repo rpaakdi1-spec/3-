@@ -4,7 +4,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { MessageSquare, Users, Plus, Search } from 'lucide-react';
-import { toast } from 'sonner';
+import toast from 'react-hot-toast';
 
 export interface ChatRoom {
   id: number;
