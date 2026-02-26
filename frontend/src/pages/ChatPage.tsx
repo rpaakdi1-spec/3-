@@ -279,3 +279,5 @@ export const ChatPage: React.FC<ChatPageProps> = () => {
     </div>
   );
 };
+
+export default ChatPage;
