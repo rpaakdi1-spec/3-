@@ -592,3 +592,98 @@ async def get_vehicle_temperature_history(
     except Exception as e:
         logger.error(f"온도 이력 조회 오류: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/{vehicle_id}/gps/history")
+async def get_vehicle_gps_history(
+    vehicle_id: int,
+    hours: int = Query(24, description="Hours of history to fetch (default: 24)"),
+    db: Session = Depends(get_db)
+):
+    """
+    차량 GPS 이력 조회 (경로 표시용)
+    """
+    from app.models import VehicleGPSLog, Vehicle
+    from datetime import datetime, timedelta
+    
+    try:
+        # 차량 확인
+        vehicle = db.query(Vehicle).filter(Vehicle.id == vehicle_id).first()
+        if not vehicle:
+            raise HTTPException(status_code=404, detail="차량을 찾을 수 없습니다")
+        
+        # GPS 로그 조회
+        since = datetime.now() - timedelta(hours=hours)
+        logs = db.query(VehicleGPSLog).filter(
+            VehicleGPSLog.vehicle_id == vehicle_id,
+            VehicleGPSLog.created_at >= since,
+            VehicleGPSLog.latitude.isnot(None),
+            VehicleGPSLog.longitude.isnot(None)
+        ).order_by(VehicleGPSLog.created_at.asc()).all()
+        
+        # 데이터 포맷팅
+        route_points = []
+        stops = []
+        prev_log = None
+        
+        for log in logs:
+            point = {
+                "lat": log.latitude,
+                "lng": log.longitude,
+                "timestamp": log.created_at.isoformat(),
+                "speed": log.speed if log.speed and log.speed != 255 else 0,
+                "engine_status": log.engine_status,
+                "recorded_at": log.recorded_at.isoformat() if log.recorded_at else None
+            }
+            route_points.append(point)
+            
+            # 정차 판단 (엔진 꺼짐 또는 속도 0)
+            if prev_log and (log.engine_status == 0 or (log.speed == 0 and prev_log.speed > 0)):
+                # 이전 로그와 현재 로그 사이에 정차가 있었음
+                if prev_log.engine_status == 1 and log.engine_status == 0:
+                    stops.append({
+                        "lat": log.latitude,
+                        "lng": log.longitude,
+                        "timestamp": log.created_at.isoformat(),
+                        "type": "engine_off",
+                        "duration_minutes": None  # 다음 로그와 비교해야 계산 가능
+                    })
+            
+            prev_log = log
+        
+        # 통계 계산
+        total_distance = 0.0
+        if len(route_points) > 1:
+            from app.services.vehicle_analytics_service import VehicleAnalyticsService
+            for i in range(len(logs) - 1):
+                distance = VehicleAnalyticsService.calculate_distance(
+                    logs[i].latitude,
+                    logs[i].longitude,
+                    logs[i + 1].latitude,
+                    logs[i + 1].longitude
+                )
+                total_distance += distance
+        
+        max_speed = max([p["speed"] for p in route_points if p["speed"] != 255], default=0)
+        avg_speed = sum([p["speed"] for p in route_points if p["speed"] != 255]) / len(route_points) if route_points else 0
+        
+        return {
+            "vehicle_id": vehicle_id,
+            "vehicle_plate": vehicle.plate_number,
+            "vehicle_type": vehicle.vehicle_type,
+            "hours": hours,
+            "route_points": route_points,
+            "stops": stops,
+            "total_points": len(route_points),
+            "total_distance_km": round(total_distance, 2),
+            "max_speed_kmh": max_speed,
+            "avg_speed_kmh": round(avg_speed, 1),
+            "start_time": route_points[0]["timestamp"] if route_points else None,
+            "end_time": route_points[-1]["timestamp"] if route_points else None,
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"GPS 이력 조회 오류: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
