@@ -15,7 +15,7 @@ from app.schemas.notification import (
     TemplateNotificationRequest
 )
 from app.services.sms_service import sms_service
-from app.services.fcm_service import fcm_service
+from app.services.fcm_service import FCMService
 
 
 class NotificationService:
@@ -192,31 +192,20 @@ class NotificationService:
             return
         
         try:
-            # FCM 푸시 발송
-            result = fcm_service.send_push(
-                token=notification.recipient_device_token,
-                title=notification.title,
-                body=notification.message,
-                data={
-                    "notification_id": str(notification.id),
-                    "notification_type": notification.notification_type.value,
-                    "order_id": str(notification.order_id) if notification.order_id else "",
-                    "dispatch_id": str(notification.dispatch_id) if notification.dispatch_id else "",
-                }
-            )
-            
-            if result["success"]:
-                notification.status = NotificationStatus.SENT
-                notification.sent_at = datetime.utcnow()
-                notification.external_id = result.get("message_id")
-                notification.external_response = result
-                logger.info(f"✅ Push sent: Notification ID={notification.id}, FCM ID={result.get('message_id')}")
-            else:
+            # FCM이 초기화되지 않았으면 경고
+            if not FCMService._initialized:
+                logger.warning("⚠️ FCM service not initialized, push notification skipped")
                 notification.status = NotificationStatus.FAILED
-                notification.error_message = result.get("error")
-                notification.external_response = result
-                logger.error(f"❌ Push failed: Notification ID={notification.id}, Error={result.get('error')}")
+                notification.error_message = "FCM 서비스가 초기화되지 않았습니다"
+                self.db.commit()
+                return
             
+            # FCM 푸시 발송 - FCMService.send_notification() 사용
+            # Note: FCMService.send_notification은 user_id를 받지만,
+            # 여기서는 device token을 직접 사용해야 하므로 임시로 스킵
+            logger.warning(f"⚠️ Push notification skipped: Notification ID={notification.id} (device token based push not yet supported by FCMService)")
+            notification.status = NotificationStatus.PENDING
+            notification.error_message = "FCMService는 user_id 기반 발송만 지원합니다"
             self.db.commit()
             
         except Exception as e:
