@@ -3,15 +3,22 @@ import { TrendingUp, Activity, Gauge, MapPin } from 'lucide-react';
 import Card from '../common/Card';
 import { toast } from 'react-hot-toast';
 
+interface VehicleStat {
+  vehicle_id: number;
+  vehicle_plate: string;
+  total_distance_km: number;
+  max_speed_kmh: number;
+  avg_speed_kmh: number;
+  engine_on_ratio: number;
+  data_points: number;
+}
+
 interface FleetStats {
   total_vehicles: number;
   active_vehicles: number;
   total_distance_km: number;
-  average_speed_kmh: number;
-  engine_on_count: number;
-  engine_off_count: number;
-  max_speed_kmh: number;
-  vehicles_with_gps: number;
+  avg_distance_per_vehicle_km: number;
+  vehicle_stats: VehicleStat[];
 }
 
 interface UvisFleetStatsProps {
@@ -69,10 +76,20 @@ const UvisFleetStats: React.FC<UvisFleetStatsProps> = ({
     return null;
   }
 
+  // Calculate statistics from vehicle_stats
+  const vehicleStats = stats.vehicle_stats || [];
+  const engineOnCount = vehicleStats.filter(v => v.engine_on_ratio > 50).length;
+  const avgSpeed = vehicleStats.length > 0
+    ? vehicleStats.reduce((sum, v) => sum + (v.avg_speed_kmh || 0), 0) / vehicleStats.length
+    : 0;
+  const maxSpeed = vehicleStats.length > 0
+    ? Math.max(...vehicleStats.map(v => v.max_speed_kmh || 0))
+    : 0;
+
   const statCards = [
     {
       title: '운행 중 차량',
-      value: stats.engine_on_count,
+      value: engineOnCount,
       total: stats.total_vehicles,
       unit: '대',
       icon: <Activity className="text-green-600" size={24} />,
@@ -81,16 +98,16 @@ const UvisFleetStats: React.FC<UvisFleetStatsProps> = ({
     },
     {
       title: '총 주행 거리',
-      value: stats.total_distance_km.toFixed(1),
+      value: (stats.total_distance_km || 0).toFixed(1),
       unit: 'km',
       icon: <MapPin className="text-blue-600" size={24} />,
       color: 'text-blue-600',
       bgColor: 'bg-blue-50',
-      subtitle: `${stats.vehicles_with_gps}대 GPS 데이터`,
+      subtitle: `${stats.active_vehicles}대 GPS 데이터`,
     },
     {
       title: '평균 속도',
-      value: stats.average_speed_kmh.toFixed(1),
+      value: avgSpeed.toFixed(1),
       unit: 'km/h',
       icon: <Gauge className="text-purple-600" size={24} />,
       color: 'text-purple-600',
@@ -98,7 +115,7 @@ const UvisFleetStats: React.FC<UvisFleetStatsProps> = ({
     },
     {
       title: '최고 속도',
-      value: stats.max_speed_kmh.toFixed(1),
+      value: maxSpeed.toFixed(1),
       unit: 'km/h',
       icon: <TrendingUp className="text-orange-600" size={24} />,
       color: 'text-orange-600',
