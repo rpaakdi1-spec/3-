@@ -20,6 +20,7 @@ import { useResponsive } from '../hooks/useResponsive';
 import { MobileDashboardCard } from '../components/mobile/MobileDashboardCard';
 import UvisAlerts from '../components/vehicles/UvisAlerts';
 import UvisFleetStats from '../components/vehicles/UvisFleetStats';
+import UvisAlertToast from '../components/vehicles/UvisAlertToast';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
@@ -170,6 +171,9 @@ const DashboardPage: React.FC = () => {
   };
 
   return (<div className="space-y-4 md:space-y-6">
+        {/* UVIS 알림 토스트 (백그라운드 실행) */}
+        <UvisAlertToast enabled={true} />
+
         {/* Header */}
         <div className="px-4 md:px-0">
           <div className="flex items-center justify-between">
