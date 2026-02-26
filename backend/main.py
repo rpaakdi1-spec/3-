@@ -115,8 +115,8 @@ setup_security_middleware(app)
 
 # Health check endpoint
 @app.get("/health")
-async def health_check():
 @app.get("/api/v1/health")
+async def health_check():
     """Health check endpoint"""
     return {
         "status": "healthy",
