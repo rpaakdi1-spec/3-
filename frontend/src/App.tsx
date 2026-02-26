@@ -56,6 +56,9 @@ const IoTSensorsPage = lazy(() => import('./pages/IoTSensorsPage'));
 const IoTSensorDetailPage = lazy(() => import('./pages/IoTSensorDetailPage'));
 const IoTAlertsPage = lazy(() => import('./pages/IoTAlertsPage'));
 
+// File Management Page (Phase 16.2)
+const FilesPage = lazy(() => import('./pages/FilesPage'));
+
 // Protected Route Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated } = useAuthStore();
@@ -450,6 +453,16 @@ const App: React.FC = () => {
               element={
                 <LayoutWrapper>
                   <IoTAlertsPage />
+                </LayoutWrapper>
+              }
+            />
+
+            {/* File Management (Phase 16.2) */}
+            <Route
+              path="/files"
+              element={
+                <LayoutWrapper>
+                  <FilesPage />
                 </LayoutWrapper>
               }
             />
