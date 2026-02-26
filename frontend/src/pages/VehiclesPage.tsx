@@ -905,7 +905,6 @@ const VehiclesPage: React.FC = () => {
           </div>
         </div>
       )}
-      </div>
   );
 };
 
