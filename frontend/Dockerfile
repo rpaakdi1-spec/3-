@@ -9,7 +9,6 @@ RUN npm install
 
 # 소스 복사 및 빌드
 COPY . .
-# Build for production using .env.production
 ENV NODE_ENV=production
 RUN npm run build
 
@@ -27,10 +26,6 @@ COPY nginx.conf /etc/nginx/nginx.conf
 
 # 포트 노출
 EXPOSE 80
-
-# 헬스체크
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost/health || exit 1
 
 # Nginx 실행
 CMD ["nginx", "-g", "daemon off;"]

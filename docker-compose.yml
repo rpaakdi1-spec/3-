@@ -144,8 +144,6 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: uvis-frontend
-    depends_on:
-      - backend
     ports:
       - "${FRONTEND_PORT:-80}:80"
     networks:
