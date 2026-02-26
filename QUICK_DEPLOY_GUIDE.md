@@ -1,101 +1,118 @@
-# 서버에서 실행할 명령어 (복사해서 붙여넣기)
+# 🚀 Phase 16 배포 - 빠른 참조 가이드
 
-## 🚀 자동 배포 스크립트 실행
+## 📌 현재 상태
+- **Phase 16 개발:** ✅ 100% 완료
+- **코드 커밋:** ✅ 완료 (커밋 2933c11)
+- **서버 배포:** ⏳ 대기 중
+- **서버:** 139.150.11.99
+
+## 🎯 서버에서 실행할 명령어
 
 ```bash
-# 1. 서버 접속
+# 1. SSH 접속
 ssh root@139.150.11.99
 
-# 2. 프론트엔드 디렉터리 이동
-cd /root/uvis/frontend
+# 2. 프로젝트 디렉토리
+cd /root/uvis
 
 # 3. 최신 코드 가져오기
-git fetch origin main
-git pull origin main
+git rebase --abort
+git fetch origin
+git reset --hard origin/main
 
-# 4. 빌드 실행
-npm run build
+# 4. 커밋 확인 (2933c11 또는 04af91b 확인)
+git log --oneline -3
 
-# 5. 웹서버 재시작 (Docker 사용 시)
-docker restart uvis-frontend
+# 5. Backend 재빌드 & 재시작
+docker-compose stop backend
+docker-compose build --no-cache backend
+docker-compose up -d backend
 
-# 또는 Nginx 사용 시
-nginx -t && systemctl restart nginx
+# 6. 30초 대기 후 상태 확인
+sleep 30
+docker-compose ps
+
+# 7. Health Check
+curl http://localhost:8000/api/v1/health
+curl -I http://localhost/
+
+# 8. 성공 확인 - 모든 컨테이너가 Up (healthy) 상태여야 함
 ```
 
-## 🧪 브라우저에서 테스트
+## ✅ 예상 결과
 
-### 1단계: 캐시 삭제 및 새로고침
-- **Windows/Linux**: `Ctrl + Shift + R`
-- **Mac**: `Cmd + Shift + R`
-
-### 2단계: 개발자 도구 열기
-- **Windows/Linux**: `F12`
-- **Mac**: `Cmd + Option + I`
-
-### 3단계: Console 탭에서 로그 확인
-배차 최적화를 실행하면 다음과 같은 로그가 표시됩니다:
-
+### 정상 컨테이너 상태
 ```
-🔍 dispatch 데이터: { ... }
-🔍 찾는 vehicle_id: <값>
-🔍 사용 가능한 vehicles: [{ id: ..., code: ... }, ...]
+NAME            STATUS
+uvis-backend    Up (healthy)
+uvis-frontend   Up (healthy)
+uvis-minio      Up (healthy)
+uvis-db         Up (healthy)
+uvis-redis      Up (healthy)
 ```
 
-### 4단계: 스크린샷 캡처
-Console 전체 로그를 스크린샷으로 캡처해서 공유해주세요!
-
----
-
-## 📋 예상 시나리오
-
-### ✅ 정상 케이스
-```javascript
-🔍 dispatch 데이터: { vehicle_id: 5, ... }
-🔍 찾는 vehicle_id: 5
-🔍 사용 가능한 vehicles: [{ id: 5, code: "V전남87바4158" }, ...]
+### Health Check 응답
+```json
+{
+  "status": "healthy",
+  "app_name": "Cold Chain Dispatch System",
+  "environment": "production"
+}
 ```
 
-### ❌ 오류 케이스 1: vehicle_id가 undefined
-```javascript
-🔍 dispatch 데이터: { vehicle: 5, ... }  // ← vehicle_id가 아님!
-🔍 찾는 vehicle_id: undefined
-```
-**해결**: 백엔드 API 응답 필드명 수정 필요
+## 🧪 배포 후 테스트
 
-### ❌ 오류 케이스 2: 차량이 목록에 없음
-```javascript
-🔍 dispatch 데이터: { vehicle_id: 5, ... }
-🔍 찾는 vehicle_id: 5
-🔍 사용 가능한 vehicles: [{ id: 6, code: ... }, { id: 7, code: ... }]
-```
-**해결**: 차량 목록 로딩 로직 확인 필요
+### 브라우저에서 확인
+1. **메인:** http://139.150.11.99
+2. **채팅:** http://139.150.11.99/chat
+3. **파일:** http://139.150.11.99/files
+4. **API 문서:** http://139.150.11.99:8000/docs
+5. **MinIO:** http://139.150.11.99:9001 (admin/uvis_minio_secure_2024)
 
-### ❌ 오류 케이스 3: 타입 불일치
-```javascript
-🔍 dispatch 데이터: { vehicle_id: "5", ... }  // ← 문자열
-🔍 찾는 vehicle_id: "5"
-🔍 사용 가능한 vehicles: [{ id: 5, code: ... }]  // ← 숫자
-```
-**해결**: 타입 변환 필요
-
----
-
-## 🔄 롤백 (문제 발생 시)
-
+### 통합 테스트
 ```bash
-cd /root/uvis/frontend
-rm -rf dist
-mv dist.backup_YYYYMMDD_HHMMSS dist  # 가장 최근 백업 폴더명 사용
-docker restart uvis-frontend  # 또는 systemctl restart nginx
+cd /root/uvis
+./test-deployment.sh
 ```
+
+## 🔧 트러블슈팅
+
+### Backend가 여전히 unhealthy면
+```bash
+docker-compose restart backend
+sleep 30
+docker-compose logs backend | tail -50
+```
+
+### 전체 재시작이 필요하면
+```bash
+docker-compose down
+docker-compose build --no-cache
+docker-compose up -d
+sleep 60
+docker-compose ps
+```
+
+## 📖 상세 가이드
+
+- **FCM 수정 배포:** `DEPLOY_FCM_FIX.md`
+- **전체 상태 보고:** `PHASE_16_FINAL_DEPLOYMENT_STATUS.md`
+- **서버 배포 상세:** `docs/SERVER_DEPLOYMENT_INSTRUCTIONS.md`
+
+## 🎉 완료 체크리스트
+
+- [ ] SSH 접속
+- [ ] 최신 코드 pull
+- [ ] Backend 재빌드
+- [ ] 컨테이너 상태 확인 (모두 healthy)
+- [ ] Health check 성공
+- [ ] 웹사이트 접속 성공
+- [ ] 채팅 페이지 동작 확인
+- [ ] 파일 업로드 동작 확인
+- [ ] 통합 테스트 통과
 
 ---
 
-## 📞 추가 도움이 필요한 경우
-
-1. **빌드 로그 전체** 캡처
-2. **Console 로그 전체** 스크린샷
-3. **Network 탭**에서 `/api/v1/dispatches/optimize` 응답 JSON
-
-이 정보들을 함께 공유해주시면 더 빠르게 해결할 수 있습니다!
+**작성:** 2026-02-27  
+**커밋:** 2933c11  
+**저장소:** https://github.com/rpaakdi1-spec/3-
