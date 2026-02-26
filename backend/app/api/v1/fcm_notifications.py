@@ -2,9 +2,9 @@
 FCM 푸시 알림 API 엔드포인트
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
 from loguru import logger
 
@@ -12,7 +12,7 @@ from app.core.database import get_db
 from app.api.auth import get_current_user
 from app.models.user import User
 from app.models.fcm_token import FCMToken, PushNotificationLog
-from app.services.fcm_notification_service import get_fcm_service
+from app.services.fcm_service import FCMService
 
 
 router = APIRouter()
@@ -21,7 +21,7 @@ router = APIRouter()
 # Request/Response Models
 class FCMTokenRegisterRequest(BaseModel):
     token: str
-    device_type: Optional[str] = None  # 'ios', 'android'
+    device_type: Optional[str] = "web"  # 'ios', 'android', 'web'
     device_id: Optional[str] = None
     app_version: Optional[str] = None
 
@@ -31,7 +31,12 @@ class PushNotificationRequest(BaseModel):
     title: str
     body: str
     notification_type: Optional[str] = None
-    data: Optional[dict] = None
+    data: Optional[Dict[str, Any]] = None
+
+
+class TestNotificationRequest(BaseModel):
+    title: Optional[str] = "🔔 테스트 알림"
+    body: Optional[str] = "FCM 푸시 알림이 정상 작동합니다."
 
 
 # FCM 토큰 등록
@@ -44,50 +49,24 @@ async def register_fcm_token(
     """
     FCM 토큰 등록
     
-    모바일 앱에서 FCM 토큰을 서버에 등록합니다.
+    모바일 앱 또는 웹 브라우저에서 FCM 토큰을 서버에 등록합니다.
     """
     try:
-        # 기존 토큰 확인
-        existing_token = db.query(FCMToken).filter(
-            FCMToken.token == request.token
-        ).first()
+        fcm_token = FCMService.register_token(
+            db=db,
+            user_id=current_user.id,
+            token=request.token,
+            device_type=request.device_type,
+            device_id=request.device_id,
+            app_version=request.app_version
+        )
         
-        if existing_token:
-            # 토큰이 이미 존재하면 업데이트
-            existing_token.user_id = current_user.id
-            existing_token.device_type = request.device_type
-            existing_token.device_id = request.device_id
-            existing_token.app_version = request.app_version
-            existing_token.is_active = True
-            
-            db.commit()
-            db.refresh(existing_token)
-            
-            return {
-                "status": "success",
-                "message": "Token updated",
-                "token_id": existing_token.id
-            }
-        else:
-            # 새 토큰 생성
-            new_token = FCMToken(
-                user_id=current_user.id,
-                token=request.token,
-                device_type=request.device_type,
-                device_id=request.device_id,
-                app_version=request.app_version,
-                is_active=True
-            )
-            
-            db.add(new_token)
-            db.commit()
-            db.refresh(new_token)
-            
-            return {
-                "status": "success",
-                "message": "Token registered",
-                "token_id": new_token.id
-            }
+        return {
+            "status": "success",
+            "message": "Token registered successfully",
+            "token_id": fcm_token.id,
+            "device_type": fcm_token.device_type
+        }
     
     except Exception as e:
         logger.error(f"Error registering FCM token: {e}")
@@ -103,22 +82,18 @@ async def unregister_fcm_token(
 ):
     """FCM 토큰 비활성화 (로그아웃 시)"""
     try:
-        fcm_token = db.query(FCMToken).filter(
-            FCMToken.token == token,
-            FCMToken.user_id == current_user.id
-        ).first()
+        success = FCMService.deactivate_token(db, token)
         
-        if not fcm_token:
+        if not success:
             raise HTTPException(status_code=404, detail="Token not found")
-        
-        fcm_token.is_active = False
-        db.commit()
         
         return {
             "status": "success",
-            "message": "Token unregistered"
+            "message": "Token unregistered successfully"
         }
     
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error unregistering FCM token: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -134,53 +109,21 @@ async def send_push_notification(
     """
     푸시 알림 전송
     
-    특정 사용자들에게 푸시 알림을 전송합니다.
+    특정 사용자들에게 푸시 알림을 전송합니다. (관리자 전용)
     """
     # 관리자만 실행 가능
     if current_user.role not in ['admin', 'manager']:
         raise HTTPException(status_code=403, detail="권한이 없습니다")
     
     try:
-        # 대상 사용자의 활성 토큰 조회
-        fcm_tokens = db.query(FCMToken).filter(
-            FCMToken.user_id.in_(request.user_ids),
-            FCMToken.is_active == True
-        ).all()
-        
-        if not fcm_tokens:
-            return {
-                "status": "error",
-                "message": "No active tokens found for target users"
-            }
-        
-        tokens = [t.token for t in fcm_tokens]
-        
-        # FCM 서비스로 알림 전송
-        fcm_service = get_fcm_service()
-        result = await fcm_service.send_push_notification(
-            tokens=tokens,
+        result = FCMService.send_to_multiple_users(
+            db=db,
+            user_ids=request.user_ids,
             title=request.title,
             body=request.body,
-            data=request.data
+            data=request.data,
+            notification_type=request.notification_type
         )
-        
-        # 알림 로그 저장
-        for user_id in request.user_ids:
-            user_tokens = [t for t in fcm_tokens if t.user_id == user_id]
-            
-            for token_obj in user_tokens:
-                log = PushNotificationLog(
-                    user_id=user_id,
-                    token=token_obj.token,
-                    title=request.title,
-                    body=request.body,
-                    data_json=str(request.data) if request.data else None,
-                    notification_type=request.notification_type,
-                    status="sent" if token_obj.token not in result.get('failed_tokens', []) else "failed"
-                )
-                db.add(log)
-        
-        db.commit()
         
         return {
             "status": "success",
@@ -227,4 +170,79 @@ async def get_notification_logs(
     
     except Exception as e:
         logger.error(f"Error fetching notification logs: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# 테스트 알림 전송
+@router.post("/test")
+async def send_test_notification(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    테스트 푸시 알림 전송
+    
+    자신에게 테스트 푸시 알림을 전송합니다.
+    FCM 토큰이 제대로 등록되었는지 확인할 수 있습니다.
+    """
+    try:
+        success = FCMService.send_notification(
+            db=db,
+            user_id=current_user.id,
+            title="🔔 테스트 알림",
+            body=f"안녕하세요, {current_user.name}님! FCM 푸시 알림이 정상 작동합니다.",
+            data={"type": "test", "timestamp": str(current_user.created_at)},
+            notification_type="test"
+        )
+        
+        if success:
+            return {
+                "status": "success",
+                "message": "테스트 알림이 발송되었습니다. 디바이스에서 확인해주세요."
+            }
+        else:
+            return {
+                "status": "warning",
+                "message": "FCM 토큰이 등록되지 않았거나, 알림 발송에 실패했습니다."
+            }
+    
+    except Exception as e:
+        logger.error(f"Error sending test notification: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# 내 FCM 토큰 목록 조회
+@router.get("/my-tokens")
+async def get_my_fcm_tokens(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    내 FCM 토큰 목록 조회
+    
+    현재 사용자의 등록된 FCM 토큰 목록을 반환합니다.
+    """
+    try:
+        tokens = db.query(FCMToken).filter(
+            FCMToken.user_id == current_user.id,
+            FCMToken.is_active == True
+        ).all()
+        
+        return {
+            "status": "success",
+            "data": [
+                {
+                    "id": token.id,
+                    "device_type": token.device_type,
+                    "device_id": token.device_id,
+                    "app_version": token.app_version,
+                    "last_used_at": token.last_used_at.isoformat(),
+                    "created_at": token.created_at.isoformat()
+                }
+                for token in tokens
+            ]
+        }
+    
+    except Exception as e:
+        logger.error(f"Error fetching my tokens: {e}")
         raise HTTPException(status_code=500, detail=str(e))
