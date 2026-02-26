@@ -21,6 +21,7 @@ import { MobileDashboardCard } from '../components/mobile/MobileDashboardCard';
 import UvisAlerts from '../components/vehicles/UvisAlerts';
 import UvisFleetStats from '../components/vehicles/UvisFleetStats';
 import UvisAlertToast from '../components/vehicles/UvisAlertToast';
+import { NotificationSettings } from '../components/notifications/NotificationSettings';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
@@ -312,6 +313,11 @@ const DashboardPage: React.FC = () => {
               </button>
             </div>
           </Card>
+        </div>
+
+        {/* Push Notification Settings */}
+        <div className={isMobile ? 'px-4' : ''}>
+          <NotificationSettings />
         </div>
 
         {/* UVIS Real-time Stats */}
