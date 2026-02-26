@@ -857,10 +857,10 @@ const OrdersPage: React.FC = () => {
   });
 
   // Calculate pending orders count for AI dispatch
-  const pendingOrders = orders.filter(order => 
+  const pendingOrdersList = orders.filter(order => 
     order.status === 'PENDING'
   );
-  const pendingOrdersCount = pendingOrders.length;
+  const pendingOrdersCount = pendingOrdersList.length;
 
   if (loading) {
     return <Loading />;
@@ -917,7 +917,7 @@ const OrdersPage: React.FC = () => {
             <Button 
               variant={pendingOrdersCount > 0 ? "success" : "secondary"}
               onClick={() => {
-                const orderIds = pendingOrders.map(o => o.id).join(',');
+                const orderIds = pendingOrdersList.map(o => o.id).join(',');
                 navigate(`/optimization?order_ids=${orderIds}`);
               }}
               className={pendingOrdersCount > 0 ? "animate-pulse" : ""}
@@ -1213,9 +1213,6 @@ const OrdersPage: React.FC = () => {
           </Card>
         )}
 
-        {/* Tab Content */}
-        {activeTab === 'orders' && (
-          <>
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
@@ -1284,6 +1281,7 @@ const OrdersPage: React.FC = () => {
         )}
       </div>
 
+      {/* Modal */}
       <OrderModal
         isOpen={modalOpen}
         onClose={() => {
