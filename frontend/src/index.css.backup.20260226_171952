@@ -1,0 +1,8 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 전역 크기 67%로 조정 */
+body {
+  zoom: 0.67;
+}

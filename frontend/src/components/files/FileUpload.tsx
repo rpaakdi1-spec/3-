@@ -178,8 +178,8 @@ export const FileUpload: React.FC<FileUploadProps> = ({
       }
 
       const endpoint = uploadType === 'image' 
-        ? '/api/v1/files/upload-image' 
-        : '/api/v1/files/upload';
+        ? '/api/files/upload-image' 
+        : '/api/files/upload';
 
       const response = await fetch(endpoint, {
         method: 'POST',

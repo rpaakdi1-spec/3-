@@ -102,8 +102,8 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
       const token = localStorage.getItem('token');
       const endpoint = file.type.startsWith('image/') 
-        ? '/api/v1/files/upload-image'
-        : '/api/v1/files/upload';
+        ? '/api/files/upload-image'
+        : '/api/files/upload';
 
       const response = await fetch(endpoint, {
         method: 'POST',

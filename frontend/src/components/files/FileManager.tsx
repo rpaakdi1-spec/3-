@@ -32,7 +32,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
   const fetchFiles = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/v1/files/list?folder=${folder}&limit=100`, {
+      const response = await fetch(`/api/files/list?folder=${folder}&limit=100`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -57,7 +57,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
     if (!confirm('이 파일을 삭제하시겠습니까?')) return;
 
     try {
-      const response = await fetch(`/api/v1/files/delete/${encodeURIComponent(key)}`, {
+      const response = await fetch(`/api/files/delete/${encodeURIComponent(key)}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -85,7 +85,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
     try {
       const fileName = key.split('/').pop() || 'download';
       
-      const response = await fetch(`/api/v1/files/download/${encodeURIComponent(key)}`, {
+      const response = await fetch(`/api/files/download/${encodeURIComponent(key)}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -121,7 +121,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
     if (!confirm(`선택한 ${selectedFiles.size}개 파일을 삭제하시겠습니까?`)) return;
 
     const deletePromises = Array.from(selectedFiles).map((key) =>
-      fetch(`/api/v1/files/delete/${encodeURIComponent(key)}`, {
+      fetch(`/api/files/delete/${encodeURIComponent(key)}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
