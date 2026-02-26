@@ -293,39 +293,237 @@ const HistoryContent: React.FC<{
   chatHistory: ChatHistory[];
   historyLoading: boolean;
   loadChatHistory: () => void;
-}> = ({ chatHistory, historyLoading, loadChatHistory }) => {
+  onResumeConversation?: (history: ChatHistory) => void;
+}> = ({ chatHistory, historyLoading, loadChatHistory, onResumeConversation }) => {
+  const [searchKeyword, setSearchKeyword] = useState('');
+  const [dateFilter, setDateFilter] = useState('');
+  const [intentFilter, setIntentFilter] = useState('ALL');
+
+  // 필터링된 히스토리
+  const filteredHistory = chatHistory.filter(history => {
+    const matchesKeyword = !searchKeyword || 
+      history.user_message.toLowerCase().includes(searchKeyword.toLowerCase()) ||
+      history.assistant_message.toLowerCase().includes(searchKeyword.toLowerCase());
+    
+    const matchesDate = !dateFilter || 
+      new Date(history.created_at).toISOString().split('T')[0] === dateFilter;
+    
+    const matchesIntent = intentFilter === 'ALL' || history.intent === intentFilter;
+
+    return matchesKeyword && matchesDate && matchesIntent;
+  });
+
+  // 개별 삭제
+  const handleDelete = async (id: number) => {
+    if (!window.confirm('이 대화 기록을 삭제하시겠습니까?')) return;
+    
+    try {
+      await fetch(`/api/v1/ai-chat/history/${id}`, { method: 'DELETE' });
+      toast.success('대화 기록이 삭제되었습니다');
+      loadChatHistory();
+    } catch (error) {
+      toast.error('삭제에 실패했습니다');
+    }
+  };
+
+  // 전체 삭제
+  const handleDeleteAll = async () => {
+    if (!window.confirm('모든 대화 기록을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return;
+    
+    try {
+      await fetch('/api/v1/ai-chat/history/all', { method: 'DELETE' });
+      toast.success('모든 대화 기록이 삭제되었습니다');
+      loadChatHistory();
+    } catch (error) {
+      toast.error('삭제에 실패했습니다');
+    }
+  };
+
+  // Excel 내보내기
+  const handleExportExcel = async () => {
+    try {
+      const response = await fetch('/api/v1/ai-chat/history/export/excel');
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `chat_history_${new Date().toISOString().split('T')[0]}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast.success('Excel 파일이 다운로드되었습니다');
+    } catch (error) {
+      toast.error('내보내기에 실패했습니다');
+    }
+  };
+
+  // CSV 내보내기
+  const handleExportCSV = () => {
+    try {
+      const headers = ['ID', '사용자 메시지', 'AI 응답', '의도', '액션', '생성일시'];
+      const rows = filteredHistory.map(h => [
+        h.id,
+        `"${h.user_message.replace(/"/g, '""')}"`,
+        `"${h.assistant_message.replace(/"/g, '""')}"`,
+        h.intent || '',
+        h.action || '',
+        new Date(h.created_at).toLocaleString('ko-KR')
+      ]);
+      
+      const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+      const blob = new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `chat_history_${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast.success('CSV 파일이 다운로드되었습니다');
+    } catch (error) {
+      toast.error('내보내기에 실패했습니다');
+    }
+  };
+
+  // 고유 intent 목록 추출
+  const uniqueIntents = ['ALL', ...Array.from(new Set(chatHistory.map(h => h.intent).filter(Boolean)))];
+
   return (
     <div className="max-h-[calc(100vh-16rem)] overflow-y-auto">
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-xl font-bold text-gray-900">대화 히스토리</h2>
-        <Button
-          onClick={loadChatHistory}
-          disabled={historyLoading}
-          variant="secondary"
-          size="sm"
-        >
-          {historyLoading ? (
-            <Loader2 className="w-4 h-4 animate-spin mr-2" />
-          ) : (
-            <History className="w-4 h-4 mr-2" />
-          )}
-          새로고침
-        </Button>
+      {/* 헤더 및 액션 버튼 */}
+      <div className="mb-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-bold text-gray-900">대화 히스토리</h2>
+          <div className="flex gap-2">
+            <Button
+              onClick={loadChatHistory}
+              disabled={historyLoading}
+              variant="secondary"
+              size="sm"
+            >
+              {historyLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <History className="w-4 h-4 mr-2" />
+              )}
+              새로고침
+            </Button>
+            <Button
+              onClick={handleExportExcel}
+              variant="secondary"
+              size="sm"
+              disabled={chatHistory.length === 0}
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Excel
+            </Button>
+            <Button
+              onClick={handleExportCSV}
+              variant="secondary"
+              size="sm"
+              disabled={filteredHistory.length === 0}
+            >
+              <Download className="w-4 h-4 mr-2" />
+              CSV
+            </Button>
+            <Button
+              onClick={handleDeleteAll}
+              variant="secondary"
+              size="sm"
+              disabled={chatHistory.length === 0}
+              className="text-red-600 hover:text-red-700"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              전체 삭제
+            </Button>
+          </div>
+        </div>
+
+        {/* 검색 및 필터 */}
+        <Card className="p-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {/* 키워드 검색 */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <input
+                type="text"
+                placeholder="키워드 검색..."
+                value={searchKeyword}
+                onChange={(e) => setSearchKeyword(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              />
+            </div>
+
+            {/* 날짜 필터 */}
+            <div className="relative">
+              <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <input
+                type="date"
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              />
+            </div>
+
+            {/* 의도 필터 */}
+            <select
+              value={intentFilter}
+              onChange={(e) => setIntentFilter(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            >
+              {uniqueIntents.map(intent => (
+                <option key={intent} value={intent}>
+                  {intent === 'ALL' ? '전체 의도' : intent}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* 필터 결과 표시 */}
+          <div className="mt-3 flex items-center justify-between text-sm text-gray-600">
+            <span>
+              전체 {chatHistory.length}개 중 {filteredHistory.length}개 표시
+            </span>
+            {(searchKeyword || dateFilter || intentFilter !== 'ALL') && (
+              <button
+                onClick={() => {
+                  setSearchKeyword('');
+                  setDateFilter('');
+                  setIntentFilter('ALL');
+                }}
+                className="text-purple-600 hover:text-purple-700 font-medium"
+              >
+                필터 초기화
+              </button>
+            )}
+          </div>
+        </Card>
       </div>
 
+      {/* 로딩 및 빈 상태 */}
       {historyLoading ? (
         <div className="flex justify-center items-center py-20">
           <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
         </div>
-      ) : chatHistory.length === 0 ? (
+      ) : filteredHistory.length === 0 ? (
         <div className="text-center py-20 text-gray-500">
           <History className="w-16 h-16 mx-auto mb-4 opacity-50" />
-          <p className="mb-2">아직 대화 기록이 없습니다.</p>
-          <p className="text-sm">위의 "새로고침" 버튼을 눌러 히스토리를 불러오세요.</p>
+          <p className="mb-2">
+            {chatHistory.length === 0 
+              ? '아직 대화 기록이 없습니다.'
+              : '검색 결과가 없습니다.'}
+          </p>
+          <p className="text-sm">
+            {chatHistory.length === 0
+              ? '위의 "새로고침" 버튼을 눌러 히스토리를 불러오세요.'
+              : '다른 검색 조건을 시도해보세요.'}
+          </p>
         </div>
       ) : (
         <div className="space-y-4">
-          {chatHistory.map((history) => (
+          {filteredHistory.map((history) => (
             <Card key={history.id} className="p-4">
               <div className="space-y-3">
                 {/* 사용자 메시지 */}
@@ -382,7 +580,7 @@ const HistoryContent: React.FC<{
                   </div>
                 </div>
 
-                {/* 메타 정보 */}
+                {/* 메타 정보 및 액션 버튼 */}
                 <div className="flex items-center justify-between text-xs text-gray-500 pt-2 border-t">
                   <div className="flex items-center gap-3">
                     {history.intent && (
@@ -396,9 +594,29 @@ const HistoryContent: React.FC<{
                       </span>
                     )}
                   </div>
-                  <span>
-                    {new Date(history.created_at).toLocaleString('ko-KR')}
-                  </span>
+                  <div className="flex items-center gap-3">
+                    <span>
+                      {new Date(history.created_at).toLocaleString('ko-KR')}
+                    </span>
+                    <div className="flex gap-1">
+                      {onResumeConversation && (
+                        <button
+                          onClick={() => onResumeConversation(history)}
+                          className="p-1 hover:bg-gray-100 rounded transition-colors"
+                          title="대화 이어하기"
+                        >
+                          <MessageSquare className="w-4 h-4 text-blue-600" />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleDelete(history.id)}
+                        className="p-1 hover:bg-red-50 rounded transition-colors"
+                        title="삭제"
+                      >
+                        <Trash2 className="w-4 h-4 text-red-600" />
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </Card>
@@ -486,6 +704,43 @@ const OrdersPage: React.FC = () => {
     } finally {
       setHistoryLoading(false);
     }
+  };
+
+  // 대화 재개 함수
+  const handleResumeConversation = (history: ChatHistory) => {
+    // AI 어시스턴트 탭으로 전환
+    setActiveTab('assistant');
+
+    // 히스토리의 대화를 메시지로 복원
+    const userMsg: Message = {
+      id: `history-user-${history.id}`,
+      role: 'user',
+      content: history.user_message,
+      timestamp: new Date(history.created_at),
+    };
+
+    const assistantMsg: Message = {
+      id: `history-assistant-${history.id}`,
+      role: 'assistant',
+      content: history.assistant_message,
+      timestamp: new Date(history.created_at),
+      data: history.parsed_order,
+      multipleData: history.parsed_orders,
+    };
+
+    // 기존 메시지 초기화 후 히스토리 메시지 추가
+    setMessages([
+      {
+        id: '1',
+        role: 'assistant',
+        content: '이전 대화를 불러왔습니다. 이어서 대화하시겠습니까?',
+        timestamp: new Date(),
+      },
+      userMsg,
+      assistantMsg,
+    ]);
+
+    toast.success('대화를 불러왔습니다. AI 어시스턴트 탭에서 이어서 대화하세요.');
   };
 
   const handleVoiceInput = () => {
@@ -1277,6 +1532,7 @@ const OrdersPage: React.FC = () => {
             chatHistory={chatHistory}
             historyLoading={historyLoading}
             loadChatHistory={loadChatHistory}
+            onResumeConversation={handleResumeConversation}
           />
         )}
       </div>
