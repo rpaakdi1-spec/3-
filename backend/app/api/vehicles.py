@@ -627,20 +627,20 @@ async def get_vehicle_gps_history(
         prev_log = None
         
         for log in logs:
+            speed = log.speed_kmh if log.speed_kmh and log.speed_kmh < 255 else 0
             point = {
                 "lat": log.latitude,
                 "lng": log.longitude,
                 "timestamp": log.created_at.isoformat(),
-                "speed": log.speed if log.speed and log.speed != 255 else 0,
-                "engine_status": log.engine_status,
-                "recorded_at": log.recorded_at.isoformat() if log.recorded_at else None
+                "speed": speed,
+                "engine_status": 1 if log.is_engine_on else 0
             }
             route_points.append(point)
             
             # 정차 판단 (엔진 꺼짐 또는 속도 0)
-            if prev_log and (log.engine_status == 0 or (log.speed == 0 and prev_log.speed > 0)):
+            if prev_log and (not log.is_engine_on or (speed == 0 and prev_log.speed_kmh > 0)):
                 # 이전 로그와 현재 로그 사이에 정차가 있었음
-                if prev_log.engine_status == 1 and log.engine_status == 0:
+                if prev_log.is_engine_on and not log.is_engine_on:
                     stops.append({
                         "lat": log.latitude,
                         "lng": log.longitude,
