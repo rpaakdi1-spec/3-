@@ -1,0 +1,278 @@
+########################################################################
+# UVIS 레이아웃 수정 - 빠른 실행 가이드
+# 날짜: 2026-02-25
+########################################################################
+
+═══════════════════════════════════════════════════════════════════════
+🚀 Option 1: 자동 스크립트 실행 (가장 간단!) - 추천
+═══════════════════════════════════════════════════════════════════════
+
+서버에서 단 한 줄로 모든 작업 완료:
+
+    cd /root/uvis && curl -O http://139.150.11.99/uvis_frontend.tar.gz && \
+    tar -xzf uvis_frontend.tar.gz && \
+    bash <(cat <<'SCRIPT'
+    # OrdersPage.tsx 수정
+    python3 - <<'PYEOF'
+import sys
+file_path = '/root/uvis/frontend/src/pages/OrdersPage.tsx'
+with open(file_path, 'r', encoding='utf-8') as f:
+    content = f.read()
+old = """        </div>
+      )}
+  );
+};"""
+new = """        </div>
+      )}
+    </>
+  );
+};"""
+if old in content:
+    content = content.replace(old, new)
+    with open(file_path, 'w', encoding='utf-8') as f:
+        f.write(content)
+    print("✅ OrdersPage.tsx OK")
+else:
+    print("⚠️  Already fixed or different")
+PYEOF
+
+    # .dockerignore 수정
+    sed -i '/^# Build output/d' /root/uvis/frontend/.dockerignore
+    sed -i '/^dist$/d' /root/uvis/frontend/.dockerignore
+    sed -i '/^build$/d' /root/uvis/frontend/.dockerignore
+    
+    # 빌드 & 배포
+    cd /root/uvis/frontend && npm run build && cd /root/uvis
+    docker-compose stop frontend && docker-compose rm -f frontend
+    docker rmi uvis-frontend 2>/dev/null || true
+    docker-compose build --no-cache frontend
+    docker-compose up -d frontend
+    sleep 15
+    docker exec uvis-frontend ls -lh /usr/share/nginx/html/assets/*.css
+    echo "✅ 완료!"
+SCRIPT
+)
+
+
+═══════════════════════════════════════════════════════════════════════
+🛠️ Option 2: 수동 단계별 실행
+═══════════════════════════════════════════════════════════════════════
+
+Step 1: OrdersPage.tsx 수정
+───────────────────────────────────────────────────────────────────────
+cd /root/uvis
+
+python3 - <<'PYEOF'
+file_path = '/root/uvis/frontend/src/pages/OrdersPage.tsx'
+with open(file_path, 'r') as f:
+    content = f.read()
+content = content.replace(
+    '        </div>\n      )}\n  );\n};',
+    '        </div>\n      )}\n    </>\n  );\n};'
+)
+with open(file_path, 'w') as f:
+    f.write(content)
+print("✅ OrdersPage.tsx 수정 완료")
+PYEOF
+
+# 확인
+sed -n '665,672p' frontend/src/pages/OrdersPage.tsx
+
+
+Step 2: .dockerignore 수정
+───────────────────────────────────────────────────────────────────────
+cd /root/uvis
+
+sed -i '/^# Build output/d' frontend/.dockerignore
+sed -i '/^dist$/d' frontend/.dockerignore
+sed -i '/^build$/d' frontend/.dockerignore
+
+# 확인
+cat frontend/.dockerignore
+
+
+Step 3: 프론트엔드 빌드
+───────────────────────────────────────────────────────────────────────
+cd /root/uvis/frontend
+npm run build
+
+# CSS 파일 확인
+ls -lh dist/assets/*.css
+
+
+Step 4: Docker 재빌드 & 배포
+───────────────────────────────────────────────────────────────────────
+cd /root/uvis
+
+# 기존 컨테이너/이미지 정리
+docker-compose stop frontend
+docker-compose rm -f frontend
+docker rmi uvis-frontend
+
+# 새로 빌드
+docker-compose build --no-cache frontend
+
+# 시작
+docker-compose up -d frontend
+
+# 대기
+sleep 15
+
+
+Step 5: 배포 확인
+───────────────────────────────────────────────────────────────────────
+# 1. 컨테이너 상태
+docker ps | grep uvis
+
+# 2. CSS 파일 확인
+docker exec uvis-frontend ls -lh /usr/share/nginx/html/assets/*.css
+
+# 3. index.html 확인
+docker exec uvis-frontend cat /usr/share/nginx/html/index.html | grep stylesheet
+
+
+Step 6: 브라우저 테스트
+───────────────────────────────────────────────────────────────────────
+1. 브라우저 캐시 완전 삭제 (Ctrl+Shift+Delete)
+2. Chrome 완전 재시작
+3. http://139.150.11.99/login 접속
+4. admin / admin123 로그인
+5. 레이아웃 확인
+
+
+═══════════════════════════════════════════════════════════════════════
+🩹 문제 발생 시 - CSS 수동 복사
+═══════════════════════════════════════════════════════════════════════
+
+CSS 파일이 여전히 없는 경우:
+
+cd /root/uvis
+
+# 수동 복사
+docker cp frontend/dist/assets/index-BjMybcaV.css uvis-frontend:/usr/share/nginx/html/assets/
+docker cp frontend/dist/assets/leaflet-Dgihpmma.css uvis-frontend:/usr/share/nginx/html/assets/
+docker cp frontend/dist/assets/OrderCalendarPage-D0RJcmxZ.css uvis-frontend:/usr/share/nginx/html/assets/
+
+# 재시작
+docker-compose restart frontend
+sleep 10
+
+# 확인
+docker exec uvis-frontend ls -lh /usr/share/nginx/html/assets/*.css
+
+
+═══════════════════════════════════════════════════════════════════════
+📦 Git 커밋 (배포 성공 후)
+═══════════════════════════════════════════════════════════════════════
+
+cd /root/uvis
+
+git status
+git diff frontend/src/pages/OrdersPage.tsx
+git diff frontend/.dockerignore
+
+git add frontend/src/pages/OrdersPage.tsx frontend/.dockerignore
+
+git commit -m "fix(frontend): OrdersPage JSX fragment closing tag and .dockerignore
+
+- Add missing </> closing tag for fragment in OrdersPage.tsx (line 669)
+- Remove dist and build from .dockerignore to include CSS in Docker build
+- Fix layout rendering issues caused by missing CSS files
+
+Fixes:
+- JSX syntax error in OrdersPage.tsx
+- CSS files not copied to container
+- Layout not rendered in browser
+
+Build: npm run build ✅ (14.70s)
+Docker: docker-compose build ✅
+Deploy: CSS files verified in container ✅"
+
+git push origin main
+
+
+═══════════════════════════════════════════════════════════════════════
+🎯 예상 결과
+═══════════════════════════════════════════════════════════════════════
+
+✅ npm run build 성공 (약 15초)
+✅ docker-compose build 성공
+✅ 컨테이너 내 CSS 파일 3개 확인:
+   - index-BjMybcaV.css (15K)
+   - leaflet-Dgihpmma.css (15K)
+   - OrderCalendarPage-D0RJcmxZ.css (13K)
+✅ 브라우저에서 레이아웃 정상 렌더링
+✅ 모든 페이지에 사이드바 1개만 표시
+✅ CSS 스타일 정상 적용
+
+
+═══════════════════════════════════════════════════════════════════════
+🔍 디버깅 명령어
+═══════════════════════════════════════════════════════════════════════
+
+# 1. OrdersPage.tsx 특정 라인 확인
+sed -n '665,672p' /root/uvis/frontend/src/pages/OrdersPage.tsx
+
+# 2. .dockerignore 내용 확인
+cat /root/uvis/frontend/.dockerignore | grep -i "dist\|build"
+
+# 3. 로컬 빌드 CSS 파일
+ls -lh /root/uvis/frontend/dist/assets/*.css
+
+# 4. 컨테이너 CSS 파일
+docker exec uvis-frontend ls -lh /usr/share/nginx/html/assets/*.css
+
+# 5. 컨테이너 index.html CSS 참조
+docker exec uvis-frontend grep stylesheet /usr/share/nginx/html/index.html
+
+# 6. 빌드 로그
+cd /root/uvis/frontend && npm run build 2>&1 | grep -i "error\|warning\|css"
+
+# 7. Docker 로그
+docker logs uvis-frontend --tail 30
+
+# 8. 컨테이너 접속
+docker exec -it uvis-frontend sh
+
+
+═══════════════════════════════════════════════════════════════════════
+📱 브라우저 캐시 삭제 방법
+═══════════════════════════════════════════════════════════════════════
+
+Chrome/Edge:
+  1. Ctrl + Shift + Delete 누름
+  2. "전체 기간" 선택
+  3. "쿠키 및 기타 사이트 데이터" 체크
+  4. "캐시된 이미지 및 파일" 체크
+  5. "데이터 삭제" 클릭
+  6. Chrome 완전 종료
+  7. Chrome 재시작
+  8. http://139.150.11.99/login 접속
+
+또는 간단히:
+  - Ctrl + Shift + R (강제 새로고침) 여러 번
+  - Ctrl + Shift + N (시크릿 모드로 테스트)
+
+
+═══════════════════════════════════════════════════════════════════════
+📞 지원 정보
+═══════════════════════════════════════════════════════════════════════
+
+문제 지속 시 공유할 정보:
+  1. npm run build 전체 로그
+  2. docker logs uvis-frontend 전체 로그
+  3. F12 개발자 도구 Console 스크린샷
+  4. 브라우저에서 보이는 화면 스크린샷
+  5. Network 탭에서 CSS 파일 로드 상태
+
+
+═══════════════════════════════════════════════════════════════════════
+✨ 핵심 포인트
+═══════════════════════════════════════════════════════════════════════
+
+⚠️  .dockerignore에 dist, build가 있으면 CSS가 컨테이너로 복사 안 됨
+⚠️  OrdersPage.tsx의 Fragment <> 는 반드시 </> 로 닫아야 함
+⚠️  브라우저 캐시는 반드시 완전히 삭제해야 함
+⚠️  Docker 이미지를 --no-cache로 재빌드해야 변경사항 반영
+
+✅ 위 4가지만 확인하면 99% 해결됨!

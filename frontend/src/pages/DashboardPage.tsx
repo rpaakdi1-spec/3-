@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Layout from '../components/common/Layout';
 import Card from '../components/common/Card';
 import Loading from '../components/common/Loading';
 import apiClient from '../api/client';
@@ -108,11 +107,8 @@ const DashboardPage: React.FC = () => {
   };
 
   if (loading || !stats) {
-    return (
-      <Layout>
-        <Loading />
-      </Layout>
-    );
+    return (<Loading />
+  );
   }
 
   const statCards = [
@@ -171,9 +167,7 @@ const DashboardPage: React.FC = () => {
     },
   };
 
-  return (
-    <Layout>
-      <div className="space-y-4 md:space-y-6">
+  return (<div className="space-y-4 md:space-y-6">
         {/* Header */}
         <div className="px-4 md:px-0">
           <div className="flex items-center justify-between">
@@ -314,7 +308,6 @@ const DashboardPage: React.FC = () => {
           </Card>
         </div>
       </div>
-    </Layout>
   );
 };
 

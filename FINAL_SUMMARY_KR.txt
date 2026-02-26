@@ -1,0 +1,140 @@
+================================================================================
+                     🎉 Dispatch Rules 수정 완료!
+================================================================================
+
+✅ 문제 해결 완료: 프론트엔드 코드 1줄 수정으로 규칙 업데이트 기능 복구
+
+================================================================================
+📝 무엇을 고쳤나요?
+================================================================================
+
+파일: frontend/src/api/dispatch-rules.ts
+라인: 68
+
+변경 전:
+  update: async (ruleId: number, payload: UpdateRulePayload) => {
+    const response = await apiClient.put(`/dispatch-rules/${ruleId}`, payload);
+    return response.data;
+  }
+
+변경 후:
+  update: async (ruleId: number, payload: UpdateRulePayload) => {
+    const response = await apiClient.put(`/dispatch-rules/${ruleId}`, {
+      rule_update: payload  // ← 이 부분만 추가!
+    });
+    return response.data;
+  }
+
+================================================================================
+🎯 지금 해야 할 일
+================================================================================
+
+1️⃣ 서버 접속:
+   ssh root@139.150.11.99
+
+2️⃣ 코드 업데이트:
+   cd /root/uvis/frontend
+   git pull origin main
+
+3️⃣ 빌드:
+   npm run build
+
+4️⃣ 재배포:
+   cd /root/uvis
+   docker-compose build uvis-frontend
+   docker-compose restart uvis-frontend
+
+5️⃣ 브라우저 테스트:
+   - 캐시 클리어 (Ctrl+Shift+Delete)
+   - http://139.150.11.99/dispatch-rules 접속
+   - 규칙 수정 테스트
+   - ✅ 성공!
+
+================================================================================
+📊 Git 현황
+================================================================================
+
+✅ Frontend:
+   Commit: 65a1943
+   Message: "fix: Add rule_update wrapper to dispatch rules PUT request"
+   Status: Pushed to GitHub
+
+✅ Backend:
+   Commit: afc83e0
+   PR #12: https://github.com/rpaakdi1-spec/3-/pull/12
+   Status: Already merged/open
+
+================================================================================
+📁 참고 문서
+================================================================================
+
+상세 가이드:
+  - DISPATCH_RULES_FIX_GUIDE.md
+  - DISPATCH_RULES_SUMMARY.md
+  - DISPATCH_RULES_FRONTEND_FIX_COMPLETE.md
+
+배포 스크립트:
+  - deploy_dispatch_rules_fix.sh
+
+간단 참조:
+  - README_DISPATCH_RULES.txt
+  - QUICK_DEPLOYMENT_GUIDE.txt (이 파일)
+
+================================================================================
+🚀 빠른 배포 (한 줄 명령어)
+================================================================================
+
+서버에서 실행:
+  cd /root/uvis && git -C frontend pull && cd frontend && npm run build && cd .. && docker-compose build uvis-frontend && docker-compose restart uvis-frontend
+
+================================================================================
+✅ 완료 체크리스트
+================================================================================
+
+백엔드:
+  [✅] API 수정
+  [✅] 데이터베이스 테이블 생성
+  [✅] 엔드포인트 테스트
+  [✅] Git commit & push
+  [✅] PR 생성
+
+프론트엔드:
+  [✅] API 클라이언트 수정
+  [✅] 빌드 테스트
+  [✅] Git commit & push
+  [  ] 서버 배포 ← 다음 단계
+  [  ] 브라우저 테스트 ← 마지막 단계
+
+================================================================================
+🎓 배운 점
+================================================================================
+
+FastAPI의 Body(..., embed=True) 파라미터:
+  - 백엔드가 이 방식을 사용하면
+  - 프론트엔드는 {"parameter_name": payload} 형식으로 전송해야 함
+  - 그냥 payload만 보내면 422 에러 발생
+
+교훈:
+  ✅ 백엔드 API 형식을 먼저 curl로 테스트
+  ✅ 프론트엔드 코드를 그에 맞게 수정
+  ✅ 단순한 wrapper 추가만으로 해결 가능
+
+================================================================================
+📞 문의/도움
+================================================================================
+
+문제 발생 시 확인사항:
+  1. 백엔드 로그: docker logs uvis-backend --tail 50
+  2. 프론트엔드 로그: docker logs uvis-frontend --tail 50
+  3. 브라우저 개발자 도구 (F12) > Network 탭 > PUT 요청 확인
+
+테스트 URL:
+  http://139.150.11.99/dispatch-rules
+
+API Base URL:
+  http://localhost:8000/api/v1/dispatch-rules
+
+================================================================================
+작성일: 2026-02-25
+상태: ✅ 코드 완료, 배포 대기
+================================================================================

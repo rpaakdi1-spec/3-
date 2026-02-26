@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import Layout from '../components/common/Layout';
 import { apiClient } from '../api/client';
-import Layout from '../components/common/Layout';
 import {
   BarChart3,
   TrendingUp,
@@ -179,9 +177,7 @@ const TemperatureAnalyticsPage: React.FC = () => {
     }]
   };
 
-  return (
-    <Layout>
-    <div className="space-y-6">
+  return (<div className="space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
@@ -480,7 +476,6 @@ const TemperatureAnalyticsPage: React.FC = () => {
         </div>
       </div>
     </div>
-    </Layout>
   );
 };
 

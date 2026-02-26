@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Truck, Plus, Edit2, Trash2, ThermometerSnowflake, RefreshCw, Upload, Download, FileSpreadsheet, CheckSquare } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import Layout from '../components/common/Layout';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
@@ -318,15 +317,10 @@ const VehiclesPage: React.FC = () => {
     );
   };
 
-  if (loading) return (
-    <Layout>
-      <Loading />
-    </Layout>
+  if (loading) return (<Loading />
   );
 
-  return (
-    <Layout>
-      <div className="p-6">
+  return (<div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold text-gray-800">차량 관리</h1>
@@ -844,7 +838,6 @@ const VehiclesPage: React.FC = () => {
         </div>
       )}
       </div>
-    </Layout>
   );
 };
 

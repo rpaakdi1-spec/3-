@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Brain, Upload, Download, Play, CheckCircle, AlertCircle, FileSpreadsheet, TrendingUp, Database } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import Layout from '../components/common/Layout';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Loading from '../components/common/Loading';
@@ -168,16 +167,11 @@ const MLTrainingPage: React.FC = () => {
   };
 
   if (loading) {
-    return (
-      <Layout>
-        <Loading />
-      </Layout>
-    );
+    return (<Loading />
+  );
   }
 
-  return (
-    <Layout>
-      <div className="p-6">
+  return (<div className="p-6">
         <div className="flex justify-between items-center mb-6">
           <div>
             <h1 className="text-3xl font-bold text-gray-800 flex items-center">
@@ -444,7 +438,6 @@ const MLTrainingPage: React.FC = () => {
           )}
         </Card>
       </div>
-    </Layout>
   );
 };
 

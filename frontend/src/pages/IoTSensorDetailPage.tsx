@@ -4,7 +4,6 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import Layout from '../components/common/Layout';
 import { useParams, Link } from 'react-router-dom';
 import {
   Thermometer,
@@ -128,9 +127,7 @@ const IoTSensorDetailPage: React.FC = () => {
     );
   }
 
-  return (
-    <Layout>
-    <div className="min-h-screen bg-gray-50 p-6">
+  return (<div className="min-h-screen bg-gray-50 p-6">
       {/* 헤더 */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
@@ -322,7 +319,6 @@ const IoTSensorDetailPage: React.FC = () => {
         </div>
       )}
     </div>
-    </Layout>
   );
 };
 

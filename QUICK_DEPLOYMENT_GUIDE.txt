@@ -1,0 +1,144 @@
+================================================================================
+    🎉 DISPATCH RULES 수정 완료 - 최종 요약
+================================================================================
+
+📋 문제:
+  프론트엔드가 dispatch rules 수정 시 422 에러 발생
+  
+🔍 원인:
+  Backend는 {"rule_update": {...}} 형식 요구
+  Frontend는 {...} 형식으로 전송 (wrapper 누락)
+
+✅ 해결:
+  frontend/src/api/dispatch-rules.ts 파일 수정
+  Line 68: payload를 {rule_update: payload}로 감싸도록 수정
+
+================================================================================
+📊 작업 완료 현황
+================================================================================
+
+✅ 백엔드:
+  - SQLAlchemy 에러 수정
+  - 모든 API 엔드포인트 작동 (10개)
+  - Git commit: afc83e0
+  - PR #12 생성
+  - 상태: 완료
+
+✅ 프론트엔드:
+  - API 클라이언트 수정 (1줄 변경)
+  - 빌드 성공 (15.48초)
+  - Git commit: 65a1943
+  - Push 완료
+  - 상태: 코드 완료, 배포 대기
+
+================================================================================
+🚀 다음 단계 (서버에서 실행)
+================================================================================
+
+서버 접속:
+  ssh root@139.150.11.99
+
+배포 스크립트 복사 후 실행:
+  chmod +x deploy_dispatch_rules_fix.sh
+  ./deploy_dispatch_rules_fix.sh
+
+또는 수동 배포:
+  1. cd /root/uvis/frontend
+  2. git pull origin main
+  3. npm run build
+  4. cd /root/uvis
+  5. docker-compose build uvis-frontend
+  6. docker-compose restart uvis-frontend
+  7. docker logs uvis-frontend --tail 20
+
+브라우저 테스트:
+  1. 캐시 클리어 (Ctrl+Shift+Delete) 또는 시크릿 모드
+  2. http://139.150.11.99/dispatch-rules 접속
+  3. 규칙 선택 → 수정 버튼 → 이름/우선순위 변경 → 저장
+  4. ✅ 성공 메시지 확인!
+
+개발자 도구 확인 (F12):
+  - Network 탭에서 PUT 요청 확인
+  - Payload: {"rule_update": {...}} ✅
+  - Response: 200 OK ✅
+
+================================================================================
+📁 생성된 파일
+================================================================================
+
+문서:
+  ✅ DISPATCH_RULES_FIX_GUIDE.md
+  ✅ DISPATCH_RULES_SUMMARY.md
+  ✅ DISPATCH_RULES_FRONTEND_FIX_COMPLETE.md
+  ✅ README_DISPATCH_RULES.txt
+  ✅ QUICK_DEPLOYMENT_GUIDE.txt (이 파일)
+
+도구:
+  ✅ frontend_dispatch_rules_api_fix.ts (코드 예제)
+  ✅ dispatch_rules_tester.html (테스트 도구)
+  ✅ FRONTEND_DISPATCH_RULES_FIX.sh (진단 스크립트)
+  ✅ deploy_dispatch_rules_fix.sh (배포 스크립트)
+
+================================================================================
+🔗 Git 정보
+================================================================================
+
+Frontend:
+  Branch: main
+  Commit: 65a1943
+  File: src/api/dispatch-rules.ts
+  Change: +3 lines, -1 line
+  Status: ✅ Pushed
+
+Backend:
+  Branch: genspark_ai_developer
+  Commit: afc83e0
+  PR: https://github.com/rpaakdi1-spec/3-/pull/12
+  Status: ✅ Merged/Open
+
+Repository:
+  https://github.com/rpaakdi1-spec/3-
+
+================================================================================
+✨ 핵심 포인트
+================================================================================
+
+변경 전:
+  const response = await apiClient.put(`/dispatch-rules/${id}`, payload);
+
+변경 후:
+  const response = await apiClient.put(`/dispatch-rules/${id}`, {
+    rule_update: payload  // ← 이 한 줄만 추가!
+  });
+
+결과:
+  ❌ 422 Unprocessable Entity → ✅ 200 OK
+
+================================================================================
+📞 도움말
+================================================================================
+
+문제 발생 시:
+  1. 백엔드 로그: docker logs uvis-backend --tail 50
+  2. 프론트엔드 로그: docker logs uvis-frontend --tail 50
+  3. Nginx 로그: docker logs uvis-frontend | grep dispatch-rules
+  4. curl 테스트: curl -X PUT localhost:8000/api/v1/dispatch-rules/1 \
+                      -H "Content-Type: application/json" \
+                      -d '{"rule_update": {"name": "test", "priority": 100}}'
+
+API 전체 목록:
+  ✅ GET    /api/v1/dispatch-rules/
+  ✅ GET    /api/v1/dispatch-rules/{id}
+  ✅ POST   /api/v1/dispatch-rules/
+  ✅ PUT    /api/v1/dispatch-rules/{id}     (수정 완료!)
+  ✅ DELETE /api/v1/dispatch-rules/{id}
+  ✅ POST   /api/v1/dispatch-rules/{id}/test
+  ✅ POST   /api/v1/dispatch-rules/{id}/activate
+  ✅ POST   /api/v1/dispatch-rules/{id}/deactivate
+  ✅ GET    /api/v1/dispatch-rules/{id}/performance
+  ✅ GET    /api/v1/dispatch-rules/{id}/logs
+
+================================================================================
+작성: 2026-02-25
+상태: ✅ 코드 완료 → ⏳ 배포 대기 → 🎯 브라우저 테스트
+================================================================================

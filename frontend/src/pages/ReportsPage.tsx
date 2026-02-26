@@ -3,7 +3,6 @@
  * Provides UI for generating PDF and Excel reports
  */
 import React, { useState } from 'react';
-import Layout from '../components/common/Layout';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import { 
@@ -102,9 +101,7 @@ const ReportsPage: React.FC = () => {
     }
   };
 
-  return (
-    <Layout>
-      <div className="p-6">
+  return (<div className="p-6">
         {/* Header */}
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">리포트 생성</h1>
@@ -311,7 +308,6 @@ const ReportsPage: React.FC = () => {
           </div>
         </div>
       </div>
-    </Layout>
   );
 };
 

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import Layout from '../components/common/Layout';
 import {
   Calendar,
   Clock,
@@ -116,9 +115,7 @@ const AutoInvoiceSchedulePage: React.FC = () => {
     return labels[cycle] || cycle;
   };
 
-  return (
-    <Layout>
-    <div className="min-h-screen bg-gray-50 p-6">
+  return (<div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-6 flex items-center justify-between">
@@ -325,7 +322,6 @@ const AutoInvoiceSchedulePage: React.FC = () => {
         )}
       </div>
     </div>
-    </Layout>
   );
 };
 

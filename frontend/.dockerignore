@@ -7,10 +7,6 @@
 # Node modules will be installed in container
 node_modules
 
-# Build output (will be generated in container)
-dist
-build
-
 # Development files
 .git
 .gitignore

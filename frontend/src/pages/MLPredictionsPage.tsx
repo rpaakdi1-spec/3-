@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import Layout from '../components/common/Layout';
 import {
   Brain,
   AlertTriangle,
@@ -171,9 +170,7 @@ const MLPredictionsPage: React.FC = () => {
     return `${(value * 100).toFixed(1)}%`;
   };
 
-  return (
-    <Layout>
-    <div className="min-h-screen bg-gray-50 p-6">
+  return (<div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-6">
@@ -558,7 +555,6 @@ const MLPredictionsPage: React.FC = () => {
         )}
       </div>
     </div>
-    </Layout>
   );
 };
 

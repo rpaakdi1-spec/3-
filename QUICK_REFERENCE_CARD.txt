@@ -1,0 +1,165 @@
+╔══════════════════════════════════════════════════════════════╗
+║       UVIS 프론트엔드 레이아웃 수정 - 빠른 참조 카드         ║
+╚══════════════════════════════════════════════════════════════╝
+
+┌──────────────────────────────────────────────────────────────┐
+│ 🎯 핵심 문제                                                  │
+└──────────────────────────────────────────────────────────────┘
+  • OrdersPage.tsx의 JSX 구조 오류로 빌드 실패
+  • Layout 컴포넌트 누락으로 레이아웃 깨짐
+  • 컨테이너에 이전 빌드 결과물 사용 중
+
+┌──────────────────────────────────────────────────────────────┐
+│ ⚡ 빠른 해결 방법 (1분)                                        │
+└──────────────────────────────────────────────────────────────┘
+
+cd /root/uvis
+bash DEPLOY_FIX_TO_SERVER.sh
+
+  → 자동으로 모든 수정사항 적용 및 배포
+  → 소요 시간: ~1분
+
+
+┌──────────────────────────────────────────────────────────────┐
+│ 📋 수동 배포 단계 (5분)                                        │
+└──────────────────────────────────────────────────────────────┘
+
+1️⃣  OrdersPage.tsx 수정
+   cd /root/uvis/frontend
+   vi src/pages/OrdersPage.tsx
+   
+   # 6번째 줄에 추가:
+   import Layout from '../components/common/Layout';
+   
+   # 251줄 수정:
+   return <Loading />;
+   
+   # 255줄 수정:
+   return (
+     <Layout>
+   
+   # 마지막에서 8번째 줄:
+     </Layout>
+   );
+
+2️⃣  Dockerfile 간소화
+   cd /root/uvis/frontend
+   cp Dockerfile Dockerfile.backup
+   
+   # 다음 내용으로 교체:
+   FROM nginx:alpine
+   COPY dist /usr/share/nginx/html
+   COPY nginx.conf /etc/nginx/nginx.conf
+   EXPOSE 80
+   CMD ["nginx", "-g", "daemon off;"]
+
+3️⃣  빌드 및 배포
+   rm -rf dist/
+   npm run build
+   
+   cd /root/uvis
+   docker-compose stop frontend
+   docker-compose rm -f frontend
+   docker rmi uvis-frontend
+   docker-compose build --no-cache frontend
+   docker-compose up -d frontend
+
+4️⃣  검증
+   docker exec uvis-frontend sh -c \
+     "ls /usr/share/nginx/html/assets/*.css"
+   
+   # 기대 결과: index-BjMybcaV.css (15K) 포함
+
+
+┌──────────────────────────────────────────────────────────────┐
+│ ✅ 배포 성공 확인                                              │
+└──────────────────────────────────────────────────────────────┘
+
+서버 측:
+  □ CSS 파일 3개 존재 (각 13-15KB)
+  □ JS 파일 80개 이상 존재
+  □ index.html이 index-BjMybcaV.css 참조
+
+브라우저:
+  □ 캐시 완전 삭제 (Ctrl+Shift+Delete)
+  □ Incognito 모드 테스트
+  □ http://139.150.11.99/login 접속
+  □ 사이드바 왼쪽에 정상 표시
+  □ DevTools 콘솔에 에러 없음
+
+
+┌──────────────────────────────────────────────────────────────┐
+│ 🔧 문제 해결                                                  │
+└──────────────────────────────────────────────────────────────┘
+
+💥 빌드 실패:
+   npm run build 2>&1 | grep "error"
+   → TypeScript 오류 확인 후 해당 파일 수정
+
+💥 CSS 로드 안됨:
+   curl -I http://139.150.11.99/assets/index-BjMybcaV.css
+   → 404면 컨테이너 재배포 필요
+
+💥 이전 버전 계속 보임:
+   브라우저: Ctrl+Shift+R (5번)
+   서버: docker-compose restart frontend
+
+💥 컨테이너 시작 실패:
+   docker logs uvis-frontend --tail 50
+   → Nginx 설정 또는 파일 권한 문제
+
+
+┌──────────────────────────────────────────────────────────────┐
+│ 📞 빠른 명령어                                                 │
+└──────────────────────────────────────────────────────────────┘
+
+# 컨테이너 CSS 확인
+docker exec uvis-frontend ls -lh \
+  /usr/share/nginx/html/assets/*.css
+
+# 컨테이너 JS 개수 확인
+docker exec uvis-frontend sh -c \
+  "ls /usr/share/nginx/html/assets/*.js | wc -l"
+
+# 로그 확인
+docker logs uvis-frontend --tail 30
+
+# 컨테이너 재시작
+docker-compose restart frontend
+
+# 완전 재배포
+cd /root/uvis
+docker-compose down frontend
+docker rmi uvis-frontend
+docker-compose up -d frontend
+
+
+┌──────────────────────────────────────────────────────────────┐
+│ 📁 관련 파일                                                  │
+└──────────────────────────────────────────────────────────────┘
+
+/root/uvis/
+├── DEPLOY_FIX_TO_SERVER.sh     ← 자동 배포 스크립트
+├── FINAL_SOLUTION_COMPLETE.md  ← 상세 문서
+├── frontend/
+│   ├── src/pages/OrdersPage.tsx ← 수정된 파일
+│   ├── Dockerfile              ← 간소화된 버전
+│   └── dist/                   ← 빌드 결과물
+└── docker-compose.yml
+
+
+┌──────────────────────────────────────────────────────────────┐
+│ ⏱️  예상 소요 시간                                             │
+└──────────────────────────────────────────────────────────────┘
+
+npm run build        : ~16초
+Docker 이미지 빌드   : ~15초
+컨테이너 시작        : ~10초
+브라우저 캐시 삭제   : ~30초
+-------------------------
+총 소요 시간         : ~1-2분
+
+
+╔══════════════════════════════════════════════════════════════╗
+║  🎉 배포 후 http://139.150.11.99/login 에서 확인하세요!     ║
+╚══════════════════════════════════════════════════════════════╝

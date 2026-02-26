@@ -3,7 +3,6 @@
  * AI Agent 성능 추적 및 최적화 효과 시각화
  */
 import React, { useState, useEffect } from 'react';
-import Layout from '../components/common/Layout';
 import {
   Activity,
   Truck,
@@ -218,21 +217,16 @@ const DispatchMonitoringDashboard: React.FC = () => {
   }, [autoRefresh]);
 
   if (loading || !liveStats) {
-    return (
-      <Layout>
-        <div className="flex items-center justify-center h-screen">
+    return (<div className="flex items-center justify-center h-screen">
           <div className="text-center">
             <Activity className="w-12 h-12 text-blue-500 animate-pulse mx-auto mb-4" />
             <p className="text-gray-600">실시간 데이터 로딩 중...</p>
           </div>
         </div>
-      </Layout>
-    );
+  );
   }
 
-  return (
-    <Layout>
-      <div className="p-6 space-y-6 bg-gray-50">
+  return (<div className="p-6 space-y-6 bg-gray-50">
       {/* 헤더 */}
       <div className="flex justify-between items-center">
         <div>
@@ -507,7 +501,6 @@ const DispatchMonitoringDashboard: React.FC = () => {
         </div>
       </div>
       </div>
-    </Layout>
   );
 };
 

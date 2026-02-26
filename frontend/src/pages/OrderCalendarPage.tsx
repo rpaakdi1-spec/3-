@@ -5,7 +5,6 @@ import { format, parse, startOfWeek, getDay, addDays, isSameDay, addWeeks, addMo
 import { ko } from 'date-fns/locale';
 import { toast } from 'react-hot-toast';
 import { Calendar as CalendarIcon, Plus, Filter, Repeat, Truck, CheckCircle } from 'lucide-react';
-import Layout from '../components/common/Layout';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Modal from '../components/common/Modal';
@@ -343,16 +342,11 @@ const OrderCalendarPage: React.FC = () => {
   };
 
   if (loading) {
-    return (
-      <Layout>
-        <Loading />
-      </Layout>
-    );
+    return (<Loading />
+  );
   }
 
-  return (
-    <Layout>
-      <div className="space-y-6">
+  return (<div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between">
           <div>
@@ -710,7 +704,6 @@ const OrderCalendarPage: React.FC = () => {
           </div>
         </Modal>
       </div>
-    </Layout>
   );
 };
 

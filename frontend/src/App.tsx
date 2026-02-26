@@ -7,6 +7,7 @@ import { wsClient } from './utils/websocket';
 import { registerServiceWorker, requestNotificationPermission } from './utils/pwa';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import Loading from './components/common/Loading';
+import Layout from './components/common/Layout';
 
 // Lazy load pages for better performance
 const LoginPage = lazy(() => import('./pages/LoginPage'));
@@ -61,6 +62,18 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   const { isAuthenticated } = useAuthStore();
   return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
 };
+
+// Layout Wrapper for Protected Routes
+const LayoutWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  return (
+    <ProtectedRoute>
+      <Layout>
+        {children}
+      </Layout>
+    </ProtectedRoute>
+  );
+};
+
 
 const App: React.FC = () => {
   const { checkAuth, isAuthenticated } = useAuthStore();
@@ -154,49 +167,49 @@ const App: React.FC = () => {
             <Route
               path="/dashboard"
               element={
-                <ProtectedRoute>
+                <LayoutWrapper>
                   <DashboardPage />
-                </ProtectedRoute>
+                </LayoutWrapper>
               }
             />
             <Route
               path="/orders"
               element={
-                <ProtectedRoute>
+                <LayoutWrapper>
                   <OrdersPage />
-                </ProtectedRoute>
+                </LayoutWrapper>
               }
             />
             <Route
               path="/calendar"
               element={
-                <ProtectedRoute>
+                <LayoutWrapper>
                   <OrderCalendarPage />
-                </ProtectedRoute>
+                </LayoutWrapper>
               }
             />
             <Route
               path="/recurring-orders"
               element={
-                <ProtectedRoute>
+                <LayoutWrapper>
                   <RecurringOrdersPage />
-                </ProtectedRoute>
+                </LayoutWrapper>
               }
             />
             <Route
               path="/dispatches"
               element={
-                <ProtectedRoute>
+                <LayoutWrapper>
                   <DispatchesPage />
-                </ProtectedRoute>
+                </LayoutWrapper>
               }
             />
             <Route
               path="/optimization"
               element={
-                <ProtectedRoute>
+                <LayoutWrapper>
                   <OptimizationPage />
-                </ProtectedRoute>
+                </LayoutWrapper>
               }
             />
             <Route
@@ -210,217 +223,217 @@ const App: React.FC = () => {
             <Route
               path="/ai-chat"
               element={
-                <ProtectedRoute>
+                <LayoutWrapper>
                   <AIChatPage />
-                </ProtectedRoute>
+                </LayoutWrapper>
               }
             />
             <Route
               path="/ai-cost"
               element={
-                <ProtectedRoute>
+                <LayoutWrapper>
                   <AICostDashboardPage />
-                </ProtectedRoute>
+                </LayoutWrapper>
               }
             />
             <Route
               path="/realtime"
               element={
-                <ProtectedRoute>
+                <LayoutWrapper>
                   <RealtimeDashboardPage />
-                </ProtectedRoute>
+                </LayoutWrapper>
               }
             />
             <Route
               path="/vehicles"
               element={
-                <ProtectedRoute>
+                <LayoutWrapper>
                   <VehiclesPage />
-                </ProtectedRoute>
+                </LayoutWrapper>
               }
             />
             <Route
               path="/clients"
               element={
-                <ProtectedRoute>
+                <LayoutWrapper>
                   <ClientsPage />
-                </ProtectedRoute>
+                </LayoutWrapper>
               }
             />
             <Route
               path="/analytics"
               element={
-                <ProtectedRoute>
+                <LayoutWrapper>
                   <AnalyticsPage />
-                </ProtectedRoute>
+                </LayoutWrapper>
               }
             />
             <Route
               path="/reports"
               element={
-                <ProtectedRoute>
+                <LayoutWrapper>
                   <ReportsPage />
-                </ProtectedRoute>
+                </LayoutWrapper>
               }
             />
             <Route
               path="/settings"
               element={
-                <ProtectedRoute>
+                <LayoutWrapper>
                   <SettingsPage />
-                </ProtectedRoute>
+                </LayoutWrapper>
               }
             />
             <Route
               path="/more"
               element={
-                <ProtectedRoute>
+                <LayoutWrapper>
                   <MorePage />
-                </ProtectedRoute>
+                </LayoutWrapper>
               }
             />
             <Route
               path="/ml-training"
               element={
-                <ProtectedRoute>
+                <LayoutWrapper>
                   <MLTrainingPage />
-                </ProtectedRoute>
+                </LayoutWrapper>
               }
             />
             <Route
               path="/dispatch-rules"
               element={
-                <ProtectedRoute>
+                <LayoutWrapper>
                   <DispatchRulesPage />
-                </ProtectedRoute>
+                </LayoutWrapper>
               }
             />
             <Route
               path="/ab-test"
               element={
-                <ProtectedRoute>
+                <LayoutWrapper>
                   <ABTestMonitorPage />
-                </ProtectedRoute>
+                </LayoutWrapper>
               }
             />
             <Route
               path="/temperature-monitoring"
               element={
-                <ProtectedRoute>
+                <LayoutWrapper>
                   <TemperatureMonitoringPage />
-                </ProtectedRoute>
+                </LayoutWrapper>
               }
             />
             <Route
               path="/temperature-analytics"
               element={
-                <ProtectedRoute>
+                <LayoutWrapper>
                   <TemperatureAnalyticsPage />
-                </ProtectedRoute>
+                </LayoutWrapper>
               }
             />
             <Route
               path="/billing"
               element={
-                <ProtectedRoute>
+                <LayoutWrapper>
                   <BillingPage />
-                </ProtectedRoute>
+                </LayoutWrapper>
               }
             />
             <Route
               path="/billing/financial-dashboard"
               element={
-                <ProtectedRoute>
+                <LayoutWrapper>
                   <FinancialDashboardPage />
-                </ProtectedRoute>
+                </LayoutWrapper>
               }
             />
             <Route
               path="/billing/charge-preview"
               element={
-                <ProtectedRoute>
+                <LayoutWrapper>
                   <ChargePreviewPage />
-                </ProtectedRoute>
+                </LayoutWrapper>
               }
             />
             <Route
               path="/billing/auto-schedule"
               element={
-                <ProtectedRoute>
+                <LayoutWrapper>
                   <AutoInvoiceSchedulePage />
-                </ProtectedRoute>
+                </LayoutWrapper>
               }
             />
             <Route
               path="/billing/settlement-approval"
               element={
-                <ProtectedRoute>
+                <LayoutWrapper>
                   <SettlementApprovalPage />
-                </ProtectedRoute>
+                </LayoutWrapper>
               }
             />
             <Route
               path="/billing/payment-reminder"
               element={
-                <ProtectedRoute>
+                <LayoutWrapper>
                   <PaymentReminderPage />
-                </ProtectedRoute>
+                </LayoutWrapper>
               }
             />
             <Route
               path="/billing/export-task"
               element={
-                <ProtectedRoute>
+                <LayoutWrapper>
                   <ExportTaskPage />
-                </ProtectedRoute>
+                </LayoutWrapper>
               }
             />
             <Route
               path="/maintenance"
               element={
-                <ProtectedRoute>
+                <LayoutWrapper>
                   <VehicleMaintenancePage />
-                </ProtectedRoute>
+                </LayoutWrapper>
               }
             />
             <Route
               path="/ml-predictions"
               element={
-                <ProtectedRoute>
+                <LayoutWrapper>
                   <MLPredictionsPage />
-                </ProtectedRoute>
+                </LayoutWrapper>
               }
             />
             <Route
               path="/telemetry"
               element={
-                <ProtectedRoute>
+                <LayoutWrapper>
                   <RealtimeTelemetryPage />
-                </ProtectedRoute>
+                </LayoutWrapper>
               }
             />
             <Route
               path="/dispatch-optimization"
               element={
-                <ProtectedRoute>
+                <LayoutWrapper>
                   <DispatchOptimizationPage />
-                </ProtectedRoute>
+                </LayoutWrapper>
               }
             />
             <Route
               path="/analytics-dashboard"
               element={
-                <ProtectedRoute>
+                <LayoutWrapper>
                   <AnalyticsDashboardPage />
-                </ProtectedRoute>
+                </LayoutWrapper>
               }
             />
             <Route
               path="/analytics"
               element={
-                <ProtectedRoute>
+                <LayoutWrapper>
                   <AnalyticsDashboardPage />
-                </ProtectedRoute>
+                </LayoutWrapper>
               }
             />
 
@@ -428,25 +441,25 @@ const App: React.FC = () => {
             <Route
               path="/iot/sensors"
               element={
-                <ProtectedRoute>
+                <LayoutWrapper>
                   <IoTSensorsPage />
-                </ProtectedRoute>
+                </LayoutWrapper>
               }
             />
             <Route
               path="/iot/sensors/:vehicleId"
               element={
-                <ProtectedRoute>
+                <LayoutWrapper>
                   <IoTSensorDetailPage />
-                </ProtectedRoute>
+                </LayoutWrapper>
               }
             />
             <Route
               path="/iot/alerts"
               element={
-                <ProtectedRoute>
+                <LayoutWrapper>
                   <IoTAlertsPage />
-                </ProtectedRoute>
+                </LayoutWrapper>
               }
             />
 

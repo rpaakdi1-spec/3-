@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Layout from '../components/common/Layout';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Loading from '../components/common/Loading';
+import Layout from '../components/common/Layout';
 import OrderModal from '../components/orders/OrderModal';
 import apiClient from '../api/client';
 import { Order } from '../types';
@@ -249,16 +249,12 @@ const OrdersPage: React.FC = () => {
   const pendingOrdersCount = pendingOrders.length;
 
   if (loading) {
-    return (
-      <Layout>
-        <Loading />
-      </Layout>
-    );
+    return <Loading />;
   }
 
   return (
     <Layout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between">
           <div>

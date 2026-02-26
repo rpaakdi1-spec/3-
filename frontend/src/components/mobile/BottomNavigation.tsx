@@ -1,24 +1,23 @@
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Package, Truck, BarChart3, MoreHorizontal } from 'lucide-react';
-
-interface BottomNavItem {
-  path: string;
-  label: string;
-  icon: React.ElementType;
-}
-
-const navItems: BottomNavItem[] = [
-  { path: '/dashboard', label: '대시보드', icon: LayoutDashboard },
-  { path: '/orders', label: '주문', icon: Package },
-  { path: '/dispatches', label: '배차', icon: Truck },
-  { path: '/analytics', label: '분석', icon: BarChart3 },
-  { path: '/more', label: '더보기', icon: MoreHorizontal },
-];
+import { useAuthStore } from '../../store/authStore';
+import { navigationConfig, filterMenuByRole, getMobileNavigation } from '../../config/navigation';
 
 export const BottomNavigation: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user } = useAuthStore();
+
+  // 중앙 설정에서 모바일 네비게이션 메뉴 가져오기
+  const userRole = (user?.role || '').toUpperCase();
+  const filteredMenuItems = React.useMemo(
+    () => filterMenuByRole(navigationConfig, userRole),
+    [userRole]
+  );
+  const navItems = React.useMemo(
+    () => getMobileNavigation(filteredMenuItems),
+    [filteredMenuItems]
+  );
 
   const isActive = (path: string) => {
     return location.pathname === path || location.pathname.startsWith(`${path}/`);

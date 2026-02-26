@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, Loader2, CheckCircle, XCircle, Package, History, MessageSquare, Mic, MicOff } from 'lucide-react';
-import Layout from '../components/common/Layout';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import { toast } from 'react-hot-toast';
@@ -270,9 +269,7 @@ const AIChatPage: React.FC = () => {
     setMessages(prev => [...prev, cancelMessage]);
   };
 
-  return (
-    <Layout>
-      <div className="h-[calc(100vh-4rem)] flex flex-col">
+  return (<div className="h-[calc(100vh-4rem)] flex flex-col">
         {/* 헤더 */}
         <div className="bg-white border-b px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center justify-between">
@@ -623,7 +620,6 @@ const AIChatPage: React.FC = () => {
           </div>
         )}
       </div>
-    </Layout>
   );
 };
 

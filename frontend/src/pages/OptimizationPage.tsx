@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Truck, MapPin, Package, Clock, AlertCircle, RefreshCw, Navigation, Loader2, CheckCircle } from 'lucide-react';
-import Layout from '../components/common/Layout';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import { toast } from 'react-hot-toast';
@@ -324,9 +323,7 @@ const OptimizationPage: React.FC = () => {
     }
   };
 
-  return (
-    <Layout>
-      <div className="p-4 sm:p-6">
+  return (<div className="p-4 sm:p-6">
         {/* 헤더 */}
         <div className="mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -705,7 +702,6 @@ const OptimizationPage: React.FC = () => {
           </>
         )}
       </div>
-    </Layout>
   );
 };
 
