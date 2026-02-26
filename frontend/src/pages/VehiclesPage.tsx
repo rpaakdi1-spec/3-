@@ -291,6 +291,18 @@ const VehiclesPage: React.FC = () => {
     }
   };
 
+  // 10초마다 자동 UVIS 동기화
+  useEffect(() => {
+    const syncInterval = setInterval(() => {
+      // 이미 동기화 중이 아닐 때만 실행
+      if (!syncing) {
+        handleSyncUvis();
+      }
+    }, 10000); // 10초
+    
+    return () => clearInterval(syncInterval);
+  }, [syncing]); // syncing 상태를 의존성에 추가
+
   const filteredVehicles = vehicles.filter(vehicle =>
     vehicle.plate_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     vehicle.driver_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
