@@ -320,7 +320,8 @@ const HistoryContent: React.FC<{
       ) : chatHistory.length === 0 ? (
         <div className="text-center py-20 text-gray-500">
           <History className="w-16 h-16 mx-auto mb-4 opacity-50" />
-          <p>아직 대화 기록이 없습니다.</p>
+          <p className="mb-2">아직 대화 기록이 없습니다.</p>
+          <p className="text-sm">위의 "새로고침" 버튼을 눌러 히스토리를 불러오세요.</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -459,12 +460,12 @@ const OrdersPage: React.FC = () => {
     scrollToBottom();
   }, [messages]);
 
-  // 히스토리 로드
-  useEffect(() => {
-    if (activeTab === 'history') {
-      loadChatHistory();
-    }
-  }, [activeTab]);
+  // 히스토리 로드 - 자동 로드 제거 (수동으로만 로드)
+  // useEffect(() => {
+  //   if (activeTab === 'history') {
+  //     loadChatHistory();
+  //   }
+  // }, [activeTab]);
 
   // 음성 인식 결과를 입력창에 반영
   useEffect(() => {
