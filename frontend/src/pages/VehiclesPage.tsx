@@ -291,14 +291,14 @@ const VehiclesPage: React.FC = () => {
     }
   };
 
-  // 10초마다 자동 UVIS 동기화
+  // 30초마다 자동 UVIS 동기화
   useEffect(() => {
     const syncInterval = setInterval(() => {
       // 이미 동기화 중이 아닐 때만 실행
       if (!syncing) {
         handleSyncUvis();
       }
-    }, 10000); // 10초
+    }, 30000); // 30초
     
     return () => clearInterval(syncInterval);
   }, [syncing]); // syncing 상태를 의존성에 추가
