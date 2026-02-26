@@ -16,7 +16,6 @@ const OrdersPage = lazy(() => import('./pages/OrdersPage'));
 const OrderCalendarPage = lazy(() => import('./pages/OrderCalendarPage'));
 const DispatchesPage = lazy(() => import('./pages/DispatchesPage'));
 const OptimizationPage = lazy(() => import('./pages/OptimizationPage'));
-const AIChatPage = lazy(() => import('./pages/AIChatPage'));
 const AICostDashboardPage = lazy(() => import('./pages/AICostDashboardPage'));
 const TrackingPage = lazy(() => import('./pages/TrackingPage'));
 const RealtimeDashboardPage = lazy(() => import('./pages/RealtimeDashboardPage'));
@@ -218,14 +217,6 @@ const App: React.FC = () => {
                 <ProtectedRoute>
                   <DispatchMonitoringDashboard />
                 </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/ai-chat"
-              element={
-                <LayoutWrapper>
-                  <AIChatPage />
-                </LayoutWrapper>
               }
             />
             <Route
