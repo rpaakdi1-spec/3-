@@ -43,6 +43,7 @@ class DispatchRuleUpdate(BaseModel):
     """규칙 수정 스키마"""
     name: Optional[str] = Field(None, min_length=1, max_length=200)
     description: Optional[str] = None
+    rule_type: Optional[str] = Field(None, pattern="^(assignment|constraint|optimization)$")
     priority: Optional[int] = Field(None, ge=0, le=1000)
     is_active: Optional[bool] = None
     conditions: Optional[dict] = None
@@ -287,15 +288,18 @@ async def delete_rule(
     current_user: dict = None
 ):
     """
-    배차 규칙 삭제 (soft delete)
+    배차 규칙 삭제 (hard delete)
     """
     db_rule = db.query(DispatchRule).filter(DispatchRule.id == rule_id).first()
     if not db_rule:
         raise HTTPException(status_code=404, detail="Rule not found")
     
-    db_rule.is_active = False
+    # Hard delete: 규칙과 관련된 로그도 함께 삭제
+    db.query(RuleExecutionLog).filter(RuleExecutionLog.rule_id == rule_id).delete()
+    db.delete(db_rule)
     db.commit()
     
+    logger.info(f"Successfully deleted rule {rule_id}")
     return
 
 @router.post("/{rule_id}/test")
