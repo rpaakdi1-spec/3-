@@ -479,21 +479,12 @@ async def get_recent_alerts(
             speed_alerts = UVISAlertService.check_speed_alerts(gps_log, vehicle)
             if speed_alerts:
                 for alert in speed_alerts:
-                    if not alert_type or alert["type"] == alert_type:
+                    if not alert_type or alert.get("type") == alert_type:
                         alerts.append({
-                            **alert,
-                            "vehicle_id": vehicle.id,
-                            "plate_number": vehicle.plate_number,
-                            "timestamp": gps_log.created_at.isoformat()
-                        })
-            
-            # 엔진 상태 알림
-            engine_alerts = UVISAlertService.check_engine_alerts(db, gps_log, vehicle)
-            if engine_alerts:
-                for alert in engine_alerts:
-                    if not alert_type or alert["type"] == alert_type:
-                        alerts.append({
-                            **alert,
+                            "type": alert.get("type"),
+                            "severity": alert.get("level", "info"),
+                            "message": alert.get("message"),
+                            "value": alert.get("data", {}).get("speed"),
                             "vehicle_id": vehicle.id,
                             "plate_number": vehicle.plate_number,
                             "timestamp": gps_log.created_at.isoformat()

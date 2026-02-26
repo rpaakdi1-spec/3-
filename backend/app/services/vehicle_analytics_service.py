@@ -10,7 +10,7 @@ Features:
 - 정차 시간 계산
 """
 
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta, date, timezone
 from typing import Dict, List, Optional, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_
@@ -195,7 +195,7 @@ class VehicleAnalyticsService:
             ).order_by(VehicleGPSLog.created_at.desc()).first()
             
             if latest_gps:
-                time_since_update = datetime.now() - latest_gps.created_at
+                time_since_update = datetime.now(timezone.utc) - latest_gps.created_at
                 if time_since_update < timedelta(hours=1):
                     active_vehicles += 1
         
@@ -241,7 +241,7 @@ class VehicleAnalyticsService:
             }
         
         # 마지막 업데이트 시간
-        time_since_update = datetime.now() - latest_gps.created_at
+        time_since_update = datetime.now(timezone.utc) - latest_gps.created_at
         
         # 상태 판단
         if time_since_update > timedelta(hours=1):
