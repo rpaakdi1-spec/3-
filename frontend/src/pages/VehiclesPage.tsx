@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Truck, Plus, Edit2, Trash2, ThermometerSnowflake, RefreshCw, Upload, Download, FileSpreadsheet, CheckSquare } from 'lucide-react';
+import { Truck, Plus, Edit2, Trash2, ThermometerSnowflake, RefreshCw, Upload, Download, FileSpreadsheet, CheckSquare, Map, List } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
@@ -8,6 +8,7 @@ import Loading from '../components/common/Loading';
 import { vehiclesAPI } from '../services/api';
 import { useResponsive } from '../hooks/useResponsive';
 import { MobileVehicleCard } from '../components/mobile/MobileVehicleCard';
+import NaverMap from '../components/map/NaverMap';
 
 interface Vehicle {
   id: number;
@@ -51,6 +52,7 @@ const VehiclesPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const { isMobile } = useResponsive();
   
   const [formData, setFormData] = useState({
@@ -339,6 +341,30 @@ const VehiclesPage: React.FC = () => {
           <p className="text-gray-600 mt-1">냉장/냉동 차량 정보를 관리합니다</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <div className="flex gap-1 border border-gray-300 rounded-lg p-1">
+            <button
+              onClick={() => setViewMode('list')}
+              className={`px-3 py-2 rounded-md transition-colors ${
+                viewMode === 'list'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              <List size={18} className="inline mr-1" />
+              목록
+            </button>
+            <button
+              onClick={() => setViewMode('map')}
+              className={`px-3 py-2 rounded-md transition-colors ${
+                viewMode === 'map'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              <Map size={18} className="inline mr-1" />
+              지도
+            </button>
+          </div>
           <Button 
             onClick={handleDownloadTemplate}
             variant="secondary"
@@ -435,8 +461,38 @@ const VehiclesPage: React.FC = () => {
         </Card>
       )}
 
-      {/* Vehicle Cards - Mobile/Desktop Views */}
-      {isMobile ? (
+      {/* Map View */}
+      {viewMode === 'map' ? (
+        <Card>
+          <NaverMap
+            vehicles={filteredVehicles
+              .filter(v => v.gps_data?.latitude && v.gps_data?.longitude)
+              .map(v => ({
+                vehicle_id: v.id,
+                license_plate: v.plate_number,
+                driver_name: v.driver_name,
+                latitude: v.gps_data!.latitude!,
+                longitude: v.gps_data!.longitude!,
+                status: v.gps_data!.is_engine_on ? 'busy' : 'available',
+                vehicle_type: v.vehicle_type,
+                temperature_type: v.gps_data!.temperature_a 
+                  ? `A: ${v.gps_data!.temperature_a}°C${v.gps_data!.temperature_b ? `, B: ${v.gps_data!.temperature_b}°C` : ''}`
+                  : undefined
+              }))}
+            height="700px"
+            onVehicleClick={(vehicle) => {
+              const v = vehicles.find(vh => vh.plate_number === vehicle.license_plate);
+              if (v) {
+                openModal(v);
+              }
+            }}
+          />
+        </Card>
+      ) : (
+        /* List View */
+        <>
+          {/* Vehicle Cards - Mobile/Desktop Views */}
+          {isMobile ? (
         /* Mobile View */
         <div className="px-4 space-y-3">
           {filteredVehicles.length === 0 ? (
@@ -676,6 +732,7 @@ const VehiclesPage: React.FC = () => {
         </div>
       )}
         </>
+      )
       )}
 
       {/* Modal */}

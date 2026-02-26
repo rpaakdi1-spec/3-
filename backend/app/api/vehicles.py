@@ -13,6 +13,8 @@ from app.services.excel_upload_service import ExcelUploadService
 from app.services.excel_template_service import ExcelTemplateService
 from app.services.uvis_gps_service import UvisGPSService
 from app.services.naver_map_service import NaverMapService
+from app.services.uvis_alert_service import UVISAlertService
+from app.services.vehicle_analytics_service import VehicleAnalyticsService
 from loguru import logger
 
 router = APIRouter()
@@ -354,3 +356,89 @@ async def sync_uvis_vehicles(db: Session = Depends(get_db)):
     except Exception as e:
         logger.error(f"UVIS 차량 동기화 오류: {e}")
         raise HTTPException(status_code=500, detail=f"UVIS 차량 동기화 중 오류 발생: {str(e)}")
+
+
+@router.get("/{vehicle_id}/analytics")
+async def get_vehicle_analytics(
+    vehicle_id: int,
+    start_date: Optional[str] = Query(None, description="Start date (YYYY-MM-DD)"),
+    end_date: Optional[str] = Query(None, description="End date (YYYY-MM-DD)"),
+    db: Session = Depends(get_db)
+):
+    """
+    차량 주행 거리 및 통계 조회
+    """
+    from datetime import date
+    
+    try:
+        # 날짜 파싱
+        start = date.fromisoformat(start_date) if start_date else date.today()
+        end = date.fromisoformat(end_date) if end_date else date.today()
+        
+        stats = VehicleAnalyticsService.calculate_vehicle_distance(
+            db=db,
+            vehicle_id=vehicle_id,
+            start_date=start,
+            end_date=end
+        )
+        
+        return stats
+        
+    except Exception as e:
+        logger.error(f"차량 분석 조회 오류: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/{vehicle_id}/status")
+async def get_vehicle_status(
+    vehicle_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    차량 실시간 상태 조회
+    """
+    try:
+        status = VehicleAnalyticsService.get_vehicle_realtime_status(
+            db=db,
+            vehicle_id=vehicle_id
+        )
+        
+        if "error" in status:
+            raise HTTPException(status_code=404, detail=status["error"])
+        
+        return status
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"차량 상태 조회 오류: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/analytics/fleet")
+async def get_fleet_analytics(
+    start_date: Optional[str] = Query(None, description="Start date (YYYY-MM-DD)"),
+    end_date: Optional[str] = Query(None, description="End date (YYYY-MM-DD)"),
+    db: Session = Depends(get_db)
+):
+    """
+    전체 차량 통계 조회
+    """
+    from datetime import date
+    
+    try:
+        # 날짜 파싱
+        start = date.fromisoformat(start_date) if start_date else date.today()
+        end = date.fromisoformat(end_date) if end_date else date.today()
+        
+        stats = VehicleAnalyticsService.get_fleet_statistics(
+            db=db,
+            start_date=start,
+            end_date=end
+        )
+        
+        return stats
+        
+    except Exception as e:
+        logger.error(f"차량 통계 조회 오류: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
