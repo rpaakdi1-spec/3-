@@ -36,6 +36,9 @@ from .vehicle_maintenance import (
     MaintenanceType, MaintenanceStatus, MaintenancePriority, PartCategory
 )
 from .mobile_photo import MobilePhoto, NotificationPreferences, MobileSession
+# Import simulation models BEFORE dispatch_rule to avoid circular dependency
+from .simulation import RuleSimulation, SimulationComparison, SimulationTemplate
+from .dispatch_rule import DispatchRule, RuleConstraint, RuleExecutionLog, OptimizationConfig
 
 __all__ = [
     "Base",
@@ -111,4 +114,12 @@ __all__ = [
     "PaymentReminderStatus",
     "ExportTask",
     "ExportTaskStatus",
+    # Dispatch Rules & Simulation
+    "RuleSimulation",
+    "SimulationComparison",
+    "SimulationTemplate",
+    "DispatchRule",
+    "RuleConstraint",
+    "RuleExecutionLog",
+    "OptimizationConfig",
 ]
