@@ -442,3 +442,94 @@ async def get_fleet_analytics(
     except Exception as e:
         logger.error(f"차량 통계 조회 오류: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/alerts/recent")
+async def get_recent_alerts(
+    limit: int = Query(50, ge=1, le=200, description="Number of recent alerts"),
+    vehicle_id: Optional[int] = Query(None, description="Filter by vehicle ID"),
+    alert_type: Optional[str] = Query(None, description="Filter by alert type"),
+    db: Session = Depends(get_db)
+):
+    """
+    최근 UVIS 알림 조회
+    """
+    from app.models.uvis_gps import VehicleGPSLog, VehicleTemperatureLog
+    from sqlalchemy import desc, and_
+    from datetime import datetime, timedelta
+    
+    try:
+        alerts = []
+        
+        # 최근 24시간 GPS 데이터 조회
+        since = datetime.now() - timedelta(hours=24)
+        
+        query = db.query(VehicleGPSLog, Vehicle).join(
+            Vehicle, VehicleGPSLog.vehicle_id == Vehicle.id
+        ).filter(VehicleGPSLog.created_at >= since)
+        
+        if vehicle_id:
+            query = query.filter(VehicleGPSLog.vehicle_id == vehicle_id)
+        
+        gps_logs = query.order_by(desc(VehicleGPSLog.created_at)).limit(limit * 2).all()
+        
+        # 각 GPS 로그에 대해 알림 체크
+        for gps_log, vehicle in gps_logs:
+            # 속도 알림
+            speed_alerts = UVISAlertService.check_speed_alerts(gps_log, vehicle)
+            if speed_alerts:
+                for alert in speed_alerts:
+                    if not alert_type or alert["type"] == alert_type:
+                        alerts.append({
+                            **alert,
+                            "vehicle_id": vehicle.id,
+                            "plate_number": vehicle.plate_number,
+                            "timestamp": gps_log.created_at.isoformat()
+                        })
+            
+            # 엔진 상태 알림
+            engine_alerts = UVISAlertService.check_engine_alerts(db, gps_log, vehicle)
+            if engine_alerts:
+                for alert in engine_alerts:
+                    if not alert_type or alert["type"] == alert_type:
+                        alerts.append({
+                            **alert,
+                            "vehicle_id": vehicle.id,
+                            "plate_number": vehicle.plate_number,
+                            "timestamp": gps_log.created_at.isoformat()
+                        })
+        
+        # 온도 알림 체크
+        temp_query = db.query(VehicleTemperatureLog, Vehicle).join(
+            Vehicle, VehicleTemperatureLog.vehicle_id == Vehicle.id
+        ).filter(VehicleTemperatureLog.created_at >= since)
+        
+        if vehicle_id:
+            temp_query = temp_query.filter(VehicleTemperatureLog.vehicle_id == vehicle_id)
+        
+        temp_logs = temp_query.order_by(desc(VehicleTemperatureLog.created_at)).limit(limit).all()
+        
+        for temp_log, vehicle in temp_logs:
+            temp_alerts = UVISAlertService.check_temperature_alerts(temp_log, vehicle)
+            if temp_alerts:
+                for alert in temp_alerts:
+                    if not alert_type or alert["type"] == alert_type:
+                        alerts.append({
+                            **alert,
+                            "vehicle_id": vehicle.id,
+                            "plate_number": vehicle.plate_number,
+                            "timestamp": temp_log.created_at.isoformat()
+                        })
+        
+        # 최신순 정렬 및 limit 적용
+        alerts.sort(key=lambda x: x["timestamp"], reverse=True)
+        alerts = alerts[:limit]
+        
+        return {
+            "total": len(alerts),
+            "alerts": alerts
+        }
+        
+    except Exception as e:
+        logger.error(f"알림 조회 오류: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

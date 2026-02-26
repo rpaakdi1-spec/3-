@@ -18,6 +18,8 @@ import {
 } from 'chart.js';
 import { useResponsive } from '../hooks/useResponsive';
 import { MobileDashboardCard } from '../components/mobile/MobileDashboardCard';
+import UvisAlerts from '../components/vehicles/UvisAlerts';
+import UvisFleetStats from '../components/vehicles/UvisFleetStats';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
@@ -306,6 +308,16 @@ const DashboardPage: React.FC = () => {
               </button>
             </div>
           </Card>
+        </div>
+
+        {/* UVIS Real-time Stats */}
+        <div className={isMobile ? 'px-4' : ''}>
+          <UvisFleetStats autoRefresh={true} refreshInterval={30000} />
+        </div>
+
+        {/* UVIS Alerts */}
+        <div className={isMobile ? 'px-4' : ''}>
+          <UvisAlerts limit={10} autoRefresh={true} refreshInterval={30000} />
         </div>
       </div>
   );
