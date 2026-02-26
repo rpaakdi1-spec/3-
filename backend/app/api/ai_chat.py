@@ -225,16 +225,24 @@ async def _create_order_from_parsed_data(db: Session, parsed_order: Dict[str, An
             parsed_order["order_number"] = f"ORD-{timestamp}"
         
         # 주문 날짜 설정
-        if not parsed_order.get("order_date"):
-            parsed_order["order_date"] = date.today()
+        order_date = parsed_order.get("order_date")
+        if not order_date:
+            order_date = date.today()
+            parsed_order["order_date"] = order_date
         
         # delivery_date 설정 (NOT NULL 제약 조건)
-        if not parsed_order.get("delivery_date"):
-            # requested_delivery_date가 있으면 사용, 없으면 오늘 날짜 사용
+        delivery_date = parsed_order.get("delivery_date")
+        if not delivery_date:
+            # 1순위: requested_delivery_date
+            # 2순위: order_date + 1일
             if parsed_order.get("requested_delivery_date"):
-                parsed_order["delivery_date"] = parsed_order["requested_delivery_date"]
+                delivery_date = parsed_order["requested_delivery_date"]
             else:
-                parsed_order["delivery_date"] = date.today()
+                from datetime import timedelta
+                delivery_date = order_date + timedelta(days=1)
+            parsed_order["delivery_date"] = delivery_date
+        
+        logger.info(f"📅 주문 날짜 설정: order_date={order_date}, delivery_date={delivery_date}")
         
         # 상태 설정
         parsed_order["status"] = OrderStatus.PENDING

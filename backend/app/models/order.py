@@ -30,6 +30,7 @@ class Order(Base, IDMixin, TimestampMixin):
     # 기본 정보
     order_number: Mapped[str] = mapped_column(String(50), unique=True, index=True, nullable=False, comment="주문번호")
     order_date: Mapped[date] = mapped_column(Date, nullable=False, comment="주문일자")
+    delivery_date: Mapped[date] = mapped_column(Date, nullable=False, comment="배송일자")
     
     # 온도대
     temperature_zone: Mapped[TemperatureZone] = mapped_column(
