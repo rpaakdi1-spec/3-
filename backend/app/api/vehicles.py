@@ -524,3 +524,71 @@ async def get_recent_alerts(
     except Exception as e:
         logger.error(f"알림 조회 오류: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/{vehicle_id}/temperature/history")
+async def get_vehicle_temperature_history(
+    vehicle_id: int,
+    hours: int = Query(24, description="Hours of history to fetch (default: 24)"),
+    db: Session = Depends(get_db)
+):
+    """
+    차량 온도 이력 조회
+    """
+    from app.models import VehicleTemperatureLog, Vehicle
+    from datetime import datetime, timedelta
+    
+    try:
+        # 차량 확인
+        vehicle = db.query(Vehicle).filter(Vehicle.id == vehicle_id).first()
+        if not vehicle:
+            raise HTTPException(status_code=404, detail="차량을 찾을 수 없습니다")
+        
+        # 온도 로그 조회
+        since = datetime.now() - timedelta(hours=hours)
+        logs = db.query(VehicleTemperatureLog).filter(
+            VehicleTemperatureLog.vehicle_id == vehicle_id,
+            VehicleTemperatureLog.created_at >= since
+        ).order_by(VehicleTemperatureLog.created_at.asc()).all()
+        
+        # 데이터 포맷팅
+        data_points = []
+        for log in logs:
+            data_points.append({
+                "timestamp": log.created_at.isoformat(),
+                "temperature": log.temperature,
+                "recorded_at": log.recorded_at.isoformat() if log.recorded_at else None
+            })
+        
+        # 임계값 정보
+        thresholds = {
+            "frozen_min": -25,
+            "frozen_max": -10,
+            "refrigerated_min": -2,
+            "refrigerated_max": 8,
+            "warning": 15,
+            "critical": 20
+        }
+        
+        # 차량 설정 온도 범위
+        vehicle_temp_range = {
+            "min": vehicle.min_temp_celsius if vehicle.min_temp_celsius else -25,
+            "max": vehicle.max_temp_celsius if vehicle.max_temp_celsius else 8
+        }
+        
+        return {
+            "vehicle_id": vehicle_id,
+            "vehicle_plate": vehicle.plate_number,
+            "vehicle_type": vehicle.vehicle_type,
+            "vehicle_temp_range": vehicle_temp_range,
+            "hours": hours,
+            "data_points": data_points,
+            "total_points": len(data_points),
+            "thresholds": thresholds
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"온도 이력 조회 오류: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
