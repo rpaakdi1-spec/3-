@@ -127,3 +127,6 @@ __all__ = [
     "RuleExecutionLog",
     "OptimizationConfig",
 ]
+
+# Phase 16.3: Chat models
+from app.models.chat import ChatRoom, ChatMessage, ChatParticipant
