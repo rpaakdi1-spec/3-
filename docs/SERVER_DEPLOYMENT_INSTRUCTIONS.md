@@ -1,429 +1,492 @@
-# 서버 배포 가이드
+# 🚀 프로덕션 서버 배포 실행 가이드
 
-**대상**: 운영 서버 (139.150.11.99)  
-**날짜**: 2026-02-11  
-**목적**: Order 모델 수정 및 최종 통합 테스트 결과 반영
-
----
-
-## 🎯 배포 개요
-
-### 변경 사항
-1. **Order 모델**: `delivery_proofs` relationship 추가
-2. **최종 통합 테스트 리포트**: 전체 시스템 상태 문서화
-
-### 예상 효과
-- ✅ SQLAlchemy mapper 초기화 에러 완전 해결
-- ✅ Core APIs 500 에러 완전 제거
-- ✅ WebSocket 브로드캐스트 안정화
+## 📋 서버 정보
+- **IP**: 139.150.11.99
+- **OS**: Ubuntu/CentOS (Docker 지원)
+- **현재 실행 중**: UVIS 시스템
 
 ---
 
-## 📋 배포 전 체크리스트
+## ✅ 사전 준비사항
 
-- [ ] 운영 서버 접속 확인 (139.150.11.99)
-- [ ] 백업 생성 완료
-- [ ] Docker 컨테이너 상태 확인
-- [ ] 배포 시간대 확인 (서비스 중단 최소화)
-
----
-
-## 🚀 배포 절차
-
-### Step 1: 서버 접속 및 백업
-
+### 1. 서버 접속
 ```bash
-# 1. 서버 접속
+# SSH로 서버 접속
 ssh root@139.150.11.99
+# 또는
+ssh user@139.150.11.99
 
-# 2. 프로젝트 디렉토리 이동
+# 프로젝트 디렉토리로 이동
 cd /root/uvis
-
-# 3. 현재 상태 백업
-cp backend/app/models/order.py backend/app/models/order.py.backup_$(date +%Y%m%d_%H%M%S)
-
-# 4. 데이터베이스 백업 (선택사항, 권장)
-docker exec uvis-db pg_dump -U postgres uvis > backup_$(date +%Y%m%d_%H%M%S).sql
+# 또는
+cd ~/uvis
 ```
 
----
-
-### Step 2: 최신 코드 가져오기
-
+### 2. 저장소 최신화
 ```bash
-# 1. Git stash (혹시 로컬 변경사항이 있다면)
-git stash
-
-# 2. 최신 코드 pull
+# 최신 코드 가져오기
+git fetch origin
 git pull origin main
 
-# 3. 변경 사항 확인
+# 최신 커밋 확인
 git log --oneline -5
 
 # 예상 출력:
-# f412836 fix(models): Add delivery_proofs relationship to Order model
-# cdc3442 docs(integration): Add integration test completion report
-# ...
+# 5f5b6fc feat(deploy): Add production deployment scripts and guides
+# 8ccae2f docs: Add Phase 16 completion report
+# f7e7869 feat(chat): Add complete real-time chat frontend implementation
+# a8817df docs: Add comprehensive project status report for February 26
+# 92aabe4 fix(frontend): Fix import path for useFCM hook
 ```
 
 ---
 
-### Step 3: Backend 재배포
+## 🔧 Phase 16 배포 단계
 
+### Step 1: 환경 변수 설정 (최우선!)
+
+#### 백엔드 환경 변수 (.env)
 ```bash
-# 1. Backend 컨테이너 중지
-docker-compose stop backend
+# .env 파일 백업
+cp .env .env.backup-$(date +%Y%m%d-%H%M%S)
 
-# 2. Backend 컨테이너 삭제
-docker-compose rm -f backend
+# .env 파일 편집
+nano .env
+```
 
-# 3. Backend 이미지 재빌드 (캐시 없이)
-docker-compose build --no-cache backend
+**필수 추가/수정 항목:**
+```bash
+# ===== MinIO / S3 설정 (Phase 16.2 - 파일 업로드) =====
+MINIO_ROOT_USER=admin
+MINIO_ROOT_PASSWORD=<강력한_비밀번호_입력>  # 반드시 변경!
+MINIO_API_PORT=9000
+MINIO_CONSOLE_PORT=9001
+S3_ENDPOINT=http://minio:9000
+S3_BUCKET_NAME=uvis-files
+S3_REGION=us-east-1
+S3_USE_SSL=false
 
-# 4. Backend 컨테이너 재시작
-docker-compose up -d backend
+# ===== Firebase FCM 설정 (Phase 16.1 - 푸시 알림) =====
+# 주의: Firebase Console에서 먼저 프로젝트 생성 필요
+FIREBASE_PROJECT_ID=your-project-id
+FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+FIREBASE_CLIENT_EMAIL=firebase-adminsdk@your-project-id.iam.gserviceaccount.com
 
-# 5. 30초 대기 (시작 시간 확보)
-sleep 30
+# ===== 기존 설정 확인 =====
+DB_PASSWORD=<현재_설정된_값_확인>
+REDIS_PASSWORD=<현재_설정된_값_확인>
+JWT_SECRET=<현재_설정된_값_확인>
+```
+
+**비밀번호 생성 방법:**
+```bash
+# 강력한 랜덤 비밀번호 (32자)
+openssl rand -base64 32
+
+# JWT Secret (64자 hex)
+openssl rand -hex 64
+```
+
+#### 프론트엔드 환경 변수 (frontend/.env)
+```bash
+# frontend/.env 파일 생성
+nano frontend/.env
+```
+
+**내용:**
+```bash
+# API URLs
+VITE_API_URL=http://139.150.11.99:8000/api/v1
+VITE_WS_URL=ws://139.150.11.99:8000/ws
+
+# Firebase FCM (Phase 16.1)
+# 주의: Firebase Console에서 웹 앱 추가 후 설정 복사
+VITE_FIREBASE_API_KEY=your-api-key
+VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your-project-id
+VITE_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
+VITE_FIREBASE_MESSAGING_SENDER_ID=123456789
+VITE_FIREBASE_APP_ID=1:123456789:web:abcdef123456
+VITE_FIREBASE_VAPID_KEY=your-vapid-key-from-cloud-messaging
 ```
 
 ---
 
-### Step 4: 배포 검증
+### Step 2: Firebase 프로젝트 설정 (FCM)
 
-#### 4.1 컨테이너 상태 확인
+Firebase를 사용하지 않으려면 이 단계를 건너뛸 수 있습니다. 하지만 푸시 알림 기능은 작동하지 않습니다.
 
-```bash
-# 모든 컨테이너 상태 확인
-docker ps -a
-
-# 예상 출력: 모든 컨테이너가 Up/Healthy 상태
-# uvis-backend    Up (healthy)
-# uvis-frontend   Up
-# uvis-nginx      Up (healthy)
-# uvis-db         Up (healthy)
-# uvis-redis      Up (healthy)
+#### 1. Firebase Console 접속
+```
+URL: https://console.firebase.google.com
 ```
 
-#### 4.2 Backend 로그 확인
+#### 2. 새 프로젝트 생성
+1. "프로젝트 추가" 클릭
+2. 프로젝트 이름: `uvis-dispatch` (또는 원하는 이름)
+3. Google Analytics: 선택 사항
+4. 프로젝트 생성 완료 대기
 
+#### 3. 웹 앱 추가
+1. 프로젝트 개요 > 웹 앱 추가 (</> 아이콘)
+2. 앱 닉네임: `UVIS Web`
+3. Firebase SDK 설정 정보 **복사** → `frontend/.env`에 입력
+
+#### 4. Cloud Messaging 설정
+1. 프로젝트 설정 > Cloud Messaging 탭
+2. "웹 푸시 인증서" 섹션
+3. "키 쌍 생성" 클릭
+4. VAPID 키 **복사** → `frontend/.env`의 `VITE_FIREBASE_VAPID_KEY`
+
+#### 5. Service Account 키 다운로드
+1. 프로젝트 설정 > 서비스 계정 탭
+2. "새 비공개 키 생성" 클릭
+3. JSON 파일 다운로드
+4. JSON 내용에서 다음 추출:
+   - `project_id` → `FIREBASE_PROJECT_ID`
+   - `private_key` → `FIREBASE_PRIVATE_KEY`
+   - `client_email` → `FIREBASE_CLIENT_EMAIL`
+
+**주의사항:**
+- `FIREBASE_PRIVATE_KEY`는 줄바꿈을 `\n`으로 변환해야 합니다
+- 또는 Base64로 인코딩하여 저장
+
+---
+
+### Step 3: 배포 실행
+
+#### 방법 1: 자동 배포 스크립트 (권장)
 ```bash
-# 최신 로그 50줄 확인
-docker logs uvis-backend --tail 50
+# 배포 스크립트 실행
+./deploy.sh
 
-# 성공 메시지 확인:
-# - "Application startup complete!"
-# - mapper 초기화 에러 없음
-# - WebSocket 브로드캐스트 정상 작동
+# 스크립트가 다음을 자동으로 수행:
+# 1. 환경 파일 검증
+# 2. Git 저장소 업데이트 (선택)
+# 3. 프론트엔드 빌드
+# 4. Docker 이미지 빌드
+# 5. 컨테이너 시작
+# 6. 헬스 체크
+# 7. MinIO 버킷 생성 (선택)
 ```
 
-#### 4.3 Health Check 테스트
+#### 방법 2: 수동 배포
+```bash
+# 1. 프론트엔드 빌드
+cd frontend
+npm install
+npm run build
+cd ..
+
+# 2. Docker 컨테이너 중지
+docker-compose down
+
+# 3. Docker 이미지 빌드 (캐시 없이)
+docker-compose build --no-cache
+
+# 4. 컨테이너 시작
+docker-compose up -d
+
+# 5. 로그 확인
+docker-compose logs -f
+```
+
+---
+
+### Step 4: 서비스 확인
 
 ```bash
-# Health endpoint 확인
+# 컨테이너 상태 확인
+docker-compose ps
+
+# 예상 출력 (모두 "Up" 상태여야 함):
+# NAME              STATUS
+# uvis-backend      Up (healthy)
+# uvis-frontend     Up (healthy)
+# uvis-db           Up (healthy)
+# uvis-redis        Up (healthy)
+# uvis-minio        Up (healthy)
+# uvis-grafana      Up
+# uvis-prometheus   Up
+
+# 헬스 체크
 curl http://localhost:8000/api/v1/health
+# 예상 출력: {"status":"healthy","app_name":"..."}
 
-# 예상 응답:
-# {
-#   "status": "healthy",
-#   "timestamp": "2026-02-11T...",
-#   "service": "Cold Chain Dispatch System",
-#   "version": "1.0.0"
-# }
+curl http://localhost/
+# 예상 출력: HTML 페이지
 ```
 
-#### 4.4 Core APIs 테스트
+---
 
-```bash
-# Orders API
-curl http://localhost:8000/api/v1/orders/ | jq
+### Step 5: MinIO 설정
 
-# Dispatches API
-curl http://localhost:8000/api/v1/dispatches/ | jq
-
-# Vehicles API
-curl http://localhost:8000/api/v1/vehicles/ | jq
-
-# Clients API
-curl http://localhost:8000/api/v1/clients/ | jq
-
-# 모든 API가 200 OK + JSON 데이터 응답해야 함
-# 500 Internal Server Error가 없어야 함
+#### 1. MinIO Console 접속
+```
+URL: http://139.150.11.99:9001
+Username: admin (또는 MINIO_ROOT_USER 값)
+Password: <MINIO_ROOT_PASSWORD>
 ```
 
-#### 4.5 Phase 11-B Traffic APIs 테스트
+#### 2. 버킷 생성
+1. 왼쪽 메뉴 > "Buckets" 클릭
+2. "Create Bucket" 버튼
+3. Bucket Name: `uvis-files`
+4. Region: `us-east-1`
+5. "Create Bucket" 클릭
+
+#### 3. 버킷 확인
+```bash
+# MinIO Client 설치 (필요시)
+wget https://dl.min.io/client/mc/release/linux-amd64/mc -O /usr/local/bin/mc
+chmod +x /usr/local/bin/mc
+
+# MinIO alias 설정
+mc alias set local http://localhost:9000 admin <MINIO_ROOT_PASSWORD>
+
+# 버킷 목록 확인
+mc ls local/
+
+# 예상 출력:
+# [2026-02-26 00:00:00 KST]     0B uvis-files/
+```
+
+**또는 자동 생성 (배포 스크립트 사용 시):**
+```bash
+# deploy.sh 실행 중 "MinIO 버킷을 생성하시겠습니까?" 질문에 'y' 입력
+```
+
+---
+
+### Step 6: 통합 테스트 실행
 
 ```bash
-# Traffic Conditions
-curl http://localhost:8000/api/v1/traffic/conditions
+# 테스트 스크립트 실행
+./test-deployment.sh
 
-# Traffic Alerts
-curl http://localhost:8000/api/v1/traffic/alerts
+# 테스트 항목:
+# ✓ 인증 시스템
+# ✓ 서비스 헬스 체크
+# ✓ FCM 푸시 알림 (토큰 등록, 전송)
+# ✓ 파일 업로드/다운로드
+# ✓ 실시간 채팅 (채팅방 생성, 메시지)
+# ✓ UVIS 기존 기능
 
-# Route Optimization
-curl -X POST http://localhost:8000/api/v1/routes/optimize \
+# 예상 출력:
+# ╔════════════════════════════════════════════════════════════╗
+# ║                  테스트 결과 요약                          ║
+# ╚════════════════════════════════════════════════════════════╝
+#   총 테스트: 15
+#   통과: 15
+#   실패: 0
+# ✓ 모든 테스트 통과!
+```
+
+---
+
+## 🌐 서비스 접속 URL
+
+배포 완료 후 다음 URL로 접속 가능:
+
+| 서비스 | URL | 설명 |
+|--------|-----|------|
+| **프론트엔드** | http://139.150.11.99 | 메인 웹 애플리케이션 |
+| **백엔드 API** | http://139.150.11.99:8000 | REST API |
+| **API 문서** | http://139.150.11.99:8000/docs | Swagger UI |
+| **MinIO Console** | http://139.150.11.99:9001 | 파일 스토리지 관리 |
+| **Grafana** | http://139.150.11.99:3001 | 모니터링 대시보드 |
+| **Prometheus** | http://139.150.11.99:9090 | 메트릭 수집기 |
+
+---
+
+## 🧪 Phase 16 기능 테스트
+
+### 1. FCM 푸시 알림 테스트
+
+#### 브라우저에서:
+1. http://139.150.11.99 접속
+2. 로그인
+3. 대시보드 상단 알림 아이콘 클릭
+4. "푸시 알림 활성화" 버튼 클릭
+5. 브라우저 권한 허용
+6. 성공 메시지 확인: "푸시 알림이 활성화되었습니다! 🔔"
+
+#### API로 테스트 알림 전송:
+```bash
+# 1. 로그인
+TOKEN=$(curl -s -X POST http://139.150.11.99:8000/api/v1/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"vehicle_id": 1}'
+  -d '{"username":"admin","password":"password"}' \
+  | jq -r '.access_token')
 
-# 예상 응답: 401 Unauthorized (인증 필요하지만 엔드포인트 존재)
-# 404 Not Found가 없어야 함
+# 2. 테스트 알림 전송
+curl -X POST http://139.150.11.99:8000/api/v1/notifications/test \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
-#### 4.6 Phase 16 Driver APIs 테스트
+### 2. 파일 업로드 테스트
 
+#### 웹 UI에서:
+1. http://139.150.11.99/files 접속
+2. "파일 업로드" 탭
+3. 파일을 드래그 앤 드롭 또는 "파일 선택"
+4. 업로드 진행률 확인
+5. "파일 관리" 탭에서 업로드된 파일 확인
+
+#### API로:
 ```bash
-# Driver Notifications
-curl http://localhost:8000/api/v1/driver/notifications
+# 이미지 업로드
+curl -X POST http://139.150.11.99:8000/api/v1/files/upload-image \
+  -H "Authorization: Bearer $TOKEN" \
+  -F "file=@test-image.jpg"
 
-# Driver Performance
-curl http://localhost:8000/api/v1/driver/performance/statistics
-
-# Driver Chat
-curl http://localhost:8000/api/v1/driver/chat/rooms
-
-# 예상 응답: 401 Unauthorized (인증 필요하지만 엔드포인트 존재)
-# 404 Not Found가 없어야 함
+# 응답에서 file_url 확인
 ```
+
+### 3. 실시간 채팅 테스트
+
+#### 웹 UI에서:
+1. http://139.150.11.99/chat 접속
+2. 왼쪽 "+" 버튼으로 채팅방 생성
+3. 채팅방 이름 입력 → "만들기"
+4. 메시지 입력 및 전송
+5. 다른 브라우저(또는 시크릿 모드)로 동일 계정 로그인
+6. 같은 채팅방 접속
+7. 실시간 메시지 수신 확인
 
 ---
 
-### Step 5: 통합 테스트 실행
+## ⚠️ 문제 해결
 
+### 컨테이너가 시작되지 않음
 ```bash
-# 1. 테스트 디렉토리 이동
-cd /root/uvis
+# 로그 확인
+docker-compose logs backend
+docker-compose logs frontend
+docker-compose logs minio
 
-# 2. 통합 테스트 실행 (sandbox에서 작성한 스크립트 있다면)
-# python3 test_integration.py
-
-# 3. 결과 확인
-# 예상: 12개 통과 (50%), 12개 실패 (배포 대기 Phase)
-```
-
----
-
-### Step 6: Frontend 브라우저 테스트
-
-```bash
-# 1. 브라우저 열기
-# URL: http://139.150.11.99
-
-# 2. 확인 사항
-# - [ ] 로그인 페이지 로드
-# - [ ] 대시보드 접근
-# - [ ] Orders 페이지 로드
-# - [ ] Vehicles 페이지 로드
-# - [ ] Dispatches 페이지 로드
-# - [ ] Phase 16 Driver Dashboard 로드
-
-# 3. 개발자 도구 확인 (F12)
-# - [ ] Console 에러 없음
-# - [ ] Network 탭에서 API 응답 확인
-# - [ ] 401 Unauthorized는 정상 (인증 필요)
-# - [ ] 500 Internal Server Error 없음
-```
-
----
-
-## ✅ 배포 성공 기준
-
-### 필수 조건
-1. ✅ Backend 컨테이너 정상 기동 ("Application startup complete!")
-2. ✅ Health Check 응답 200 OK
-3. ✅ Core APIs 모두 200 OK + 데이터 반환
-4. ✅ Backend 로그에 SQLAlchemy mapper 에러 없음
-
-### 추가 확인
-1. ✅ Phase 11-B APIs: 401 Unauthorized (404 아님)
-2. ✅ Phase 16 APIs: 401 Unauthorized (404 아님)
-3. ✅ WebSocket 브로드캐스트 에러 감소 (vehicle driver_id 경고만 남음)
-4. ✅ Frontend 페이지 정상 로드
-
----
-
-## 🔧 문제 발생 시 대응
-
-### 1. Backend 시작 실패
-
-```bash
-# 로그 상세 확인
-docker logs uvis-backend --tail 100
-
-# 컨테이너 재시작
+# 특정 컨테이너 재시작
 docker-compose restart backend
 
-# 여전히 실패 시 재빌드
-docker-compose stop backend
-docker-compose rm -f backend
-docker-compose build --no-cache backend
-docker-compose up -d backend
+# 전체 재시작
+docker-compose down
+docker-compose up -d
 ```
 
-### 2. Mapper 초기화 에러 지속
-
-**증상**: "One or more mappers failed to initialize"
-
-**해결**:
+### MinIO 연결 오류
 ```bash
-# 1. Order 모델 확인
-cat backend/app/models/order.py | tail -10
+# MinIO 상태 확인
+docker-compose logs minio
 
-# delivery_proofs relationship이 있는지 확인
-# 없다면 수동 추가 필요
+# MinIO 재시작
+docker-compose restart minio
 
-# 2. 백업에서 복원 후 다시 pull
-git reset --hard HEAD
-git pull origin main
+# 버킷 재생성
+mc mb local/uvis-files --ignore-existing
 ```
 
-### 3. Core APIs 여전히 500 에러
-
-**원인**: 다른 모델의 relationship 문제
-
-**확인**:
+### WebSocket 연결 실패
 ```bash
-# Backend 로그에서 에러 메시지 확인
-docker logs uvis-backend --tail 50 | grep -i "error"
+# 백엔드 로그에서 WebSocket 관련 오류 확인
+docker-compose logs backend | grep -i websocket
 
-# 특정 모델 관련 에러 찾기
-docker logs uvis-backend --tail 100 | grep -i "mapper"
+# 방화벽 확인
+sudo ufw status
+sudo ufw allow 8000/tcp
 ```
 
-### 4. Frontend 접속 불가
-
+### FCM 푸시 알림 실패
 ```bash
-# Frontend/Nginx 컨테이너 재시작
-docker-compose restart frontend nginx
+# Firebase 설정 확인
+docker-compose exec backend python -c "
+import os
+print('FIREBASE_PROJECT_ID:', os.getenv('FIREBASE_PROJECT_ID'))
+print('FIREBASE_CLIENT_EMAIL:', os.getenv('FIREBASE_CLIENT_EMAIL'))
+"
 
-# 5초 대기
-sleep 5
-
-# 상태 확인
-curl -I http://localhost/
-
-# 200 OK 응답 확인
+# FCM 초기화 로그 확인
+docker-compose logs backend | grep -i firebase
 ```
 
 ---
 
-## 🔙 롤백 절차 (비상시)
+## 📊 모니터링
 
+### 실시간 로그 모니터링
 ```bash
-# 1. 이전 버전으로 코드 되돌리기
-git reset --hard cdc3442  # Order 모델 수정 이전 커밋
+# 전체 로그
+docker-compose logs -f
 
-# 2. Backend 재빌드
-docker-compose stop backend
-docker-compose rm -f backend
-docker-compose build --no-cache backend
-docker-compose up -d backend
+# 특정 서비스
+docker-compose logs -f backend
+docker-compose logs -f minio
 
-# 3. 검증
-curl http://localhost:8000/api/v1/health
+# 에러만 필터링
+docker-compose logs backend | grep ERROR
 ```
 
----
-
-## 📊 배포 후 모니터링
-
-### 1시간 후 확인사항
-
+### 리소스 사용량
 ```bash
-# 1. Backend 로그 확인 (에러 없는지)
-docker logs uvis-backend --tail 100 --since 1h
+# Docker 컨테이너 리소스
+docker stats
 
-# 2. 메모리 사용량 확인
-docker stats --no-stream
-
-# 3. API 응답 시간 확인
-curl -w "@curl-format.txt" -o /dev/null -s http://localhost:8000/api/v1/health
-
-# curl-format.txt 내용:
-# time_total: %{time_total}s\n
+# 디스크 사용량
+df -h
+docker system df
 ```
 
-### 24시간 후 확인사항
-
-```bash
-# 1. 전체 로그 검토
-docker logs uvis-backend --since 24h > backend_24h.log
-
-# 2. 에러 통계
-grep -i "error" backend_24h.log | wc -l
-
-# 3. WebSocket 브로드캐스트 성공률
-grep "broadcast" backend_24h.log | grep -v "Error" | wc -l
+### Grafana 대시보드
 ```
-
----
-
-## 📞 지원 연락처
-
-### 문제 발생 시 보고 사항
-1. **에러 로그**: `docker logs uvis-backend --tail 100`
-2. **컨테이너 상태**: `docker ps -a`
-3. **API 응답 예시**: Core APIs 테스트 결과
-4. **발생 시간**: 정확한 타임스탬프
-
-### 로그 수집 명령
-
-```bash
-# 모든 컨테이너 로그 수집
-docker logs uvis-backend > backend.log 2>&1
-docker logs uvis-frontend > frontend.log 2>&1
-docker logs uvis-nginx > nginx.log 2>&1
-docker logs uvis-db > db.log 2>&1
-
-# 압축하여 전달
-tar -czf logs_$(date +%Y%m%d_%H%M%S).tar.gz *.log
+URL: http://139.150.11.99:3001
+Username: admin
+Password: <GRAFANA_PASSWORD from .env>
 ```
-
----
-
-## 🎯 배포 후 다음 단계
-
-### 우선순위 1: 시스템 안정화
-- [ ] 24시간 모니터링 완료
-- [ ] WebSocket 브로드캐스트 안정성 확인
-- [ ] 메모리/CPU 사용량 정상 범위 확인
-
-### 우선순위 2: 인증 시스템 구축
-- [ ] JWT 토큰 발급 로직 검증
-- [ ] Driver 전용 로그인 기능 구현
-- [ ] Frontend 로그인 페이지 연동
-
-### 우선순위 3: 추가 Phase 배포 준비
-- [ ] Phase 12: Integrated Dispatch
-- [ ] Phase 13-14: IoT & Predictive Maintenance
-- [ ] Phase 15: ML Auto-Learning
 
 ---
 
 ## ✅ 배포 완료 체크리스트
 
-배포를 완료한 후 아래 항목을 체크해 주세요:
-
-- [ ] Step 1: 백업 생성 완료
-- [ ] Step 2: 최신 코드 pull 완료 (커밋 f412836 확인)
-- [ ] Step 3: Backend 재배포 완료 (컨테이너 Up)
-- [ ] Step 4.1: 모든 컨테이너 Healthy 상태
-- [ ] Step 4.2: Backend 로그 정상 (Application startup complete)
-- [ ] Step 4.3: Health Check 200 OK
-- [ ] Step 4.4: Core APIs 모두 200 OK
-- [ ] Step 4.5: Phase 11-B APIs 401 Unauthorized (404 아님)
-- [ ] Step 4.6: Phase 16 APIs 401 Unauthorized (404 아님)
-- [ ] Step 5: 통합 테스트 실행 완료 (12개 통과 확인)
-- [ ] Step 6: Frontend 브라우저 정상 로드 확인
-
----
-
-**배포 담당자**: _________________  
-**배포 일시**: _________________  
-**배포 결과**: ⬜ 성공 / ⬜ 실패 / ⬜ 부분 성공  
-**특이사항**: _________________
+- [ ] Git 저장소 최신화 (`git pull`)
+- [ ] .env 파일 설정 (DB, Redis, MinIO, Firebase)
+- [ ] frontend/.env 파일 설정 (Firebase)
+- [ ] 프론트엔드 빌드 성공
+- [ ] Docker 이미지 빌드 성공
+- [ ] 모든 컨테이너 "Up (healthy)" 상태
+- [ ] MinIO 버킷 생성 완료 (`uvis-files`)
+- [ ] 백엔드 헬스 체크 통과 (HTTP 200)
+- [ ] 프론트엔드 접근 가능
+- [ ] FCM 푸시 알림 테스트 성공
+- [ ] 파일 업로드 테스트 성공
+- [ ] 실시간 채팅 테스트 성공
+- [ ] `./test-deployment.sh` 전체 통과
 
 ---
 
-**문서 작성**: AI Developer  
-**최종 업데이트**: 2026-02-11 14:30 (KST)  
-**버전**: 1.0.0
+## 🔄 롤백 (필요 시)
+
+```bash
+# 이전 커밋으로 돌아가기
+git log --oneline -10
+git checkout <이전_커밋_해시>
+
+# Docker 재빌드 및 재시작
+docker-compose down
+docker-compose build --no-cache
+docker-compose up -d
+```
+
+---
+
+## 📞 지원
+
+문제 발생 시:
+1. `docker-compose logs -f` 로그 확인
+2. `docs/PRODUCTION_DEPLOYMENT_GUIDE.md` 참조
+3. `docs/PHASE_16_COMPLETION_REPORT.md` 참조
+4. GitHub Issues 작성
+
+---
+
+**배포 실행 가이드 버전**: 1.0  
+**최종 업데이트**: 2026-02-26  
+**대상 서버**: 139.150.11.99
