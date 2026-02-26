@@ -489,10 +489,8 @@ const VehiclesPage: React.FC = () => {
           />
         </Card>
       ) : (
-        /* List View */
-        <>
-          {/* Vehicle Cards - Mobile/Desktop Views */}
-          {isMobile ? (
+        /* List View - Mobile/Desktop Views */
+        isMobile ? (
         /* Mobile View */
         <div className="px-4 space-y-3">
           {filteredVehicles.length === 0 ? (
@@ -531,8 +529,7 @@ const VehiclesPage: React.FC = () => {
         </div>
       ) : (
         /* Desktop View */
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredVehicles.map((vehicle) => (
           <Card 
             key={vehicle.id} 
@@ -731,9 +728,8 @@ const VehiclesPage: React.FC = () => {
           <p className="text-gray-600">등록된 차량이 없습니다</p>
         </div>
       )}
-        </>
       )
-}
+      )}
 
       {/* Modal */}
       {modalOpen && (
