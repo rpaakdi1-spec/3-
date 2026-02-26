@@ -22,6 +22,7 @@ import {
   Download,
   ListChecks,
   MoreHorizontal,
+  FileText,
 } from 'lucide-react';
 import { LucideIcon } from 'lucide-react';
 
@@ -220,47 +221,767 @@ export const navigationConfig: MenuItem[] = [
   },
   { 
     path: '/ml-training', 
+  },
+  {
+    path: '/chat',
+    label: '실시간 채팅',
+    icon: MessageSquare,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+  },
+  {
+    path: '/files',
+    label: '파일 관리',
+    icon: FileText,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
     label: 'AI 학습', 
+  },
+  {
+    path: '/chat',
+    label: '실시간 채팅',
+    icon: MessageSquare,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+  },
+  {
+    path: '/files',
+    label: '파일 관리',
+    icon: FileText,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
     icon: Brain, 
+  },
+  {
+    path: '/chat',
+    label: '실시간 채팅',
+    icon: MessageSquare,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+  },
+  {
+    path: '/files',
+    label: '파일 관리',
+    icon: FileText,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
     roles: ['ADMIN', 'DISPATCHER'] 
   },
+  {
+    path: '/chat',
+    label: '실시간 채팅',
+    icon: MessageSquare,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+  },
+  {
+    path: '/files',
+    label: '파일 관리',
+    icon: FileText,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+  },
+  },
+  {
+    path: '/chat',
+    label: '실시간 채팅',
+    icon: MessageSquare,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+  },
+  {
+    path: '/files',
+    label: '파일 관리',
+    icon: FileText,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
   { 
+  },
+  {
+    path: '/chat',
+    label: '실시간 채팅',
+    icon: MessageSquare,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+  },
+  {
+    path: '/files',
+    label: '파일 관리',
+    icon: FileText,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
     path: '/settings', 
+  },
+  {
+    path: '/chat',
+    label: '실시간 채팅',
+    icon: MessageSquare,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+  },
+  {
+    path: '/files',
+    label: '파일 관리',
+    icon: FileText,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
     label: '설정', 
+  },
+  {
+    path: '/chat',
+    label: '실시간 채팅',
+    icon: MessageSquare,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+  },
+  {
+    path: '/files',
+    label: '파일 관리',
+    icon: FileText,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
     icon: Settings, 
+  },
+  {
+    path: '/chat',
+    label: '실시간 채팅',
+    icon: MessageSquare,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+  },
+  {
+    path: '/files',
+    label: '파일 관리',
+    icon: FileText,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
     roles: ['ADMIN'] 
   },
-  { 
-    path: '/more', 
-    label: '더보기', 
-    icon: MoreHorizontal, 
+  {
+    path: '/chat',
+    label: '실시간 채팅',
+    icon: MessageSquare,
     roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+  },
+  {
+    path: '/files',
+    label: '파일 관리',
+    icon: FileText,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+  },
+  },
+  {
+    path: '/chat',
+    label: '실시간 채팅',
+    icon: MessageSquare,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+  },
+  {
+    path: '/files',
+    label: '파일 관리',
+    icon: FileText,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+  { 
+  },
+  {
+    path: '/chat',
+    label: '실시간 채팅',
+    icon: MessageSquare,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+  },
+  {
+    path: '/files',
+    label: '파일 관리',
+    icon: FileText,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+    path: '/more', 
+  },
+  {
+    path: '/chat',
+    label: '실시간 채팅',
+    icon: MessageSquare,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+  },
+  {
+    path: '/files',
+    label: '파일 관리',
+    icon: FileText,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+    label: '더보기', 
+  },
+  {
+    path: '/chat',
+    label: '실시간 채팅',
+    icon: MessageSquare,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+  },
+  {
+    path: '/files',
+    label: '파일 관리',
+    icon: FileText,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+    icon: MoreHorizontal, 
+  },
+  {
+    path: '/chat',
+    label: '실시간 채팅',
+    icon: MessageSquare,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+  },
+  {
+    path: '/files',
+    label: '파일 관리',
+    icon: FileText,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+    roles: ['ADMIN', 'DISPATCHER'],
+  },
+  {
+    path: '/chat',
+    label: '실시간 채팅',
+    icon: MessageSquare,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+  },
+  {
+    path: '/files',
+    label: '파일 관리',
+    icon: FileText,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
     mobileVisible: true // 모바일 하단 네비게이션에 표시
   },
+  {
+    path: '/chat',
+    label: '실시간 채팅',
+    icon: MessageSquare,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+  },
+  {
+    path: '/files',
+    label: '파일 관리',
+    icon: FileText,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+  },
+  },
+  {
+    path: '/chat',
+    label: '실시간 채팅',
+    icon: MessageSquare,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+  },
+  {
+    path: '/files',
+    label: '파일 관리',
+    icon: FileText,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
 ];
+  },
+  {
+    path: '/chat',
+    label: '실시간 채팅',
+    icon: MessageSquare,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+  },
+  {
+    path: '/files',
+    label: '파일 관리',
+    icon: FileText,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
 
+  },
+  {
+    path: '/chat',
+    label: '실시간 채팅',
+    icon: MessageSquare,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+  },
+  {
+    path: '/files',
+    label: '파일 관리',
+    icon: FileText,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
 /**
+  },
+  {
+    path: '/chat',
+    label: '실시간 채팅',
+    icon: MessageSquare,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+  },
+  {
+    path: '/files',
+    label: '파일 관리',
+    icon: FileText,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
  * 사용자 권한에 따라 메뉴 필터링
+  },
+  {
+    path: '/chat',
+    label: '실시간 채팅',
+    icon: MessageSquare,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+  },
+  {
+    path: '/files',
+    label: '파일 관리',
+    icon: FileText,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
  */
+  },
+  {
+    path: '/chat',
+    label: '실시간 채팅',
+    icon: MessageSquare,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+  },
+  {
+    path: '/files',
+    label: '파일 관리',
+    icon: FileText,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
 export const filterMenuByRole = (menuItems: MenuItem[], userRole: string): MenuItem[] => {
+  },
+  {
+    path: '/chat',
+    label: '실시간 채팅',
+    icon: MessageSquare,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+  },
+  {
+    path: '/files',
+    label: '파일 관리',
+    icon: FileText,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
   const roleUpper = userRole.toUpperCase();
+  },
+  {
+    path: '/chat',
+    label: '실시간 채팅',
+    icon: MessageSquare,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+  },
+  {
+    path: '/files',
+    label: '파일 관리',
+    icon: FileText,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
   
+  },
+  {
+    path: '/chat',
+    label: '실시간 채팅',
+    icon: MessageSquare,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+  },
+  {
+    path: '/files',
+    label: '파일 관리',
+    icon: FileText,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
   return menuItems
+  },
+  {
+    path: '/chat',
+    label: '실시간 채팅',
+    icon: MessageSquare,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+  },
+  {
+    path: '/files',
+    label: '파일 관리',
+    icon: FileText,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
     .filter(item => item.roles.includes(roleUpper))
+  },
+  {
+    path: '/chat',
+    label: '실시간 채팅',
+    icon: MessageSquare,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+  },
+  {
+    path: '/files',
+    label: '파일 관리',
+    icon: FileText,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
     .map(item => {
+  },
+  {
+    path: '/chat',
+    label: '실시간 채팅',
+    icon: MessageSquare,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+  },
+  {
+    path: '/files',
+    label: '파일 관리',
+    icon: FileText,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
       if (item.children) {
+  },
+  {
+    path: '/chat',
+    label: '실시간 채팅',
+    icon: MessageSquare,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+  },
+  {
+    path: '/files',
+    label: '파일 관리',
+    icon: FileText,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
         return {
+  },
+  {
+    path: '/chat',
+    label: '실시간 채팅',
+    icon: MessageSquare,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+  },
+  {
+    path: '/files',
+    label: '파일 관리',
+    icon: FileText,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
           ...item,
+  },
+  {
+    path: '/chat',
+    label: '실시간 채팅',
+    icon: MessageSquare,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+  },
+  {
+    path: '/files',
+    label: '파일 관리',
+    icon: FileText,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
           children: item.children.filter(child => child.roles.includes(roleUpper))
+  },
+  {
+    path: '/chat',
+    label: '실시간 채팅',
+    icon: MessageSquare,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+  },
+  {
+    path: '/files',
+    label: '파일 관리',
+    icon: FileText,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
         };
+  },
+  {
+    path: '/chat',
+    label: '실시간 채팅',
+    icon: MessageSquare,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+  },
+  {
+    path: '/files',
+    label: '파일 관리',
+    icon: FileText,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
       }
+  },
+  {
+    path: '/chat',
+    label: '실시간 채팅',
+    icon: MessageSquare,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+  },
+  {
+    path: '/files',
+    label: '파일 관리',
+    icon: FileText,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
       return item;
+  },
+  {
+    path: '/chat',
+    label: '실시간 채팅',
+    icon: MessageSquare,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+  },
+  {
+    path: '/files',
+    label: '파일 관리',
+    icon: FileText,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
     });
+  },
+  {
+    path: '/chat',
+    label: '실시간 채팅',
+    icon: MessageSquare,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+  },
+  {
+    path: '/files',
+    label: '파일 관리',
+    icon: FileText,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
 };
+  },
+  {
+    path: '/chat',
+    label: '실시간 채팅',
+    icon: MessageSquare,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+  },
+  {
+    path: '/files',
+    label: '파일 관리',
+    icon: FileText,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
 
+  },
+  {
+    path: '/chat',
+    label: '실시간 채팅',
+    icon: MessageSquare,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+  },
+  {
+    path: '/files',
+    label: '파일 관리',
+    icon: FileText,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
 /**
+  },
+  {
+    path: '/chat',
+    label: '실시간 채팅',
+    icon: MessageSquare,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+  },
+  {
+    path: '/files',
+    label: '파일 관리',
+    icon: FileText,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
  * 모바일 하단 네비게이션용 메뉴 추출
+  },
+  {
+    path: '/chat',
+    label: '실시간 채팅',
+    icon: MessageSquare,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+  },
+  {
+    path: '/files',
+    label: '파일 관리',
+    icon: FileText,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
  */
+  },
+  {
+    path: '/chat',
+    label: '실시간 채팅',
+    icon: MessageSquare,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+  },
+  {
+    path: '/files',
+    label: '파일 관리',
+    icon: FileText,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
 export const getMobileNavigation = (menuItems: MenuItem[]): MenuItem[] => {
+  },
+  {
+    path: '/chat',
+    label: '실시간 채팅',
+    icon: MessageSquare,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+  },
+  {
+    path: '/files',
+    label: '파일 관리',
+    icon: FileText,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
   return menuItems.filter(item => item.mobileVisible);
+  },
+  {
+    path: '/chat',
+    label: '실시간 채팅',
+    icon: MessageSquare,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+  },
+  {
+    path: '/files',
+    label: '파일 관리',
+    icon: FileText,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
 };
+  },
+  {
+    path: '/chat',
+    label: '실시간 채팅',
+    icon: MessageSquare,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
+  },
+  {
+    path: '/files',
+    label: '파일 관리',
+    icon: FileText,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true,
+    mobileVisible: true
