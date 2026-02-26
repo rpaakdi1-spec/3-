@@ -59,6 +59,9 @@ const IoTAlertsPage = lazy(() => import('./pages/IoTAlertsPage'));
 // File Management Page (Phase 16.2)
 const FilesPage = lazy(() => import('./pages/FilesPage'));
 
+// Chat Page (Phase 16.3)
+const ChatPage = lazy(() => import('./pages/ChatPage'));
+
 // Protected Route Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated } = useAuthStore();
@@ -463,6 +466,16 @@ const App: React.FC = () => {
               element={
                 <LayoutWrapper>
                   <FilesPage />
+                </LayoutWrapper>
+              }
+            />
+
+            {/* Real-time Chat (Phase 16.3) */}
+            <Route
+              path="/chat"
+              element={
+                <LayoutWrapper>
+                  <ChatPage />
                 </LayoutWrapper>
               }
             />
