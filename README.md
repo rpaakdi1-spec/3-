@@ -7,6 +7,17 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14-336791?logo=postgresql)](https://www.postgresql.org/)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker)](https://www.docker.com/)
 
+## 🎉 Phase 16 Complete! (2026-02-26)
+
+**실시간 커뮤니케이션 & 파일 관리 시스템 추가됨**
+
+- 🔔 **FCM 푸시 알림**: Firebase Cloud Messaging 통합 (백엔드 + 프론트엔드)
+- 📁 **파일 업로드**: MinIO/S3 호환 스토리지, 이미지 최적화
+- 💬 **실시간 채팅**: WebSocket 기반 다중 채팅방 시스템
+
+📚 **배포 가이드**: [docs/PRODUCTION_DEPLOYMENT_GUIDE.md](docs/PRODUCTION_DEPLOYMENT_GUIDE.md)  
+📊 **완료 보고서**: [docs/PHASE_16_COMPLETION_REPORT.md](docs/PHASE_16_COMPLETION_REPORT.md)
+
 ---
 
 ## 📋 목차
