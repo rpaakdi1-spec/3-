@@ -84,12 +84,6 @@ export const navigationConfig: MenuItem[] = [
     isNew: true 
   },
   { 
-    path: '/ai-chat', 
-    label: 'AI 주문 어시스턴트', 
-    icon: MessageSquare, 
-    roles: ['ADMIN', 'DISPATCHER'] 
-  },
-  { 
     path: '/optimization', 
     label: 'AI 배차 최적화', 
     icon: Zap, 
