@@ -155,7 +155,7 @@ async def internal_error_handler(request, exc):
 
 # Import and include routers
 # from app.api import auth, clients, vehicles, orders, dispatches, tracking, uvis, redispatch, notices, purchase_orders, band_messages, uvis_gps, analytics, delivery_tracking, traffic, monitoring, cache
-from app.api import auth, clients, vehicles, orders, dispatches, tracking, uvis, redispatch, notices, purchase_orders, band_messages, uvis_gps, delivery_tracking, traffic, monitoring, cache, emergency, ml_training, ai_chat, ai_usage, ml_dispatch, ab_test, recurring_orders, order_templates, driver_schedules, urgent_dispatches, notifications, temperature_monitoring, temperature_analytics, billing, vehicle_maintenance, ml_predictions, telemetry, dispatch_optimization, analytics, mobile, dispatch_monitoring, ml_autolearning, files
+from app.api import auth, clients, vehicles, orders, dispatches, tracking, uvis, redispatch, notices, purchase_orders, band_messages, uvis_gps, delivery_tracking, traffic, monitoring, cache, emergency, ml_training, ai_chat, ai_usage, ml_dispatch, ab_test, recurring_orders, order_templates, driver_schedules, urgent_dispatches, notifications, temperature_monitoring, temperature_analytics, billing, vehicle_maintenance, ml_predictions, telemetry, dispatch_optimization, analytics, mobile, dispatch_monitoring, ml_autolearning, files, chat, chat_ws
 from app.api.v1 import reports, realtime_monitoring, ml_models, fcm_notifications, performance, security, websocket, mobile_enhanced, billing_enhanced
 from app.api.v1.endpoints import dispatch_rules
 app.include_router(auth.router, prefix=f"{settings.API_PREFIX}/auth", tags=["Authentication"])
@@ -208,6 +208,8 @@ app.include_router(mobile_enhanced.router, prefix=f"{settings.API_PREFIX}", tags
 app.include_router(billing_enhanced.router, prefix=f"{settings.API_PREFIX}", tags=["Billing Enhanced"])  # Phase 8: Billing Enhanced
 app.include_router(dispatch_monitoring.router, prefix=f"{settings.API_PREFIX}/dispatch/monitoring", tags=["Dispatch Monitoring"])  # AI Dispatch Monitoring Dashboard
 app.include_router(files.router, prefix=f"{settings.API_PREFIX}/files", tags=["File Upload"])  # Phase 16.2: File Upload System
+app.include_router(chat.router, prefix=f"{settings.API_PREFIX}/chat", tags=["Chat"])  # Phase 16.3: Real-time Chat REST API
+app.include_router(chat_ws.router, prefix=f"{settings.API_PREFIX}/ws", tags=["Chat WebSocket"])  # Phase 16.3: Real-time Chat WebSocket
 
 # Mount static files for uploads
 import os
