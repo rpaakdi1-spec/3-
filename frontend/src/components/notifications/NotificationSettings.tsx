@@ -4,7 +4,7 @@
 
 import React from 'react';
 import { Bell, BellOff, Check, X } from 'lucide-react';
-import { useFCM } from '../hooks/useFCM';
+import { useFCM } from '../../hooks/useFCM';
 import { toast } from 'sonner';
 
 interface NotificationSettingsProps {
