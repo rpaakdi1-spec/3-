@@ -22,3 +22,7 @@ README.md
 # OS
 .DS_Store
 Thumbs.db
+
+# Build output (will be built in container)
+dist
+build
