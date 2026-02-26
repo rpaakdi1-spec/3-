@@ -42,7 +42,7 @@ from app.schemas.mobile import (
     SyncResponse,
     NotificationPriority,
 )
-from app.services.fcm_service import fcm_service
+from app.services.fcm_service import FCMService
 
 router = APIRouter(prefix="/mobile/v2", tags=["Mobile API v2"])
 
@@ -282,32 +282,25 @@ async def send_push_notification(
     
     # 백그라운드에서 알림 발송
     def send_notifications():
-        for token in tokens:
+        # Get unique user IDs from tokens
+        user_ids = list(set([token.user_id for token in tokens]))
+        
+        for user_id in user_ids:
             try:
-                result = fcm_service.send_push(
-                    token=token.token,
+                # Use FCMService to send notification
+                success = FCMService.send_notification(
+                    db=db,
+                    user_id=user_id,
                     title=request.title,
                     body=request.body,
                     data=request.data or {},
-                    image_url=request.image_url
+                    notification_type=request.notification_type.value if hasattr(request.notification_type, 'value') else str(request.notification_type)
                 )
                 
-                # 로그 저장
-                log = PushNotificationLog(
-                    user_id=token.user_id,
-                    token=token.token,
-                    title=request.title,
-                    body=request.body,
-                    data_json=str(request.data) if request.data else None,
-                    notification_type=request.notification_type.value,
-                    status="sent" if result["success"] else "failed",
-                    error_message=result.get("error")
-                )
-                db.add(log)
+                if not success:
+                    logger.warning(f"Failed to send notification to user {user_id}")
             except Exception as e:
-                logger.error(f"Failed to send notification: {str(e)}")
-        
-        db.commit()
+                logger.error(f"Failed to send notification to user {user_id}: {str(e)}")
     
     background_tasks.add_task(send_notifications)
     
@@ -644,5 +637,5 @@ async def mobile_api_health():
         "status": "healthy",
         "service": "Mobile API v2",
         "timestamp": datetime.utcnow().isoformat(),
-        "fcm_enabled": fcm_service.enabled
+        "fcm_enabled": FCMService._initialized
     }
