@@ -721,13 +721,6 @@ const VehiclesPage: React.FC = () => {
           </Card>
         ))}
       </div>
-
-      {filteredVehicles.length === 0 && (
-        <div className="text-center py-12">
-          <Truck size={48} className="mx-auto text-gray-400 mb-4" />
-          <p className="text-gray-600">등록된 차량이 없습니다</p>
-        </div>
-      )}
       )
       )}
 
