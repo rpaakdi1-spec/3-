@@ -325,6 +325,19 @@ class UvisGPSService:
                     self.db.add(gps_log)
                     saved_count += 1
                     
+                    # 알림 처리 (GPS 로그 저장 후)
+                    if vehicle:
+                        from app.services.uvis_alert_service import UVISAlertService
+                        alerts = UVISAlertService.process_all_alerts(
+                            db=self.db,
+                            gps_log=gps_log,
+                            vehicle=vehicle
+                        )
+                        # 알림이 발생하면 로그 출력
+                        if alerts:
+                            for alert in alerts:
+                                print(f"🚨 [{alert['level'].upper()}] {alert['title']}")
+                    
                 except Exception as e:
                     print(f"⚠️ GPS 데이터 저장 실패 (항목): {e}")
                     continue
@@ -387,6 +400,19 @@ class UvisGPSService:
                     
                     self.db.add(temp_log)
                     saved_count += 1
+                    
+                    # 알림 처리 (온도 로그 저장 후)
+                    if vehicle:
+                        from app.services.uvis_alert_service import UVISAlertService
+                        alerts = UVISAlertService.process_all_alerts(
+                            db=self.db,
+                            temp_log=temp_log,
+                            vehicle=vehicle
+                        )
+                        # 알림이 발생하면 로그 출력
+                        if alerts:
+                            for alert in alerts:
+                                print(f"🚨 [{alert['level'].upper()}] {alert['title']}")
                     
                 except Exception as e:
                     print(f"⚠️ 온도 데이터 저장 실패 (항목): {e}")

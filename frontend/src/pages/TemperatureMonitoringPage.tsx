@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { apiClient } from '../api/client';
-import Layout from '../components/common/Layout';
 import { Thermometer, AlertTriangle, TrendingUp, TrendingDown, Activity, Clock, CheckCircle } from 'lucide-react';
 import { Line } from 'react-chartjs-2';
 import {
@@ -253,9 +252,7 @@ const TemperatureMonitoringPage: React.FC = () => {
     );
   }
 
-  return (
-    <Layout>
-      <div className="space-y-6">
+  return (<div className="space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
@@ -365,7 +362,6 @@ const TemperatureMonitoringPage: React.FC = () => {
         </div>
       )}
       </div>
-    </Layout>
   );
 };
 

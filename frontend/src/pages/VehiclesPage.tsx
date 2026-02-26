@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Truck, Plus, Edit2, Trash2, ThermometerSnowflake, RefreshCw, Upload, Download, FileSpreadsheet, CheckSquare } from 'lucide-react';
+import { Truck, Plus, Edit2, Trash2, ThermometerSnowflake, RefreshCw, Upload, Download, FileSpreadsheet, CheckSquare, Map, List } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import Layout from '../components/common/Layout';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
@@ -9,6 +8,7 @@ import Loading from '../components/common/Loading';
 import { vehiclesAPI } from '../services/api';
 import { useResponsive } from '../hooks/useResponsive';
 import { MobileVehicleCard } from '../components/mobile/MobileVehicleCard';
+import NaverMap from '../components/map/NaverMap';
 
 interface Vehicle {
   id: number;
@@ -52,6 +52,7 @@ const VehiclesPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const { isMobile } = useResponsive();
   
   const [formData, setFormData] = useState({
@@ -292,6 +293,18 @@ const VehiclesPage: React.FC = () => {
     }
   };
 
+  // 30초마다 자동 UVIS 동기화
+  useEffect(() => {
+    const syncInterval = setInterval(() => {
+      // 이미 동기화 중이 아닐 때만 실행
+      if (!syncing) {
+        handleSyncUvis();
+      }
+    }, 30000); // 30초
+    
+    return () => clearInterval(syncInterval);
+  }, [syncing]); // syncing 상태를 의존성에 추가
+
   const filteredVehicles = vehicles.filter(vehicle =>
     vehicle.plate_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     vehicle.driver_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -318,21 +331,40 @@ const VehiclesPage: React.FC = () => {
     );
   };
 
-  if (loading) return (
-    <Layout>
-      <Loading />
-    </Layout>
+  if (loading) return (<Loading />
   );
 
-  return (
-    <Layout>
-      <div className="p-6">
+  return (<div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold text-gray-800">차량 관리</h1>
           <p className="text-gray-600 mt-1">냉장/냉동 차량 정보를 관리합니다</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <div className="flex gap-1 border border-gray-300 rounded-lg p-1">
+            <button
+              onClick={() => setViewMode('list')}
+              className={`px-3 py-2 rounded-md transition-colors ${
+                viewMode === 'list'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              <List size={18} className="inline mr-1" />
+              목록
+            </button>
+            <button
+              onClick={() => setViewMode('map')}
+              className={`px-3 py-2 rounded-md transition-colors ${
+                viewMode === 'map'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              <Map size={18} className="inline mr-1" />
+              지도
+            </button>
+          </div>
           <Button 
             onClick={handleDownloadTemplate}
             variant="secondary"
@@ -429,8 +461,36 @@ const VehiclesPage: React.FC = () => {
         </Card>
       )}
 
-      {/* Vehicle Cards - Mobile/Desktop Views */}
-      {isMobile ? (
+      {/* Map View */}
+      {viewMode === 'map' ? (
+        <Card>
+          <NaverMap
+            vehicles={filteredVehicles
+              .filter(v => v.gps_data?.latitude && v.gps_data?.longitude)
+              .map(v => ({
+                vehicle_id: v.id,
+                license_plate: v.plate_number,
+                driver_name: v.driver_name,
+                latitude: v.gps_data!.latitude!,
+                longitude: v.gps_data!.longitude!,
+                status: v.gps_data!.is_engine_on ? 'busy' : 'available',
+                vehicle_type: v.vehicle_type,
+                temperature_type: v.gps_data!.temperature_a 
+                  ? `A: ${v.gps_data!.temperature_a}°C${v.gps_data!.temperature_b ? `, B: ${v.gps_data!.temperature_b}°C` : ''}`
+                  : undefined
+              }))}
+            height="700px"
+            onVehicleClick={(vehicle) => {
+              const v = vehicles.find(vh => vh.plate_number === vehicle.license_plate);
+              if (v) {
+                openModal(v);
+              }
+            }}
+          />
+        </Card>
+      ) : (
+        /* List View - Mobile/Desktop Views */
+        isMobile ? (
         /* Mobile View */
         <div className="px-4 space-y-3">
           {filteredVehicles.length === 0 ? (
@@ -469,8 +529,7 @@ const VehiclesPage: React.FC = () => {
         </div>
       ) : (
         /* Desktop View */
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredVehicles.map((vehicle) => (
           <Card 
             key={vehicle.id} 
@@ -662,14 +721,7 @@ const VehiclesPage: React.FC = () => {
           </Card>
         ))}
       </div>
-
-      {filteredVehicles.length === 0 && (
-        <div className="text-center py-12">
-          <Truck size={48} className="mx-auto text-gray-400 mb-4" />
-          <p className="text-gray-600">등록된 차량이 없습니다</p>
-        </div>
-      )}
-        </>
+      )
       )}
 
       {/* Modal */}
@@ -843,8 +895,7 @@ const VehiclesPage: React.FC = () => {
           </div>
         </div>
       )}
-      </div>
-    </Layout>
+    </div>
   );
 };
 

@@ -1,6 +1,5 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import Layout from '../components/common/Layout';
 import Card from '../components/common/Card';
 import { 
   Users, 
@@ -125,9 +124,7 @@ const MorePage: React.FC = () => {
     }
   };
 
-  return (
-    <Layout>
-      <div className="p-4 pb-20 md:p-6">
+  return (<div className="p-4 pb-20 md:p-6">
         {/* User Profile Card */}
         <Card className="mb-6">
           <div className="flex items-center space-x-4">
@@ -187,7 +184,6 @@ const MorePage: React.FC = () => {
           <p className="text-xs mt-1">© 2026 All rights reserved</p>
         </div>
       </div>
-    </Layout>
   );
 };
 

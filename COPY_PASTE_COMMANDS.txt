@@ -1,117 +1,106 @@
-════════════════════════════════════════════════════════════════
-  📋 복사-붙여넣기 배포 명령어 모음
-════════════════════════════════════════════════════════════════
+╔══════════════════════════════════════════════════════════════╗
+║                                                              ║
+║         WebSocket 403 수정 - 복사하여 실행하세요            ║
+║                                                              ║
+╚══════════════════════════════════════════════════════════════╝
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- 방법 1: 한 줄 완전 자동 배포 (가장 빠름!)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┌──────────────────────────────────────────────────────────────┐
+│  Step 1: 로컬 PC에서 파일 업로드                            │
+└──────────────────────────────────────────────────────────────┘
 
-# 서버 접속
-ssh root@139.150.11.99
+cd /home/user/webapp
+scp -P 2829 websocket_403_fix.py diagnose_websocket_403.sh fix_websocket_403.sh root@139.150.11.99:/root/uvis/frontend/
 
-# 배포 실행 (한 줄)
-cd /root/uvis && git pull origin main && ./scripts/deploy_production.sh && ./scripts/gradual_rollout.sh pilot && mkdir -p logs && nohup ./scripts/monitor_pilot.sh > logs/monitor_output.log 2>&1 & && echo "✅ 배포 완료! 로그: tail -f logs/monitor_output.log"
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- 방법 2: 단계별 실행 (각 단계 확인 가능)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┌──────────────────────────────────────────────────────────────┐
+│  Step 2: 서버 접속                                           │
+└──────────────────────────────────────────────────────────────┘
 
-# 1. 서버 접속
-ssh root@139.150.11.99
+ssh -p 2829 root@139.150.11.99
 
-# 2. 프로젝트 디렉토리
-cd /root/uvis
 
-# 3. 최신 코드
-git pull origin main
+┌──────────────────────────────────────────────────────────────┐
+│  Step 3: 서버에서 배포 (접속 후 실행)                       │
+└──────────────────────────────────────────────────────────────┘
 
-# 4. 배포 (8분)
-./scripts/deploy_production.sh
+cd /root/uvis/frontend && chmod +x *.sh && ./fix_websocket_403.sh
 
-# 5. 파일럿 롤아웃 10%
-./scripts/gradual_rollout.sh pilot
 
-# 6. 모니터링 시작 (백그라운드)
-mkdir -p logs
-nohup ./scripts/monitor_pilot.sh > logs/monitor_output.log 2>&1 &
+┌──────────────────────────────────────────────────────────────┐
+│  Step 4: 브라우저 테스트                                     │
+└──────────────────────────────────────────────────────────────┘
 
-# 7. 실시간 로그
-tail -f logs/monitor_output.log
+1. http://139.150.11.99 접속
+2. Ctrl + Shift + F5 (강력 새로고침)
+3. F12 키 누르기
+4. Console 탭 → "Dashboard connected" 확인
+5. Network 탭 → WS 필터 → Status 101 확인
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- 배포 후 확인 명령어
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-# 빠른 상태 확인
-./quick_check.sh
+╔══════════════════════════════════════════════════════════════╗
+║                      예상 결과                               ║
+╚══════════════════════════════════════════════════════════════╝
 
-# 컨테이너 상태
-docker ps | grep uvis
+✅ Console: "Dashboard connected"
+✅ Network: Status 101 (Switching Protocols)
+✅ Backend 로그: "✅ WebSocket accepted"
 
-# Backend API 확인
-curl http://localhost:8000/health
 
-# Redis 확인
-docker exec -it uvis-redis redis-cli ping
+╔══════════════════════════════════════════════════════════════╗
+║                    문제 발생 시                              ║
+╚══════════════════════════════════════════════════════════════╝
 
-# ML Dispatch API 확인
-curl http://localhost:8000/api/ml-dispatch/ab-test/stats | jq
+cd /root/uvis/frontend
+./diagnose_websocket_403.sh
 
-# A/B 테스트 통계 실시간 모니터링
-watch -n 10 'curl -s http://localhost:8000/api/ml-dispatch/ab-test/stats | jq'
 
-# Backend 로그 실시간
-docker logs uvis-backend --tail 50 -f
+╔══════════════════════════════════════════════════════════════╗
+║                   완료된 수정 사항                           ║
+╚══════════════════════════════════════════════════════════════╝
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- 점진적 롤아웃 명령어
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ Vehicle API: 307 → 200 OK (46개 차량)
+✅ Orders API: 307 → 200 OK
+✅ Dispatches API: 307 → 200 OK
+✅ Clients API: 307 → 200 OK
+✅ Backend Async 에러: 완전 제거
+⏳ WebSocket: 403 → 배포 대기
 
-# 10% 파일럿
-./scripts/gradual_rollout.sh pilot
 
-# 30% 확대 (1시간 후 성공 시)
-./scripts/gradual_rollout.sh expand
+╔══════════════════════════════════════════════════════════════╗
+║                     파일 위치                                ║
+╚══════════════════════════════════════════════════════════════╝
 
-# 50% 확대
-./scripts/gradual_rollout.sh half
+/home/user/webapp/
+├── websocket_403_fix.py              (수정 코드)
+├── diagnose_websocket_403.sh         (진단)
+├── fix_websocket_403.sh              (배포)
+├── WEBSOCKET_FIX_빠른실행.md          (한글 가이드)
+├── WEBSOCKET_403_FIX_GUIDE.md        (영문 가이드)
+├── FINAL_COMPLETE_REPORT.md          (완료 보고서)
+└── DEPLOYMENT_READY.md               (배포 안내)
 
-# 100% 전면 롤아웃
-./scripts/gradual_rollout.sh full
 
-# 긴급 롤백 (0%)
-./scripts/gradual_rollout.sh rollback
+╔══════════════════════════════════════════════════════════════╗
+║                    소요 시간                                 ║
+╚══════════════════════════════════════════════════════════════╝
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- 문제 해결 명령어
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일 업로드:   1분
+서버 배포:     2분 (자동)
+브라우저 테스트: 2분
+─────────────────────
+총 소요 시간:  약 5분
 
-# OpenAI API 키 확인
-grep OPENAI_API_KEY backend/.env
 
-# 전체 재시작
-docker-compose -f docker-compose.prod.yml restart
+╔══════════════════════════════════════════════════════════════╗
+║                Git Commit 정보                               ║
+╚══════════════════════════════════════════════════════════════╝
 
-# Backend 완전 재빌드
-docker-compose -f docker-compose.prod.yml up -d --build --force-recreate backend
+Commit: e0760f2
+Message: feat: Add comprehensive WebSocket 403 error fix
+Files: 6 files changed, 1382 insertions(+)
+Date: 2026-02-25
 
-# Frontend 완전 재빌드
-docker-compose -f docker-compose.prod.yml up -d --build --force-recreate frontend
 
-# Redis 재시작
-docker-compose -f docker-compose.prod.yml restart redis
-
-# 모든 컨테이너 재시작 (긴급)
-docker-compose -f docker-compose.prod.yml down
-docker-compose -f docker-compose.prod.yml up -d --build
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- 접속 URL
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Backend API:  http://139.150.11.99:8000
-Frontend:     http://139.150.11.99
-API 문서:     http://139.150.11.99:8000/docs
-A/B Monitor:  http://139.150.11.99 → A/B Test Monitor 메뉴
-
-════════════════════════════════════════════════════════════════
+╔══════════════════════════════════════════════════════════════╗
+║              지금 바로 시작하세요! 🚀                        ║
+╚══════════════════════════════════════════════════════════════╝

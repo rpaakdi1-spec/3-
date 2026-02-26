@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import Layout from '../components/common/Layout';
 import Card from '../components/common/Card';
 import Loading from '../components/common/Loading';
 import apiClient from '../api/client';
@@ -239,16 +238,11 @@ const DispatchesPage: React.FC = () => {
   };
 
   if (loading) {
-    return (
-      <Layout>
-        <Loading />
-      </Layout>
-    );
+    return (<Loading />
+  );
   }
 
-  return (
-    <Layout>
-      <div className="space-y-6">
+  return (<div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between">
           <div>
@@ -759,7 +753,6 @@ const DispatchesPage: React.FC = () => {
           </div>
         )}
       </div>
-    </Layout>
   );
 };
 

@@ -33,11 +33,19 @@ const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center p-4">
+    <div 
+      className="min-h-screen flex items-center justify-center p-4"
+      style={{
+        background: 'linear-gradient(to bottom right, #2563eb, #1e40af)'
+      }}
+    >
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8">
         {/* Logo */}
         <div className="flex justify-center mb-8">
-          <div className="bg-blue-600 p-4 rounded-full">
+          <div 
+            className="p-4 rounded-full"
+            style={{ backgroundColor: '#2563eb' }}
+          >
             <Truck className="text-white" size={48} />
           </div>
         </div>

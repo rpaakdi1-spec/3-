@@ -55,3 +55,7 @@ terraform.tfvars
 # Backup files
 *.backup
 *.backup_*
+
+# Large archive files
+*.tar.gz
+*.tar.gz.b64

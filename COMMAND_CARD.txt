@@ -1,0 +1,260 @@
+╔══════════════════════════════════════════════════════════════════════╗
+║                   UVIS LAYOUT FIX - COMMAND CARD                     ║
+║                         Quick Reference                               ║
+║                         2026-02-25                                   ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+┌──────────────────────────────────────────────────────────────────────┐
+│ 🚨 EMERGENCY: Run This First                                         │
+└──────────────────────────────────────────────────────────────────────┘
+
+cd /root/uvis
+bash DIAGNOSE_CONTAINER.sh
+
+   ↓ This will show you EXACTLY what's wrong
+
+
+┌──────────────────────────────────────────────────────────────────────┐
+│ 🔧 Option 1: Automated Fix (Recommended)                             │
+└──────────────────────────────────────────────────────────────────────┘
+
+cd /root/uvis
+bash EMERGENCY_FIX.sh
+
+   ↓ Runs complete rebuild automatically
+   ↓ Takes ~3 minutes
+   ↓ Verifies deployment
+
+
+┌──────────────────────────────────────────────────────────────────────┐
+│ ⚡ Option 2: Quick Manual Copy (Fastest)                             │
+└──────────────────────────────────────────────────────────────────────┘
+
+cd /root/uvis
+
+# 1. Clear container
+docker exec uvis-frontend sh -c "rm -rf /usr/share/nginx/html/*"
+
+# 2. Copy all dist files
+docker cp frontend/dist/. uvis-frontend:/usr/share/nginx/html/
+
+# 3. Verify
+docker exec uvis-frontend sh -c "ls /usr/share/nginx/html/assets/*.js | wc -l"
+
+# 4. Reload
+docker exec uvis-frontend nginx -s reload
+
+   ↓ Should show 80+ JavaScript files
+   ↓ If 0, check Dockerfile
+
+
+┌──────────────────────────────────────────────────────────────────────┐
+│ 🔍 Verification Commands                                             │
+└──────────────────────────────────────────────────────────────────────┘
+
+# Container has JS files?
+docker exec uvis-frontend sh -c "ls /usr/share/nginx/html/assets/*.js | wc -l"
+Expected: 80+  ❌ If 0 = Assets not deployed!
+
+# Container has CSS files?
+docker exec uvis-frontend sh -c "ls /usr/share/nginx/html/assets/*.css"
+Expected: 3-4 files
+
+# What does index.html reference?
+docker exec uvis-frontend cat /usr/share/nginx/html/index.html | grep -E 'src=|href='
+
+# Do referenced files exist?
+docker exec uvis-frontend sh -c "ls -lh /usr/share/nginx/html/assets/index-*.js"
+docker exec uvis-frontend sh -c "ls -lh /usr/share/nginx/html/assets/index-*.css"
+
+
+┌──────────────────────────────────────────────────────────────────────┐
+│ 🩺 Diagnostic Commands                                               │
+└──────────────────────────────────────────────────────────────────────┘
+
+# Local build OK?
+ls -lh /root/uvis/frontend/dist/index.html
+ls /root/uvis/frontend/dist/assets/*.js | wc -l
+Expected: 80+ JS files locally
+
+# Container running?
+docker ps | grep uvis-frontend
+
+# Check Dockerfile
+cat /root/uvis/frontend/Dockerfile | grep -A 3 "FROM nginx"
+
+# Check .dockerignore
+cat /root/uvis/frontend/.dockerignore | grep -E "dist|build"
+Expected: NO "dist" or "build" entries
+
+# Docker logs
+docker logs uvis-frontend --tail 50
+
+
+┌──────────────────────────────────────────────────────────────────────┐
+│ 🔨 Complete Rebuild (Nuclear Option)                                 │
+└──────────────────────────────────────────────────────────────────────┘
+
+cd /root/uvis
+
+# 1. Stop everything
+docker-compose down
+
+# 2. Remove images
+docker rmi uvis-frontend 2>/dev/null || true
+
+# 3. Clean local build
+rm -rf frontend/dist/ frontend/node_modules/.vite
+
+# 4. Fresh build
+cd frontend && npm run build && cd ..
+
+# 5. Verify local build
+ls -lh frontend/dist/index.html
+ls frontend/dist/assets/*.js | wc -l
+
+# 6. Docker rebuild (no cache)
+docker-compose build --no-cache frontend
+
+# 7. Start
+docker-compose up -d
+
+# 8. Wait
+sleep 30
+
+# 9. Check deployment
+docker exec uvis-frontend sh -c "ls /usr/share/nginx/html/assets/*.js | wc -l"
+
+
+┌──────────────────────────────────────────────────────────────────────┐
+│ 🌐 Browser Testing                                                   │
+└──────────────────────────────────────────────────────────────────────┘
+
+After ANY fix:
+
+1. Clear cache:
+   Ctrl + Shift + Delete
+   → Select "All time"
+   → Check "Cached images and files"
+   → Check "Cookies and other site data"
+   → Clear data
+
+2. Close ALL Chrome/Edge windows completely
+
+3. Restart browser
+
+4. Test in Incognito mode:
+   Ctrl + Shift + N
+   → http://139.150.11.99/login
+   → Login: admin / admin123
+
+5. Verify:
+   ✅ Login page: Centered box, gradient background
+   ✅ Dashboard: Single sidebar, header, cards
+   ✅ Console (F12): No red module errors
+   ✅ Network tab: All JS/CSS load with 200 status
+
+
+┌──────────────────────────────────────────────────────────────────────┐
+│ 📊 Success Indicators                                                │
+└──────────────────────────────────────────────────────────────────────┘
+
+✅ docker exec uvis-frontend sh -c "ls /usr/share/nginx/html/assets/*.js | wc -l"
+   Output: 80+ (NOT 0!)
+
+✅ docker exec uvis-frontend sh -c "ls /usr/share/nginx/html/assets/*.css | wc -l"
+   Output: 3-4
+
+✅ Browser incognito mode shows:
+   - Styled login page
+   - Dashboard with working sidebar
+   - No console errors
+
+
+┌──────────────────────────────────────────────────────────────────────┐
+│ 🐛 If Still Broken: Gather This Info                                 │
+└──────────────────────────────────────────────────────────────────────┘
+
+# 1. Dockerfile
+cat /root/uvis/frontend/Dockerfile
+
+# 2. What's actually in container
+docker exec uvis-frontend find /usr/share/nginx/html -type f
+
+# 3. Build log
+docker-compose build --no-cache frontend 2>&1 | tee build.log
+
+# 4. Compare local vs container index.html
+diff <(cat frontend/dist/index.html) <(docker exec uvis-frontend cat /usr/share/nginx/html/index.html)
+
+# 5. Container structure
+docker exec uvis-frontend sh -c "ls -laR /usr/share/nginx/html/" | head -100
+
+
+┌──────────────────────────────────────────────────────────────────────┐
+│ 📝 Git Commit (After Successful Fix)                                 │
+└──────────────────────────────────────────────────────────────────────┘
+
+cd /root/uvis
+
+git add frontend/src/pages/OrdersPage.tsx frontend/.dockerignore frontend/Dockerfile
+git commit -m "fix: Layout rendering and Docker asset deployment
+
+- Fix JSX fragment closing tag in OrdersPage.tsx
+- Remove dist/build from .dockerignore
+- Ensure Docker COPY includes all built assets
+- Verify 80+ JS files deployed to container
+
+Tested: Container assets ✅, Browser rendering ✅"
+
+git push origin main
+
+
+┌──────────────────────────────────────────────────────────────────────┐
+│ 🎯 Quick Decision Tree                                               │
+└──────────────────────────────────────────────────────────────────────┘
+
+Container has 0 JS files?
+├─ YES → Check Dockerfile COPY instruction
+│        Check .dockerignore doesn't block dist/
+│        Try: bash EMERGENCY_FIX.sh
+│
+└─ NO (has 80+ files) → Assets are deployed correctly
+                        Problem is browser cache
+                        Solution: Clear cache + incognito test
+
+Local build missing?
+└─ YES → cd /root/uvis/frontend && npm run build
+
+Container not running?
+└─ YES → docker-compose up -d frontend
+
+
+┌──────────────────────────────────────────────────────────────────────┐
+│ ⚡ ONE-LINE COMMANDS                                                 │
+└──────────────────────────────────────────────────────────────────────┘
+
+# Diagnose
+cd /root/uvis && bash DIAGNOSE_CONTAINER.sh
+
+# Auto-fix everything
+cd /root/uvis && bash EMERGENCY_FIX.sh
+
+# Quick copy
+cd /root/uvis && docker cp frontend/dist/. uvis-frontend:/usr/share/nginx/html/ && docker exec uvis-frontend nginx -s reload
+
+# Complete rebuild
+cd /root/uvis && docker-compose down && docker rmi uvis-frontend && docker-compose build --no-cache frontend && docker-compose up -d && sleep 30 && docker exec uvis-frontend sh -c "ls /usr/share/nginx/html/assets/*.js | wc -l"
+
+# Verify deployment
+docker exec uvis-frontend sh -c "ls -lh /usr/share/nginx/html/assets/ | head -20"
+
+
+╔══════════════════════════════════════════════════════════════════════╗
+║ 📞 Support Files in /root/uvis/                                      ║
+║                                                                       ║
+║ DIAGNOSE_CONTAINER.sh  - Run this first to identify issue            ║
+║ EMERGENCY_FIX.sh       - Automated complete fix                      ║
+║ SOLUTION_COMPLETE_GUIDE.md - Detailed explanation                    ║
+║ THIS_FILE.txt          - Quick command reference                     ║
+╚══════════════════════════════════════════════════════════════════════╝

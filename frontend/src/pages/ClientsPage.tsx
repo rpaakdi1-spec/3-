@@ -1,5 +1,4 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import Layout from '../components/common/Layout';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Modal from '../components/common/Modal';
@@ -226,16 +225,11 @@ const ClientsPage: React.FC = () => {
   }, [formData, editingClient, fetchClients]);
 
   if (loading) {
-    return (
-      <Layout>
-        <Loading />
-      </Layout>
-    );
+    return (<Loading />
+  );
   }
 
-  return (
-    <Layout>
-      <div className="space-y-6">
+  return (<div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between">
           <div>
@@ -609,7 +603,6 @@ const ClientsPage: React.FC = () => {
           </form>
         </Modal>
       </div>
-    </Layout>
   );
 };
 

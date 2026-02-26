@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Activity, Users, TrendingUp, Settings, RefreshCw } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { mlDispatchAPI } from '../services/api';
-import Layout from '../components/common/Layout';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Loading from '../components/common/Loading';
@@ -62,18 +61,13 @@ const ABTestMonitorPage: React.FC = () => {
   }, []);
 
   if (loading && !stats) {
-    return (
-      <Layout>
-        <div className="flex items-center justify-center h-64">
+    return (<div className="flex items-center justify-center h-64">
           <Loading />
         </div>
-      </Layout>
-    );
+  );
   }
 
-  return (
-    <Layout>
-      <div className="space-y-6">
+  return (<div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -240,7 +234,6 @@ const ABTestMonitorPage: React.FC = () => {
           </>
         )}
       </div>
-    </Layout>
   );
 };
 

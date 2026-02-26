@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import Layout from '../components/common/Layout';
 import { Settings, User, Bell, Shield, Save } from 'lucide-react';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
@@ -145,9 +144,7 @@ const SettingsPage: React.FC = () => {
     { id: 'system', label: '시스템', icon: Settings }
   ];
 
-  return (
-    <Layout>
-      <div className="p-6">
+  return (<div className="p-6">
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-gray-800">설정</h1>
           <p className="text-gray-600 mt-1">시스템 및 개인 설정을 관리합니다</p>
@@ -437,7 +434,6 @@ const SettingsPage: React.FC = () => {
           )}
       </div>
       </div>
-    </Layout>
   );
 };
 

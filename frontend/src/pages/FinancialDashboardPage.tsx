@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import Layout from '../components/common/Layout';
 import {
   DollarSign,
   TrendingUp,
@@ -133,9 +132,7 @@ const FinancialDashboardPage: React.FC = () => {
 
   const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
 
-  return (
-    <Layout>
-    <div className="min-h-screen bg-gray-50 p-6">
+  return (<div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-6 flex items-center justify-between">
@@ -385,7 +382,6 @@ const FinancialDashboardPage: React.FC = () => {
         </div>
       </div>
     </div>
-    </Layout>
   );
 };
 

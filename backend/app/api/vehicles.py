@@ -13,6 +13,8 @@ from app.services.excel_upload_service import ExcelUploadService
 from app.services.excel_template_service import ExcelTemplateService
 from app.services.uvis_gps_service import UvisGPSService
 from app.services.naver_map_service import NaverMapService
+from app.services.uvis_alert_service import UVISAlertService
+from app.services.vehicle_analytics_service import VehicleAnalyticsService
 from loguru import logger
 
 router = APIRouter()
@@ -354,3 +356,171 @@ async def sync_uvis_vehicles(db: Session = Depends(get_db)):
     except Exception as e:
         logger.error(f"UVIS 차량 동기화 오류: {e}")
         raise HTTPException(status_code=500, detail=f"UVIS 차량 동기화 중 오류 발생: {str(e)}")
+
+
+@router.get("/{vehicle_id}/analytics")
+async def get_vehicle_analytics(
+    vehicle_id: int,
+    start_date: Optional[str] = Query(None, description="Start date (YYYY-MM-DD)"),
+    end_date: Optional[str] = Query(None, description="End date (YYYY-MM-DD)"),
+    db: Session = Depends(get_db)
+):
+    """
+    차량 주행 거리 및 통계 조회
+    """
+    from datetime import date
+    
+    try:
+        # 날짜 파싱
+        start = date.fromisoformat(start_date) if start_date else date.today()
+        end = date.fromisoformat(end_date) if end_date else date.today()
+        
+        stats = VehicleAnalyticsService.calculate_vehicle_distance(
+            db=db,
+            vehicle_id=vehicle_id,
+            start_date=start,
+            end_date=end
+        )
+        
+        return stats
+        
+    except Exception as e:
+        logger.error(f"차량 분석 조회 오류: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/{vehicle_id}/status")
+async def get_vehicle_status(
+    vehicle_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    차량 실시간 상태 조회
+    """
+    try:
+        status = VehicleAnalyticsService.get_vehicle_realtime_status(
+            db=db,
+            vehicle_id=vehicle_id
+        )
+        
+        if "error" in status:
+            raise HTTPException(status_code=404, detail=status["error"])
+        
+        return status
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"차량 상태 조회 오류: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/analytics/fleet")
+async def get_fleet_analytics(
+    start_date: Optional[str] = Query(None, description="Start date (YYYY-MM-DD)"),
+    end_date: Optional[str] = Query(None, description="End date (YYYY-MM-DD)"),
+    db: Session = Depends(get_db)
+):
+    """
+    전체 차량 통계 조회
+    """
+    from datetime import date
+    
+    try:
+        # 날짜 파싱
+        start = date.fromisoformat(start_date) if start_date else date.today()
+        end = date.fromisoformat(end_date) if end_date else date.today()
+        
+        stats = VehicleAnalyticsService.get_fleet_statistics(
+            db=db,
+            start_date=start,
+            end_date=end
+        )
+        
+        return stats
+        
+    except Exception as e:
+        logger.error(f"차량 통계 조회 오류: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/alerts/recent")
+async def get_recent_alerts(
+    limit: int = Query(50, ge=1, le=200, description="Number of recent alerts"),
+    vehicle_id: Optional[int] = Query(None, description="Filter by vehicle ID"),
+    alert_type: Optional[str] = Query(None, description="Filter by alert type"),
+    db: Session = Depends(get_db)
+):
+    """
+    최근 UVIS 알림 조회
+    """
+    from app.models.uvis_gps import VehicleGPSLog, VehicleTemperatureLog
+    from sqlalchemy import desc, and_
+    from datetime import datetime, timedelta
+    
+    try:
+        alerts = []
+        
+        # 최근 24시간 GPS 데이터 조회
+        since = datetime.now() - timedelta(hours=24)
+        
+        query = db.query(VehicleGPSLog, Vehicle).join(
+            Vehicle, VehicleGPSLog.vehicle_id == Vehicle.id
+        ).filter(VehicleGPSLog.created_at >= since)
+        
+        if vehicle_id:
+            query = query.filter(VehicleGPSLog.vehicle_id == vehicle_id)
+        
+        gps_logs = query.order_by(desc(VehicleGPSLog.created_at)).limit(limit * 2).all()
+        
+        # 각 GPS 로그에 대해 알림 체크
+        for gps_log, vehicle in gps_logs:
+            # 속도 알림
+            speed_alerts = UVISAlertService.check_speed_alerts(gps_log, vehicle)
+            if speed_alerts:
+                for alert in speed_alerts:
+                    if not alert_type or alert.get("type") == alert_type:
+                        alerts.append({
+                            "type": alert.get("type"),
+                            "severity": alert.get("level", "info"),
+                            "message": alert.get("message"),
+                            "value": alert.get("data", {}).get("speed"),
+                            "vehicle_id": vehicle.id,
+                            "plate_number": vehicle.plate_number,
+                            "timestamp": gps_log.created_at.isoformat()
+                        })
+        
+        # 온도 알림 체크
+        temp_query = db.query(VehicleTemperatureLog, Vehicle).join(
+            Vehicle, VehicleTemperatureLog.vehicle_id == Vehicle.id
+        ).filter(VehicleTemperatureLog.created_at >= since)
+        
+        if vehicle_id:
+            temp_query = temp_query.filter(VehicleTemperatureLog.vehicle_id == vehicle_id)
+        
+        temp_logs = temp_query.order_by(desc(VehicleTemperatureLog.created_at)).limit(limit).all()
+        
+        for temp_log, vehicle in temp_logs:
+            temp_alerts = UVISAlertService.check_temperature_alerts(temp_log, vehicle)
+            if temp_alerts:
+                for alert in temp_alerts:
+                    if not alert_type or alert["type"] == alert_type:
+                        alerts.append({
+                            **alert,
+                            "vehicle_id": vehicle.id,
+                            "plate_number": vehicle.plate_number,
+                            "timestamp": temp_log.created_at.isoformat()
+                        })
+        
+        # 최신순 정렬 및 limit 적용
+        alerts.sort(key=lambda x: x["timestamp"], reverse=True)
+        alerts = alerts[:limit]
+        
+        return {
+            "total": len(alerts),
+            "alerts": alerts
+        }
+        
+    except Exception as e:
+        logger.error(f"알림 조회 오류: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

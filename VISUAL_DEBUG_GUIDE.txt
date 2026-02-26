@@ -1,0 +1,412 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                                                                              ║
+║                 🔍 VISUAL DEBUGGING GUIDE - What's Wrong?                    ║
+║                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃                                                                            ┃
+┃                    📊 WHAT SHOULD BE vs WHAT IS                            ┃
+┃                                                                            ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+
+✅ WHAT SHOULD BE (Expected State)
+════════════════════════════════════════════════════════════════════════════
+
+┌─ Local Build (frontend/dist/) ─────────────────────────────────────────┐
+│                                                                         │
+│  frontend/dist/                                                         │
+│  ├── index.html                                                         │
+│  │   ├─→ References: /assets/index-B5F1Uvtw.js                         │
+│  │   └─→ References: /assets/index-BjMybcaV.css                        │
+│  │                                                                      │
+│  ├── assets/                                                            │
+│  │   ├── index-B5F1Uvtw.js          (284 KB) ✓ Main bundle            │
+│  │   ├── index-BjMybcaV.css         ( 15 KB) ✓ Main styles            │
+│  │   ├── leaflet-Dgihpmma.css       ( 15 KB) ✓ Map styles             │
+│  │   ├── OrderCalendarPage-XXX.css  ( 12 KB) ✓ Calendar styles        │
+│  │   ├── LoginPage-XXXXX.js         (  8 KB) ✓ Login component        │
+│  │   ├── DashboardPage-XXXXX.js     ( 14 KB) ✓ Dashboard component    │
+│  │   ├── OrdersPage-XXXXX.js        ( 45 KB) ✓ Orders component       │
+│  │   └── ... (80+ more JS files)              ✓ Other components       │
+│  │                                                                      │
+│  └── vite.svg                                                           │
+│                                                                         │
+│  Total: 82 JS files, 4 CSS files                                       │
+└─────────────────────────────────────────────────────────────────────────┘
+
+                                   ⬇️  Docker Build
+                                   ⬇️  COPY dist/ to container
+                                   ⬇️
+
+┌─ Container (/usr/share/nginx/html/) ───────────────────────────────────┐
+│                                                                         │
+│  /usr/share/nginx/html/                                                │
+│  ├── index.html                                                         │
+│  │   ├─→ References: /assets/index-B5F1Uvtw.js                         │
+│  │   └─→ References: /assets/index-BjMybcaV.css                        │
+│  │                                                                      │
+│  ├── assets/                                                            │
+│  │   ├── index-B5F1Uvtw.js          (284 KB) ✓ EXISTS                 │
+│  │   ├── index-BjMybcaV.css         ( 15 KB) ✓ EXISTS                 │
+│  │   ├── leaflet-Dgihpmma.css       ( 15 KB) ✓ EXISTS                 │
+│  │   ├── OrderCalendarPage-XXX.css  ( 12 KB) ✓ EXISTS                 │
+│  │   └── ... (80+ more JS files)              ✓ ALL EXIST             │
+│  │                                                                      │
+│  └── vite.svg                                                           │
+│                                                                         │
+│  Total: 82 JS files, 4 CSS files  (MATCHES local build)               │
+└─────────────────────────────────────────────────────────────────────────┘
+
+                                   ⬇️  Browser requests
+                                   ⬇️
+
+┌─ Browser ──────────────────────────────────────────────────────────────┐
+│                                                                         │
+│  1. GET http://139.150.11.99/                                          │
+│     Response: index.html  (200 OK) ✓                                   │
+│                                                                         │
+│  2. GET http://139.150.11.99/assets/index-B5F1Uvtw.js                  │
+│     Response: JavaScript (200 OK) ✓                                    │
+│                                                                         │
+│  3. GET http://139.150.11.99/assets/index-BjMybcaV.css                 │
+│     Response: CSS        (200 OK) ✓                                    │
+│                                                                         │
+│  4. React app loads → Layout renders correctly ✓                       │
+│     - Sidebar appears (single instance)                                │
+│     - Header styled correctly                                          │
+│     - Cards and charts display                                         │
+│     - No console errors                                                │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+
+
+❌ WHAT IS HAPPENING (Current State - BROKEN)
+════════════════════════════════════════════════════════════════════════════
+
+┌─ Local Build (frontend/dist/) ─────────────────────────────────────────┐
+│                                                                         │
+│  frontend/dist/                                                         │
+│  ├── index.html                                                         │
+│  │   ├─→ References: /assets/index-B5F1Uvtw.js                         │
+│  │   └─→ References: /assets/index-BjMybcaV.css                        │
+│  │                                                                      │
+│  ├── assets/                                                            │
+│  │   ├── index-B5F1Uvtw.js          (284 KB) ✓ EXISTS locally         │
+│  │   ├── index-BjMybcaV.css         ( 15 KB) ✓ EXISTS locally         │
+│  │   └── ... (80+ more files)                 ✓ ALL exist locally     │
+│                                                                         │
+│  Total: 82 JS files, 4 CSS files                                       │
+└─────────────────────────────────────────────────────────────────────────┘
+
+                                   ⬇️  Docker Build
+                                   ⬇️  🚨 COPY FAILS OR WRONG PATH
+                                   ⬇️
+
+┌─ Container (/usr/share/nginx/html/) ───────────────────────────────────┐
+│                                                                         │
+│  /usr/share/nginx/html/                                                │
+│  ├── index.html                  ✓ EXISTS (copied)                     │
+│  │   ├─→ References: /assets/index-B5F1Uvtw.js   ← File doesn't exist!│
+│  │   └─→ References: /assets/index-BjMybcaV.css  ← File doesn't exist!│
+│  │                                                                      │
+│  ├── assets/                                                            │
+│  │   └── (empty!)               ❌ NO FILES!                           │
+│  │                                                                      │
+│  └── vite.svg                    ✓ EXISTS                              │
+│                                                                         │
+│  Total: 0 JS files, 0 CSS files  🚨 PROBLEM!                           │
+│                                                                         │
+│  Why?                                                                   │
+│  • Dockerfile COPY instruction wrong (/app/build vs /app/dist)         │
+│  • OR .dockerignore blocking dist/ folder                              │
+│  • OR multi-stage build not preserving dist/                           │
+└─────────────────────────────────────────────────────────────────────────┘
+
+                                   ⬇️  Browser requests
+                                   ⬇️
+
+┌─ Browser ──────────────────────────────────────────────────────────────┐
+│                                                                         │
+│  1. GET http://139.150.11.99/                                          │
+│     Response: index.html  (200 OK) ✓                                   │
+│                                                                         │
+│  2. GET http://139.150.11.99/assets/index-B5F1Uvtw.js                  │
+│     Response: 404 NOT FOUND ❌                                          │
+│                                                                         │
+│  3. GET http://139.150.11.99/assets/index-BjMybcaV.css                 │
+│     Response: 404 NOT FOUND ❌                                          │
+│                                                                         │
+│  4. React app FAILS to load ❌                                          │
+│     Console errors:                                                     │
+│     ❌ Failed to load module /assets/index-B5F1Uvtw.js                 │
+│     ❌ Uncaught TypeError: Cannot read properties of undefined          │
+│                                                                         │
+│  5. Layout appears broken ❌                                            │
+│     - No sidebar rendering                                             │
+│     - No styles applied                                                │
+│     - Blank/broken page                                                │
+│     - Raw HTML text visible                                            │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃                                                                            ┃
+┃                    🎯 HOW TO IDENTIFY THE PROBLEM                          ┃
+┃                                                                            ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+
+Test 1: Local Build Exists?
+────────────────────────────────────────────────────────────────────────────
+
+Command:
+   ls -lh /root/uvis/frontend/dist/index.html
+   ls /root/uvis/frontend/dist/assets/*.js | wc -l
+
+✅ Good output:
+   -rw-r--r-- ... /root/uvis/frontend/dist/index.html
+   82
+
+❌ Bad output:
+   ls: cannot access '.../index.html': No such file or directory
+   0
+
+→ If bad: Run `cd /root/uvis/frontend && npm run build`
+
+
+Test 2: Container Files Exist?
+────────────────────────────────────────────────────────────────────────────
+
+Command:
+   docker exec uvis-frontend sh -c "ls /usr/share/nginx/html/assets/*.js | wc -l"
+
+✅ Good output:
+   82
+
+❌ Bad output:
+   0
+   ls: /usr/share/nginx/html/assets/*.js: No such file or directory
+
+→ If bad: Files not copied to container = Docker COPY problem
+
+
+Test 3: Referenced Files Match?
+────────────────────────────────────────────────────────────────────────────
+
+Command:
+   # What does index.html reference?
+   docker exec uvis-frontend grep 'src="' /usr/share/nginx/html/index.html
+   
+   # Does that file exist?
+   docker exec uvis-frontend ls -lh /usr/share/nginx/html/assets/index-*.js
+
+✅ Good output:
+   <script ... src="/assets/index-B5F1Uvtw.js"></script>
+   -rw-r--r-- ... 284K ... /usr/share/nginx/html/assets/index-B5F1Uvtw.js
+
+❌ Bad output:
+   <script ... src="/assets/index-B5F1Uvtw.js"></script>
+   ls: /usr/share/nginx/html/assets/index-*.js: No such file or directory
+
+→ If bad: File referenced but doesn't exist = COPY failed
+
+
+Test 4: Browser Network Tab
+────────────────────────────────────────────────────────────────────────────
+
+In browser:
+   1. Press F12
+   2. Go to Network tab
+   3. Refresh page (Ctrl+R)
+   4. Look for /assets/index-*.js requests
+
+✅ Good output:
+   index-B5F1Uvtw.js   200   284 KB   js   ...
+
+❌ Bad output:
+   index-B5F1Uvtw.js   404   ...      js   ...
+
+→ If bad: Server can't find file = Not in container
+
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃                                                                            ┃
+┃                         🔧 COMMON ROOT CAUSES                              ┃
+┃                                                                            ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+
+Root Cause 1: Wrong Path in Dockerfile
+════════════════════════════════════════════════════════════════════════════
+
+❌ WRONG:
+   FROM node:18 AS builder
+   WORKDIR /app
+   RUN npm run build          # Creates /app/dist/
+   
+   FROM nginx:alpine
+   COPY --from=builder /app/build /usr/share/nginx/html/
+                       ^^^^^^^^^^
+                       Wrong path! Should be /app/dist/
+
+✅ CORRECT:
+   FROM node:18 AS builder
+   WORKDIR /app
+   RUN npm run build          # Creates /app/dist/
+   
+   FROM nginx:alpine
+   COPY --from=builder /app/dist /usr/share/nginx/html/
+                       ^^^^^^^^^
+                       Correct!
+
+How to check:
+   cat /root/uvis/frontend/Dockerfile | grep "COPY.*html"
+
+
+Root Cause 2: .dockerignore Blocking
+════════════════════════════════════════════════════════════════════════════
+
+❌ PROBLEM:
+   # frontend/.dockerignore
+   node_modules
+   dist              ← Blocks dist/ folder!
+   build
+   .env
+
+✅ FIXED:
+   # frontend/.dockerignore
+   node_modules
+   .env
+   # dist           ← Removed!
+   # build          ← Removed!
+
+How to check:
+   grep -E "^dist$|^build$" /root/uvis/frontend/.dockerignore
+
+Should output nothing (or lines commented with #)
+
+
+Root Cause 3: Multi-stage Build Missing COPY
+════════════════════════════════════════════════════════════════════════════
+
+❌ PROBLEM:
+   FROM node:18 AS builder
+   WORKDIR /app
+   COPY . .
+   RUN npm run build
+   
+   FROM nginx:alpine
+   # Missing: COPY --from=builder !
+
+✅ FIXED:
+   FROM node:18 AS builder
+   WORKDIR /app
+   COPY . .
+   RUN npm run build
+   
+   FROM nginx:alpine
+   COPY --from=builder /app/dist /usr/share/nginx/html/
+
+How to check:
+   cat /root/uvis/frontend/Dockerfile
+
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃                                                                            ┃
+┃                          💡 SOLUTION MATRIX                                ┃
+┃                                                                            ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+
+Symptom: Container has 0 JS files
+Cause: Docker COPY failed
+Solution:
+   1. Check Dockerfile COPY path
+   2. Check .dockerignore doesn't block dist/
+   3. Run: bash EMERGENCY_FIX.sh
+   OR
+   4. Quick: docker cp frontend/dist/. uvis-frontend:/usr/share/nginx/html/
+
+
+Symptom: Container has files, but browser shows 404
+Cause: File hash mismatch
+Solution:
+   1. Compare local vs container index.html
+   2. Rebuild: docker-compose build --no-cache frontend
+   3. Ensure fresh copy of all files
+
+
+Symptom: Browser shows cached old version
+Cause: Browser cache
+Solution:
+   1. Ctrl+Shift+Delete → Clear cache
+   2. Close ALL browser windows
+   3. Test in incognito mode
+
+
+Symptom: Files exist, but layout still broken
+Cause: CSS not loading or JS error
+Solution:
+   1. F12 → Console → Check for errors
+   2. F12 → Network → Check CSS/JS load status
+   3. Verify OrdersPage.tsx JSX closing tag
+
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃                                                                            ┃
+┃                       🚀 QUICK DECISION FLOWCHART                          ┃
+┃                                                                            ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+
+START: Layout is broken
+   │
+   ├─→ Run: docker exec uvis-frontend sh -c "ls /usr/share/nginx/html/assets/*.js | wc -l"
+   │
+   ├─→ Output: 0 or error?
+   │   │
+   │   ├─ YES ─→ Container has NO files
+   │   │         │
+   │   │         ├─→ Check: cat frontend/Dockerfile | grep COPY
+   │   │         │   Look for: COPY --from=builder /app/dist or COPY dist/
+   │   │         │   ❌ If /app/build → WRONG, change to /app/dist
+   │   │         │
+   │   │         ├─→ Check: grep "^dist$" frontend/.dockerignore
+   │   │         │   ❌ If found → Remove dist entry
+   │   │         │
+   │   │         └─→ Fix: bash EMERGENCY_FIX.sh
+   │   │             OR: docker cp frontend/dist/. uvis-frontend:/usr/share/nginx/html/
+   │   │
+   │   └─ NO ──→ Output: 80+?
+   │             │
+   │             ├─→ Files exist in container
+   │             │   │
+   │             │   ├─→ Check browser: F12 → Network tab
+   │             │   │   ❌ If 404 errors → File hash mismatch, rebuild
+   │             │   │   ✅ If 200 status → Cache issue
+   │             │   │
+   │             │   └─→ Clear cache:
+   │             │       Ctrl+Shift+Delete → All time → Clear
+   │             │       Close ALL windows → Restart browser
+   │             │       Test in incognito (Ctrl+Shift+N)
+   │             │
+   │             └─→ ✅ Success: Layout renders correctly
+
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                                                                              ║
+║                     📋 COPY THIS TO RUN DIAGNOSTIC                           ║
+║                                                                              ║
+║   cd /root/uvis                                                              ║
+║   bash DIAGNOSE_CONTAINER.sh                                                 ║
+║                                                                              ║
+║   This will show you:                                                        ║
+║   • Exact root cause                                                         ║
+║   • Specific commands to fix                                                 ║
+║   • Verification steps                                                       ║
+║                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝

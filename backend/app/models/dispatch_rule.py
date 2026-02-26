@@ -38,7 +38,8 @@ class DispatchRule(Base, IDMixin, TimestampMixin):
     # Relationships
     constraints = relationship("RuleConstraint", back_populates="rule", cascade="all, delete-orphan")
     execution_logs = relationship("RuleExecutionLog", back_populates="rule")
-    simulations = relationship("RuleSimulation", back_populates="rule")
+    # Note: RuleSimulation relationship is defined in simulation.py to avoid circular imports
+    simulations = relationship("RuleSimulation", back_populates="rule", lazy="dynamic", foreign_keys="[RuleSimulation.rule_id]")
     creator = relationship("User", foreign_keys=[created_by])
     
     def __repr__(self):

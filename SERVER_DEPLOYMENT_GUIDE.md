@@ -1,277 +1,350 @@
-# 🚀 서버 배포 수정 - 실행 가이드
+# 🚀 서버 배포 가이드 - OrdersPage.tsx 수정
 
-## 📋 현재 상황
+## ⚡ 즉시 적용 방법 (권장)
 
-### ❌ 문제점
-1. **Backend**: `unhealthy` 상태 (port 8000은 열려있지만 health check 실패)
-2. **Nginx**: `unhealthy` 상태, 502 Bad Gateway
-3. **Frontend**: port 5173 접근 불가
-4. **Database**: ✅ healthy
-5. **Redis**: ✅ healthy
+서버에서 직접 파일을 수정하는 방법입니다.
 
-### 🎯 목표
-- Backend를 `healthy` 상태로 만들기
-- Nginx 502 오류 해결
-- 프론트엔드 정상 접근 가능하도록 수정
-- IoT 센서 모니터링 UI 정상 작동 확인
-
----
-
-## ⚡ 빠른 해결 방법 (권장)
-
-### 서버에서 실행할 명령어
+### 1️⃣ OrdersPage.tsx 수정
 
 ```bash
+# 서버에 SSH 접속
+ssh root@139.150.11.99
+
+# 파일 백업
+cd /root/uvis/frontend/src/pages
+cp OrdersPage.tsx OrdersPage.tsx.backup
+
+# 파일 수정 (방법 A: sed 명령 사용 - 추천)
+# Layout import 추가 (6번째 줄 뒤에)
+sed -i '5a import Layout from '\''../components/common/Layout'\'';' OrdersPage.tsx
+
+# loading return 수정 (251-253줄)
+sed -i '251,253s/return (<Loading \/>\n  );\n  }/return <Loading \/>;/' OrdersPage.tsx
+
+# Fragment를 Layout으로 변경 (255줄)
+sed -i '255s/return (<>/return (\n    <Layout>/' OrdersPage.tsx
+
+# 닫는 태그 수정 (669줄)
+sed -i 's/    <\/>/    <\/Layout>/' OrdersPage.tsx
+
+# 또는 (방법 B: vi 편집기 사용)
+vi OrdersPage.tsx
+
+# vi에서 다음 변경사항 적용:
+# 1. 6번째 줄에 추가:
+#    import Layout from '../components/common/Layout';
+#
+# 2. 251-253줄을:
+#    if (loading) {
+#      return <Loading />;
+#    }
+#
+# 3. 255-256줄을:
+#    return (
+#      <Layout>
+#
+# 4. 마지막에서 8번째 줄을:
+#      </Layout>
+#    );
+```
+
+### 2️⃣ Dockerfile 간소화
+
+```bash
+cd /root/uvis/frontend
+
+# 백업
+cp Dockerfile Dockerfile.backup.$(date +%Y%m%d_%H%M%S)
+
+# 새 Dockerfile 생성
+cat > Dockerfile << 'DOCKERFILE_END'
+FROM nginx:alpine
+LABEL maintainer="UVIS Team"
+LABEL description="UVIS Logistics Frontend"
+
+# Copy pre-built dist folder
+COPY dist /usr/share/nginx/html
+
+# Copy nginx config
+COPY nginx.conf /etc/nginx/nginx.conf
+
+EXPOSE 80
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost/health || exit 1
+
+CMD ["nginx", "-g", "daemon off;"]
+DOCKERFILE_END
+
+echo "✅ Dockerfile 업데이트 완료"
+```
+
+### 3️⃣ 빌드 및 배포
+
+```bash
+# 기존 빌드 삭제 및 새로 빌드
+cd /root/uvis/frontend
+rm -rf dist/
+npm run build
+
+# 빌드 결과 확인
+echo "=== CSS 파일 확인 ==="
+ls -lh dist/assets/*.css
+
+echo ""
+echo "=== index.html stylesheet 확인 ==="
+cat dist/index.html | grep stylesheet
+
+# Docker 이미지 재빌드
 cd /root/uvis
 
-# 1. 최신 코드 가져오기
-git fetch origin genspark_ai_developer
-git checkout genspark_ai_developer
-git pull origin genspark_ai_developer
+# 기존 컨테이너 중지 및 삭제
+docker-compose stop frontend
+docker-compose rm -f frontend
 
-# 2. 자동 수정 스크립트 실행
-chmod +x SERVER_FIX_DEPLOYMENT.sh
-./SERVER_FIX_DEPLOYMENT.sh
+# 기존 이미지 삭제
+docker rmi uvis-frontend || echo "이미지가 이미 삭제됨"
+
+# 새 이미지 빌드
+echo "Docker 이미지 빌드 시작..."
+docker-compose build --no-cache frontend
+
+# 컨테이너 시작
+echo "컨테이너 시작..."
+docker-compose up -d frontend
+
+# 시작 대기
+echo "컨테이너 시작 대기 중 (15초)..."
+sleep 15
+
+# 검증
+echo ""
+echo "=== 배포 검증 ==="
+echo "1. CSS 파일:"
+docker exec uvis-frontend sh -c "ls -lh /usr/share/nginx/html/assets/*.css"
+
+echo ""
+echo "2. index.html stylesheet 참조:"
+docker exec uvis-frontend cat /usr/share/nginx/html/index.html | grep stylesheet
+
+echo ""
+echo "3. JS 파일 개수:"
+JS_COUNT=$(docker exec uvis-frontend sh -c "ls /usr/share/nginx/html/assets/*.js | wc -l")
+echo "   JavaScript 파일: $JS_COUNT 개"
+
+if [ "$JS_COUNT" -lt 80 ]; then
+    echo "   ⚠️  경고: JS 파일이 예상보다 적습니다 (기대: ~90개)"
+else
+    echo "   ✅ JS 파일 정상"
+fi
+
+echo ""
+echo "✅ 배포 완료!"
 ```
 
-### 스크립트가 수행하는 작업
+## 📝 수정 내용 요약
 
-1. **컨테이너 정리**: 기존 충돌하는 컨테이너 모두 제거
-2. **.env 검증**: 
-   - `SECRET_KEY` 자동 생성 (없는 경우)
-   - `DB_PASSWORD` 설정 확인
-   - `DATABASE_URL` 구성
-   - NAVER_MAP API 키 플레이스홀더 추가
-3. **Docker 재빌드**: `--no-cache` 옵션으로 완전 재빌드
-4. **서비스 시작**: 올바른 순서로 서비스 시작
-   - DB/Redis → Backend → Frontend/Nginx
-5. **Health Check**: 모든 서비스 건강 상태 확인
+### OrdersPage.tsx 변경사항
 
-### 예상 실행 시간
-- 전체: 약 **5-8분**
-  - 이미지 빌드: 3-5분
-  - 서비스 안정화: 1-2분
-  - Health check: 30초
+#### Before (오류)
+```typescript
+import Loading from '../components/common/Loading';
+// ... (Layout import 없음)
 
----
-
-## 📊 성공 확인 방법
-
-### 1. 컨테이너 상태 확인
-
-```bash
-docker-compose ps
-```
-
-**예상 출력**:
-```
-NAME              STATUS                    PORTS
-uvis-backend      Up (healthy)              0.0.0.0:8000->8000/tcp
-uvis-db           Up (healthy)              0.0.0.0:5432->5432/tcp
-uvis-redis        Up (healthy)              0.0.0.0:6379->6379/tcp
-uvis-frontend     Up                        3000/tcp
-uvis-nginx        Up                        0.0.0.0:80->80/tcp
-```
-
-### 2. Backend Health Check
-
-```bash
-curl -s http://localhost:8000/health
-```
-
-**예상 출력**:
-```json
-{
-  "status": "healthy",
-  "app_name": "Cold Chain Dispatch System",
-  "environment": "production"
+if (loading) {
+  return (<Loading />
+);
 }
+
+return (<>
+  <div className="space-y-6">
+    ...
+  </div>
+  </Layout>  // ← 열지 않은 태그를 닫음
+);
 ```
 
-### 3. API 문서 확인
+#### After (수정)
+```typescript
+import Loading from '../components/common/Loading';
+import Layout from '../components/common/Layout';  // ← 추가
 
+if (loading) {
+  return <Loading />;  // ← 괄호 수정
+}
+
+return (
+  <Layout>  // ← Fragment 대신 Layout 사용
+    <div className="space-y-6">
+      ...
+    </div>
+  </Layout>  // ← 올바른 닫기
+);
+```
+
+## ✅ 성공 확인
+
+### 1. 서버 측 검증
 ```bash
-curl -s http://localhost:8000/docs | grep -o "<title>.*</title>"
+# CSS 파일 확인 (3개, 각 13-15KB)
+docker exec uvis-frontend sh -c "ls -lh /usr/share/nginx/html/assets/*.css"
+
+# 기대 결과:
+# -rw-r--r-- 1 root root 13K ... OrderCalendarPage-D0RJcmxZ.css
+# -rw-r--r-- 1 root root 15K ... index-BjMybcaV.css
+# -rw-r--r-- 1 root root 15K ... leaflet-Dgihpmma.css
+
+# index.html 확인
+docker exec uvis-frontend cat /usr/share/nginx/html/index.html | grep stylesheet
+
+# 기대 결과:
+#     <link rel="stylesheet" crossorigin href="/assets/index-BjMybcaV.css">
+
+# JS 파일 개수 확인
+docker exec uvis-frontend sh -c "ls /usr/share/nginx/html/assets/*.js | wc -l"
+
+# 기대 결과: 80 이상
 ```
 
-**예상 출력**:
-```html
-<title>Cold Chain Dispatch System - Swagger UI</title>
+### 2. 브라우저 테스트
+
+#### 캐시 완전 삭제
+1. **모든 Edge 창 닫기**
+   - 작업 표시줄에서 Edge 아이콘 우클릭
+   - "모든 창 닫기" 선택
+   
+2. **작업 관리자에서 확인**
+   - Ctrl + Shift + Esc
+   - "Microsoft Edge" 프로세스 모두 종료
+   
+3. **Edge 재시작 후 캐시 삭제**
+   - Ctrl + Shift + Delete
+   - "기간" → **전체 기간** 선택
+   - ✅ 쿠키 및 기타 사이트 데이터
+   - ✅ 캐시된 이미지 및 파일
+   - "지금 지우기" 클릭
+   
+4. **Edge 완전 재시작**
+
+#### Incognito 모드 테스트
+```
+1. Ctrl + Shift + N (InPrivate 창 열기)
+2. http://139.150.11.99/login 입력
+3. admin / admin123 로그인
+4. 대시보드 확인
 ```
 
-### 4. 프론트엔드 접근
+### 3. 예상 결과
 
-브라우저에서:
-1. `http://YOUR_SERVER_IP` 접속
-2. 로그인 페이지 확인
-3. 로그인 후 사이드바에서 **"IoT 센서 모니터링"** 메뉴 확인
-4. IoT 센서 대시보드 접근: `/iot/sensors`
+#### ✅ 정상적인 레이아웃
+- **로그인 페이지**: 중앙에 흰색 로그인 박스, 파란색 그라데이션 배경
+- **대시보드**:
+  - 왼쪽: 회색 사이드바 (아이콘 + 메뉴 텍스트)
+  - 상단: 흰색 헤더 (알림 아이콘)
+  - 본문: 4개 통계 카드 (2x2 그리드)
+  - 아래: 차트 및 빠른 작업 버튼
+- **주문 관리**: 테이블, 필터, 검색창 정상 배치
+- **배송 캘린더**: 달력 UI 정상 표시
 
----
+#### DevTools 확인 (F12)
+```
+Console 탭:
+  ✅ 빨간색 에러 없음
+  (ServiceWorker 경고는 무시 가능)
 
-## 🔧 문제가 지속되는 경우
+Network 탭 (CSS 필터):
+  ✅ index-BjMybcaV.css → Status: 200, Size: ~4KB
+  ✅ OrderCalendarPage-D0RJcmxZ.css → Status: 200
+  ✅ leaflet-Dgihpmma.css → Status: 200
+```
 
-### 수동 해결 방법
+## 🔧 문제 해결
 
-상세한 트러블슈팅 가이드는 `DEPLOYMENT_TROUBLESHOOTING.md` 파일을 참조하세요.
-
-#### 간단 체크리스트
-
-1. **환경변수 확인**:
+### ❌ 빌드 실패: TypeScript 오류
 ```bash
-grep -E "^SECRET_KEY=|^DB_PASSWORD=|^DATABASE_URL=" .env
-# 모두 설정되어 있어야 함
+# 오류 확인
+cd /root/uvis/frontend
+npm run build 2>&1 | grep "error TS"
+
+# OrdersPage.tsx 다시 확인
+head -20 src/pages/OrdersPage.tsx
+tail -10 src/pages/OrdersPage.tsx
+
+# 수정 후 재빌드
+npm run build
 ```
 
-2. **컨테이너 로그 확인**:
+### ❌ CSS 로드 안됨 (404 에러)
 ```bash
-# Backend 로그
-docker-compose logs backend | tail -100
+# CSS 파일 직접 접근 테스트
+curl -I http://139.150.11.99/assets/index-BjMybcaV.css
 
-# Nginx 로그
-docker-compose logs nginx | tail -50
+# 컨테이너 내부 파일 확인
+docker exec uvis-frontend ls -lh /usr/share/nginx/html/assets/
 
-# 오류 메시지 찾기
-docker-compose logs backend | grep -i "error\|failed\|exception"
+# Nginx 재시작
+docker exec uvis-frontend nginx -s reload
+
+# 또는 컨테이너 재시작
+docker-compose restart frontend
 ```
 
-3. **네트워크 연결 테스트**:
+### ❌ 레이아웃이 여전히 깨짐
 ```bash
-# Backend에서 DB 연결
-docker exec uvis-backend nc -zv db 5432
+# 1. 브라우저 강력 새로고침
+Ctrl + Shift + R (5번 반복)
 
-# Nginx에서 Backend 연결
-docker exec uvis-nginx nc -zv backend 8000
-```
+# 2. 브라우저 캐시 강제 삭제
+edge://settings/clearBrowserData
+→ "고급" 탭
+→ "전체 기간" 선택
+→ 모든 항목 체크
+→ "지금 지우기"
 
-4. **포트 충돌 확인**:
-```bash
-# 사용 중인 포트 확인
-netstat -tuln | grep -E ":(80|8000|5432|6379) "
-```
+# 3. 다른 브라우저 테스트
+Chrome Incognito 모드로 확인
 
----
-
-## 📦 새로 추가된 파일
-
-### 1. `SERVER_FIX_DEPLOYMENT.sh`
-- 자동 배포 수정 스크립트
-- .env 검증 및 수정
-- Docker 컨테이너 재시작
-- Health check 자동 수행
-
-### 2. `DEPLOYMENT_TROUBLESHOOTING.md`
-- 상세한 트러블슈팅 가이드
-- 문제별 해결 방법
-- 수동 수정 단계
-- 고급 디버깅 기법
-
-### 3. `fix_env.sh` (이전에 추가됨)
-- .env 파일 간단 수정용
-- 기본 환경변수만 설정
-
----
-
-## 🎯 권장 실행 순서
-
-### Option 1: 자동 스크립트 (권장)
-```bash
+# 4. 서버 측 완전 재배포
 cd /root/uvis
-git fetch origin genspark_ai_developer
-git checkout genspark_ai_developer
-git pull origin genspark_ai_developer
-chmod +x SERVER_FIX_DEPLOYMENT.sh
-./SERVER_FIX_DEPLOYMENT.sh
+docker-compose down frontend
+docker rmi uvis-frontend
+docker-compose up -d frontend
 ```
 
-### Option 2: 단계별 수동 실행
-자세한 내용은 `DEPLOYMENT_TROUBLESHOOTING.md` 참조
-
----
-
-## 📝 Pull Request 업데이트
-
-**PR 링크**: https://github.com/rpaakdi1-spec/3-/pull/4
-
-### 추가된 내용
-1. ✅ IoT 센서 모니터링 UI (이전)
-2. ✅ Backend Twilio/Firebase 설정 (이전)
-3. ✅ 자동 배포 수정 스크립트 (**NEW**)
-4. ✅ 상세 트러블슈팅 가이드 (**NEW**)
-
----
-
-## 🚨 중요 참고사항
-
-### NAVER_MAP API 키
-스크립트가 플레이스홀더를 추가합니다:
+### ❌ 컨테이너 시작 실패
 ```bash
-NAVER_MAP_CLIENT_ID=your_naver_client_id_here
-NAVER_MAP_CLIENT_SECRET=your_naver_client_secret_here
+# 로그 확인
+docker logs uvis-frontend --tail 50
+
+# 일반적인 원인:
+# 1. 포트 충돌 → 다른 프로세스가 80 포트 사용 중
+# 2. dist 폴더 없음 → npm run build 다시 실행
+# 3. Nginx 설정 오류 → nginx.conf 확인
+
+# Nginx 설정 테스트
+docker exec uvis-frontend nginx -t
 ```
 
-**실제 키로 교체 필요**:
-1. [네이버 클라우드 플랫폼](https://console.ncloud.com/) 접속
-2. Application 등록
-3. Client ID와 Secret 발급
-4. `.env` 파일에서 플레이스홀더 교체
+## 📊 예상 소요 시간
 
-백엔드는 플레이스홀더로도 시작되지만, 지도 기능은 실제 키가 필요합니다.
+| 단계 | 소요 시간 |
+|------|-----------|
+| OrdersPage.tsx 수정 | 1-2분 |
+| Dockerfile 수정 | 30초 |
+| npm run build | 15-20초 |
+| Docker 이미지 빌드 | 15-20초 |
+| 컨테이너 시작 | 10초 |
+| 브라우저 캐시 삭제 | 30초 |
+| **총 소요 시간** | **약 3-4분** |
 
-### Twilio/Firebase (선택사항)
-SMS/Push 알림을 사용하지 않는다면 기본값(빈 문자열)으로 유지하면 됩니다.
-백엔드는 이러한 서비스가 없어도 정상 작동합니다.
+## 📞 추가 지원
+
+배포 중 문제가 발생하면:
+1. `docker logs uvis-frontend --tail 100` 로그 확인
+2. `npm run build` 오류 메시지 확인
+3. 브라우저 DevTools Console 확인
 
 ---
-
-## ✅ 완료 후 확인 사항
-
-- [ ] `docker-compose ps`에서 모든 컨테이너 `Up` 또는 `healthy`
-- [ ] `curl http://localhost:8000/health` → `{"status":"healthy"}`
-- [ ] `curl http://localhost:8000/docs` → Swagger UI 표시
-- [ ] 브라우저에서 `http://YOUR_SERVER_IP` → 로그인 페이지
-- [ ] 로그인 후 "IoT 센서 모니터링" 메뉴 접근 가능
-- [ ] IoT 센서 대시보드에서 센서 목록 표시
-
----
-
-## 🆘 추가 지원이 필요한 경우
-
-위의 스크립트를 실행한 후:
-
-```bash
-# 시스템 상태 보고서 생성
-cd /root/uvis
-docker-compose ps > deployment_status.txt
-docker-compose logs backend >> deployment_status.txt
-docker-compose logs nginx >> deployment_status.txt
-grep -E "^SECRET_KEY=|^DB_PASSWORD=|^DATABASE_URL=" .env | sed 's/=.*/=****** (설정됨)/' >> deployment_status.txt
-
-# 결과 확인
-cat deployment_status.txt
-```
-
-이 파일의 내용을 공유해주시면 추가 디버깅이 가능합니다.
-
----
-
-## 🎉 예상 결과
-
-모든 것이 성공적으로 완료되면:
-
-```
-🎉 배포 수정 스크립트 완료!
-
-✅ 다음 단계:
-   1. 위의 헬스체크 결과를 확인하세요
-   2. 브라우저에서 http://YOUR_SERVER_IP 접속
-   3. 로그인 후 'IoT 센서 모니터링' 메뉴 확인
-
-⚠️  문제가 지속되면:
-   - docker-compose logs backend
-   - docker-compose logs nginx
-   - docker-compose logs frontend
-   위 명령어로 상세 로그를 확인하세요
-```
-
-**Good luck! 🚀**
+**작성일**: 2026-02-25  
+**버전**: 1.0 최종

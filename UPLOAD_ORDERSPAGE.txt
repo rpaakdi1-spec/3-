@@ -1,0 +1,34 @@
+# OrdersPage.tsx 서버 업로드 방법
+
+## 방법 1: 파일 내용 직접 복사 (가장 확실함)
+
+서버에서 다음 명령 실행:
+
+```bash
+cd /root/uvis/frontend/src/pages
+
+# 백업
+cp OrdersPage.tsx OrdersPage.tsx.broken.backup
+
+# 새 파일 생성 (Ctrl+D로 끝날 때까지 붙여넣기)
+cat > OrdersPage.tsx << 'ENDOFFILE'
+```
+
+그 다음 아래 파일 내용 전체를 복사해서 붙여넣고, 마지막에 `ENDOFFILE`을 입력:
+
+---
+파일 위치: /home/user/webapp/frontend/src/pages/OrdersPage.tsx
+총 674줄
+---
+
+이 파일은 /home/user/webapp/frontend/src/pages/OrdersPage.tsx 에 있습니다.
+
+## 방법 2: 직접 다운로드
+
+샌드박스에서:
+```bash
+cd /home/user/webapp
+tar -czf OrdersPage.tar.gz frontend/src/pages/OrdersPage.tsx
+```
+
+이 파일을 다운로드 후 서버에 업로드.

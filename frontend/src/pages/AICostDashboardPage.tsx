@@ -19,7 +19,6 @@ import {
 import { DollarSign, TrendingUp, TrendingDown, Activity, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../api/client';
-import Layout from '../components/common/Layout';
 
 interface CostSummary {
   period: string;
@@ -150,21 +149,16 @@ const AICostDashboardPage: React.FC = () => {
     : 0;
 
   if (isLoading) {
-    return (
-      <Layout>
-        <div className="flex items-center justify-center h-96">
+    return (<div className="flex items-center justify-center h-96">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
             <p className="mt-4 text-gray-600">데이터 로딩 중...</p>
           </div>
         </div>
-      </Layout>
-    );
+  );
   }
 
-  return (
-    <Layout>
-      <div className="space-y-6">
+  return (<div className="space-y-6">
       {/* 헤더 */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -379,7 +373,6 @@ const AICostDashboardPage: React.FC = () => {
         </ul>
       </div>
       </div>
-    </Layout>
   );
 };
 

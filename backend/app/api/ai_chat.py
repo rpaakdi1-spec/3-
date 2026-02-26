@@ -225,8 +225,35 @@ async def _create_order_from_parsed_data(db: Session, parsed_order: Dict[str, An
             parsed_order["order_number"] = f"ORD-{timestamp}"
         
         # 주문 날짜 설정
-        if not parsed_order.get("order_date"):
-            parsed_order["order_date"] = date.today()
+        order_date = parsed_order.get("order_date")
+        if not order_date:
+            order_date = date.today()
+        elif isinstance(order_date, str):
+            # 문자열이면 date 객체로 변환
+            order_date = date.fromisoformat(order_date)
+        parsed_order["order_date"] = order_date
+        
+        # delivery_date 설정 (NOT NULL 제약 조건)
+        delivery_date = parsed_order.get("delivery_date")
+        if not delivery_date:
+            # 1순위: requested_delivery_date
+            requested_delivery_date = parsed_order.get("requested_delivery_date")
+            if requested_delivery_date:
+                # 문자열이면 date 객체로 변환
+                if isinstance(requested_delivery_date, str):
+                    delivery_date = date.fromisoformat(requested_delivery_date)
+                else:
+                    delivery_date = requested_delivery_date
+            else:
+                # 2순위: order_date + 1일
+                delivery_date = order_date + timedelta(days=1)
+        elif isinstance(delivery_date, str):
+            # 문자열이면 date 객체로 변환
+            delivery_date = date.fromisoformat(delivery_date)
+        
+        parsed_order["delivery_date"] = delivery_date
+        
+        logger.info(f"📅 주문 날짜 설정: order_date={order_date}, delivery_date={delivery_date}")
         
         # 상태 설정
         parsed_order["status"] = OrderStatus.PENDING
@@ -334,6 +361,28 @@ async def get_chat_history(
         raise HTTPException(status_code=500, detail=f"히스토리 조회 중 오류가 발생했습니다: {str(e)}")
 
 
+@router.delete("/history/all")
+async def delete_all_chat_history(
+    db: Session = Depends(get_db)
+):
+    """
+    모든 채팅 히스토리 삭제
+    """
+    try:
+        deleted_count = db.query(AIChatHistory).delete()
+        db.commit()
+        
+        return {
+            "message": f"{deleted_count}개의 히스토리가 삭제되었습니다.",
+            "deleted_count": deleted_count
+        }
+        
+    except Exception as e:
+        logger.error(f"전체 히스토리 삭제 오류: {e}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"히스토리 삭제 중 오류가 발생했습니다: {str(e)}")
+
+
 @router.delete("/history/{history_id}")
 async def delete_chat_history(
     history_id: int,
@@ -359,6 +408,75 @@ async def delete_chat_history(
         logger.error(f"히스토리 삭제 오류: {e}")
         db.rollback()
         raise HTTPException(status_code=500, detail=f"히스토리 삭제 중 오류가 발생했습니다: {str(e)}")
+
+
+@router.get("/history/export/excel")
+async def export_chat_history_excel(
+    db: Session = Depends(get_db)
+):
+    """
+    채팅 히스토리를 Excel 파일로 내보내기
+    """
+    try:
+        from fastapi.responses import StreamingResponse
+        import io
+        import openpyxl
+        from openpyxl.styles import Font, PatternFill, Alignment
+        
+        # 히스토리 조회
+        histories = db.query(AIChatHistory).order_by(AIChatHistory.created_at.desc()).all()
+        
+        # Excel 워크북 생성
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Chat History"
+        
+        # 헤더 스타일
+        header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+        header_font = Font(bold=True, color="FFFFFF")
+        header_alignment = Alignment(horizontal="center", vertical="center")
+        
+        # 헤더 작성
+        headers = ["ID", "사용자 메시지", "AI 응답", "의도", "액션", "생성일시"]
+        for col_idx, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col_idx, value=header)
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = header_alignment
+        
+        # 데이터 작성
+        for row_idx, history in enumerate(histories, 2):
+            ws.cell(row=row_idx, column=1, value=history.id)
+            ws.cell(row=row_idx, column=2, value=history.user_message)
+            ws.cell(row=row_idx, column=3, value=history.assistant_message)
+            ws.cell(row=row_idx, column=4, value=history.intent or "")
+            ws.cell(row=row_idx, column=5, value=history.action or "")
+            ws.cell(row=row_idx, column=6, value=history.created_at.strftime("%Y-%m-%d %H:%M:%S") if history.created_at else "")
+        
+        # 열 너비 조정
+        ws.column_dimensions['A'].width = 10
+        ws.column_dimensions['B'].width = 50
+        ws.column_dimensions['C'].width = 50
+        ws.column_dimensions['D'].width = 20
+        ws.column_dimensions['E'].width = 20
+        ws.column_dimensions['F'].width = 20
+        
+        # 파일 저장
+        output = io.BytesIO()
+        wb.save(output)
+        output.seek(0)
+        
+        filename = f"chat_history_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        
+        return StreamingResponse(
+            output,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+        
+    except Exception as e:
+        logger.error(f"Excel 내보내기 오류: {e}")
+        raise HTTPException(status_code=500, detail=f"Excel 내보내기 중 오류가 발생했습니다: {str(e)}")
 
 
 @router.get("/history/stats")

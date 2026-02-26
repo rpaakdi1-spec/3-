@@ -1,5 +1,4 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import Layout from '../components/common/Layout';
 import Card from '../components/common/Card';
 import Loading from '../components/common/Loading';
 import apiClient from '../api/client';
@@ -111,16 +110,11 @@ const AnalyticsPage: React.FC = () => {
   }), []);
 
   if (loading || !stats) {
-    return (
-      <Layout>
-        <Loading />
-      </Layout>
-    );
+    return (<Loading />
+  );
   }
 
-  return (
-    <Layout>
-      <div className="space-y-6">
+  return (<div className="space-y-6">
         {/* Header */}
         <div>
           <h1 className="text-3xl font-bold text-gray-900">통계 및 분석</h1>
@@ -312,7 +306,6 @@ const AnalyticsPage: React.FC = () => {
           </div>
         </Card>
       </div>
-    </Layout>
   );
 };
 

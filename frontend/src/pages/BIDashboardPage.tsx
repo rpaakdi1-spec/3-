@@ -11,7 +11,6 @@ import {
   TrendingUp, TrendingDown, DollarSign, Activity, Truck, Users, AlertCircle, Award,
   Target, Package, Clock, Star, ThumbsUp, MapPin, Fuel, Tool
 } from 'lucide-react';
-import Layout from '../components/common/Layout';
 import * as analyticsApi from '../api/analytics';
 
 const BIDashboardPage: React.FC = () => {
@@ -142,9 +141,7 @@ const BIDashboardPage: React.FC = () => {
     );
   }
 
-  return (
-    <Layout>
-      <div className="space-y-6">
+  return (<div className="space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
@@ -246,7 +243,6 @@ const BIDashboardPage: React.FC = () => {
         />
       )}
       </div>
-    </Layout>
   );
 };
 

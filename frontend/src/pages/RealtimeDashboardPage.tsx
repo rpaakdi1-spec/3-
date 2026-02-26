@@ -12,7 +12,6 @@
  * - UVIS GPS real-time vehicle tracking
  */
 import React, { useState, useEffect } from 'react';
-import Layout from '../components/common/Layout';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import { Icon, LatLngExpression } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -262,9 +261,7 @@ const RealtimeDashboardPage: React.FC = () => {
     return alerts.filter(alert => alert.severity === severity).length;
   };
 
-  return (
-    <Layout>
-      <div className="min-h-screen bg-gray-50">
+  return (<div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -684,7 +681,6 @@ const RealtimeDashboardPage: React.FC = () => {
         </div>
       </div>
       </div>
-    </Layout>
   );
 };
 
