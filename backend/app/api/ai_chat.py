@@ -334,6 +334,28 @@ async def get_chat_history(
         raise HTTPException(status_code=500, detail=f"히스토리 조회 중 오류가 발생했습니다: {str(e)}")
 
 
+@router.delete("/history/all")
+async def delete_all_chat_history(
+    db: Session = Depends(get_db)
+):
+    """
+    모든 채팅 히스토리 삭제
+    """
+    try:
+        deleted_count = db.query(AIChatHistory).delete()
+        db.commit()
+        
+        return {
+            "message": f"{deleted_count}개의 히스토리가 삭제되었습니다.",
+            "deleted_count": deleted_count
+        }
+        
+    except Exception as e:
+        logger.error(f"전체 히스토리 삭제 오류: {e}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"히스토리 삭제 중 오류가 발생했습니다: {str(e)}")
+
+
 @router.delete("/history/{history_id}")
 async def delete_chat_history(
     history_id: int,
@@ -357,28 +379,6 @@ async def delete_chat_history(
         raise
     except Exception as e:
         logger.error(f"히스토리 삭제 오류: {e}")
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"히스토리 삭제 중 오류가 발생했습니다: {str(e)}")
-
-
-@router.delete("/history/all")
-async def delete_all_chat_history(
-    db: Session = Depends(get_db)
-):
-    """
-    모든 채팅 히스토리 삭제
-    """
-    try:
-        deleted_count = db.query(AIChatHistory).delete()
-        db.commit()
-        
-        return {
-            "message": f"{deleted_count}개의 히스토리가 삭제되었습니다.",
-            "deleted_count": deleted_count
-        }
-        
-    except Exception as e:
-        logger.error(f"전체 히스토리 삭제 오류: {e}")
         db.rollback()
         raise HTTPException(status_code=500, detail=f"히스토리 삭제 중 오류가 발생했습니다: {str(e)}")
 
