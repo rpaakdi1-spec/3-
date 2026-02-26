@@ -732,7 +732,8 @@ const VehiclesPage: React.FC = () => {
         </div>
       )}
         </>
-      )}
+      )
+      }
 
       {/* Modal */}
       {modalOpen && (
