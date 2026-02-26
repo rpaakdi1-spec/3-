@@ -82,6 +82,12 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       
+      # UVIS API
+      UVIS_API_URL: ${UVIS_API_URL}
+      UVIS_SERIAL_KEY: ${UVIS_SERIAL_KEY}
+      UVIS_ACCESS_KEY_METHOD: ${UVIS_ACCESS_KEY_METHOD:-GetAccessKeyWithValues}
+      UVIS_ACCESS_KEY_TTL: ${UVIS_ACCESS_KEY_TTL:-300}
+      
     depends_on:
       db:
         condition: service_healthy
