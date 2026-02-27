@@ -20,7 +20,7 @@ interface Vehicle {
   max_pallets: number;
   max_weight_kg: number;
   tonnage: number;
-  forklift_operator_available: boolean;
+
   length_m?: number;
   min_temp_celsius?: number;
   max_temp_celsius?: number;
@@ -64,7 +64,7 @@ const VehiclesPage: React.FC = () => {
     max_pallets: '',
     max_weight_kg: '',
     tonnage: '',
-    forklift_operator_available: false,
+
     length_m: '',
     min_temp_celsius: '',
     max_temp_celsius: '',
@@ -199,7 +199,7 @@ const VehiclesPage: React.FC = () => {
         max_pallets: vehicle.max_pallets.toString(),
         max_weight_kg: vehicle.max_weight_kg.toString(),
         tonnage: vehicle.tonnage.toString(),
-        forklift_operator_available: vehicle.forklift_operator_available || false,
+
         length_m: vehicle.length_m?.toString() || '',
         min_temp_celsius: vehicle.min_temp_celsius?.toString() || '',
         max_temp_celsius: vehicle.max_temp_celsius?.toString() || '',
@@ -217,7 +217,7 @@ const VehiclesPage: React.FC = () => {
         max_pallets: '20',
         max_weight_kg: '5000',
         tonnage: '5',
-        forklift_operator_available: false,
+    
         length_m: '6.0',
         min_temp_celsius: '-20',
         max_temp_celsius: '-15',
@@ -575,12 +575,7 @@ const VehiclesPage: React.FC = () => {
                 <span className="text-gray-600">팔레트</span>
                 <span className="font-medium">{vehicle.max_pallets}개</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">지게차 운전능력</span>
-                <span className={`font-semibold ${vehicle.forklift_operator_available ? 'text-green-600' : 'text-gray-400'}`}>
-                  {vehicle.forklift_operator_available ? '✓ 가능' : '✗ 불가능'}
-                </span>
-              </div>
+
               {vehicle.length_m && (
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">적재함 길이</span>
@@ -784,18 +779,7 @@ const VehiclesPage: React.FC = () => {
                   required
                 />
 
-                <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                  <input
-                    type="checkbox"
-                    id="forklift_operator_available"
-                    checked={formData.forklift_operator_available}
-                    onChange={(e) => setFormData({ ...formData, forklift_operator_available: e.target.checked })}
-                    className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                  />
-                  <label htmlFor="forklift_operator_available" className="text-sm font-medium text-gray-700 cursor-pointer">
-                    지게차 운전능력 (가능/불가능) *
-                  </label>
-                </div>
+
 
                 <Input
                   label="적재함 길이(m)"
