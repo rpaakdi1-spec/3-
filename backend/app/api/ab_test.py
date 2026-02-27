@@ -19,10 +19,16 @@ from pydantic import BaseModel, Field
 # Dependency for Redis connection
 def get_redis():
     """Get Redis connection"""
-    redis_host = os.getenv("REDIS_HOST", "localhost")
+    redis_host = os.getenv("REDIS_HOST", "redis")  # Docker service name
     redis_port = int(os.getenv("REDIS_PORT", 6379))
+    redis_password = os.getenv("REDIS_PASSWORD", None)
     
-    return Redis(host=redis_host, port=redis_port, decode_responses=False)
+    return Redis(
+        host=redis_host, 
+        port=redis_port, 
+        password=redis_password,
+        decode_responses=False
+    )
 
 
 router = APIRouter(prefix="/api/v1/ab-test")
