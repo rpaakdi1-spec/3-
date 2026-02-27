@@ -1,249 +1,267 @@
-# 🎯 실시간 배차 모니터링 사이드바 & Telemetry API 수정 완료
+# 차량-운전자 배정 관리 배포 가이드
 
-## ✅ 완료된 작업
-
-### 1. 실시간 배차 모니터링 페이지 사이드바 추가 ✅
-- **문제**: 실시간 배차 모니터링 페이지(`/dispatch-monitoring`)에서 사이드바가 표시되지 않음
-- **원인**: `App.tsx`에서 `LayoutWrapper`로 감싸지 않은 채로 라우팅됨
-- **수정**: `LayoutWrapper`로 감싸서 사이드바 표시되도록 수정
-- **커밋**: `56bce45 - fix: Add sidebar to Dispatch Monitoring page by wrapping with LayoutWrapper`
-
-### 2. Telemetry API 500 에러 수정 ✅
-- **문제**: `/api/v1/telemetry/vehicles/status` 엔드포인트가 500 에러 반환
-- **원인**: `VehicleLocation` 모델에 `timestamp` 컬럼이 없어서 `AttributeError` 발생
-- **수정**: `VehicleLocation` 모델에 `timestamp` 컬럼 추가
-- **커밋**: `1587141 - fix: Add timestamp column to VehicleLocation model for telemetry service compatibility`
-
-### 3. 자동 배포 스크립트 생성 ✅
-- **파일**: `FIX_TELEMETRY_AND_REDIS.sh`
-- **기능**:
-  - 최신 코드 pull
-  - Redis 비밀번호 확인 및 연결 테스트
-  - 백엔드 재빌드 (모델 업데이트 반영)
-  - 백엔드 재시작
-  - 헬스 체크
-  - API 엔드포인트 테스트 (Clients, Telemetry, AB Test, ML Predictions)
-- **커밋**: `3f8cd80 - feat: Add telemetry and Redis authentication fix script`
-
-### 4. 상세 문서 작성 ✅
-- **파일**: `TELEMETRY_FIX_SUMMARY.md`
-- **내용**:
-  - 문제 요약 및 원인 분석
-  - 적용된 수정 사항 상세 설명
-  - 자동/수동 배포 방법
-  - 테스트 체크리스트
-  - 문제 해결 가이드
-- **커밋**: `8d78976 - docs: Add comprehensive telemetry and Redis fix documentation`
-
-## 🚀 서버 배포 방법
-
-### 방법 1: 자동 배포 스크립트 (권장)
-
-서버 `/root/uvis` 디렉토리에서:
-
-```bash
-cd /root/uvis
-
-# 최신 코드 다운로드
-git pull origin main
-
-# 자동 배포 스크립트 실행
-bash FIX_TELEMETRY_AND_REDIS.sh
-```
-
-**스크립트가 자동으로 수행하는 작업**:
-1. ✅ 최신 코드 pull
-2. ✅ Redis 비밀번호 확인
-3. ✅ Redis 연결 테스트
-4. ✅ 백엔드 재빌드 (업데이트된 `VehicleLocation` 모델 반영)
-5. ✅ 백엔드 재시작
-6. ✅ 헬스 체크
-7. ✅ API 엔드포인트 테스트
-
-### 방법 2: 수동 배포 (단계별)
-
-#### 1단계: 코드 업데이트
-```bash
-cd /root/uvis
-git pull origin main
-```
-
-#### 2단계: 백엔드 재빌드
-```bash
-docker-compose stop backend
-docker-compose rm -f backend
-docker-compose build --no-cache backend
-```
-
-#### 3단계: 백엔드 재시작
-```bash
-docker-compose up -d backend
-sleep 30
-```
-
-#### 4단계: 헬스 체크
-```bash
-docker-compose ps backend
-curl -s http://localhost:8000/api/v1/health | jq .
-```
-
-#### 5단계: API 테스트
-```bash
-# JWT 토큰 발급
-TOKEN=$(curl -s -X POST http://localhost:8000/api/v1/auth/login \
-    -H "Content-Type: application/x-www-form-urlencoded" \
-    -d "username=admin&password=admin123" | jq -r '.access_token')
-
-# Telemetry API 테스트
-curl -s -H "Authorization: Bearer ${TOKEN}" \
-    http://localhost:8000/api/v1/telemetry/vehicles/status | jq .
-```
-
-## 🧪 테스트 체크리스트
-
-배포 후 다음 항목들을 확인하세요:
-
-### Backend API 테스트
-- [ ] Backend 컨테이너 정상 실행: `docker-compose ps backend`
-- [ ] 헬스 엔드포인트: `GET /api/v1/health` → 200 OK
-- [ ] Clients API: `GET /api/v1/clients/` → 200 OK
-- [ ] Telemetry API: `GET /api/v1/telemetry/vehicles/status` → 200 OK (토큰 필요)
-- [ ] AB Test API: `GET /api/v1/ab-test/stats` → 200 OK (토큰 필요)
-
-### Frontend 사이드바 테스트
-1. 브라우저에서 http://139.150.11.99/login 접속
-2. 로그인 (admin / admin123)
-3. **실시간 배차 모니터링** 페이지 접속 (http://139.150.11.99/dispatch-monitoring)
-4. ✅ **왼쪽 사이드바가 표시되는지 확인**:
-   - Dashboard
-   - **운영 관리 ▼** (펼치면: 배차 관리, 실시간 배차 모니터링, 주문 관리, 차량 관리, 기사 관리)
-   - AI & 최적화 ▼
-   - 요금 관리 ▼
-   - 정비 관리 ▼
-   - 모니터링 & 분석 ▼
-   - 커뮤니케이션 ▼
-   - 설정
-   - 더보기 ...
-
-### 에러 로그 확인
-```bash
-# 최근 에러 로그 확인
-docker-compose logs backend --tail 50 | grep -i "error\|exception"
-
-# Telemetry 관련 로그
-docker-compose logs backend --tail 50 | grep -i "telemetry"
-```
-
-**예상 결과**:
-- ❌ `AttributeError: type object 'VehicleLocation' has no attribute 'timestamp'` → **더 이상 발생하지 않음**
-- ❌ `UndefinedColumn: column clients.xxx does not exist` → **더 이상 발생하지 않음**
-
-## 📝 수정된 파일 목록
-
-### Backend
-1. **backend/app/models/vehicle_location.py**
-   - `timestamp` 컬럼 추가 (기존 `recorded_at`과 호환)
-   - `vehicle_telemetry_service.py`에서 사용하는 `timestamp` 속성 지원
-
-### Frontend
-2. **frontend/src/App.tsx**
-   - `/dispatch-monitoring` 라우트를 `LayoutWrapper`로 감싸서 사이드바 표시
-
-### Documentation & Scripts
-3. **FIX_TELEMETRY_AND_REDIS.sh** (신규)
-   - 자동 배포 스크립트
-
-4. **TELEMETRY_FIX_SUMMARY.md** (신규)
-   - 상세 문서 및 문제 해결 가이드
-
-## 🔧 문제 해결
-
-### Telemetry API가 여전히 500 에러를 반환하는 경우
-
-1. **모델이 제대로 업데이트되었는지 확인**:
-```bash
-cd /root/uvis
-grep -n "timestamp" backend/app/models/vehicle_location.py
-```
-출력에 `timestamp = Column(...)` 라인이 있어야 함
-
-2. **백엔드가 재빌드되었는지 확인**:
-```bash
-docker-compose images backend
-```
-이미지 생성 시간이 최근이어야 함
-
-3. **백엔드 로그 확인**:
-```bash
-docker-compose logs backend --tail 100 | grep -A 10 "Traceback"
-```
-
-### 사이드바가 여전히 표시되지 않는 경우
-
-1. **프론트엔드 재빌드**:
-```bash
-cd /root/uvis
-docker-compose stop frontend
-docker-compose rm -f frontend
-docker-compose build --no-cache frontend
-docker-compose up -d frontend
-```
-
-2. **브라우저 캐시 클리어**:
-   - 개발자 도구 (F12) 열기
-   - Console에서 실행:
-   ```javascript
-   localStorage.clear();
-   sessionStorage.clear();
-   location.reload();
-   ```
-
-3. **App.tsx 확인**:
-```bash
-cd /root/uvis
-grep -A 3 "/dispatch-monitoring" frontend/src/App.tsx
-```
-출력에 `<LayoutWrapper>` 태그가 있어야 함
-
-## 📊 Git 커밋 히스토리
-
-```
-8d78976 - docs: Add comprehensive telemetry and Redis fix documentation
-3f8cd80 - feat: Add telemetry and Redis authentication fix script
-1587141 - fix: Add timestamp column to VehicleLocation model for telemetry service compatibility
-56bce45 - fix: Add sidebar to Dispatch Monitoring page by wrapping with LayoutWrapper
-f6249e7 - feat: Reorganize sidebar navigation with grouped categories
-```
-
-## 🎯 다음 단계
-
-1. **서버 배포 실행** (`bash FIX_TELEMETRY_AND_REDIS.sh`)
-2. **사이드바 테스트** (http://139.150.11.99/dispatch-monitoring 접속)
-3. **API 테스트** (Telemetry, AB Test 등)
-4. **에러 로그 확인** (500 에러가 없는지 확인)
-
-## 📞 배포 완료 후 보고 사항
-
-배포 완료 후 다음 사항들을 확인하고 알려주세요:
-
-1. **자동 배포 스크립트 실행 결과**:
-   - ✅ 모든 단계가 성공했나요?
-   - ❌ 에러가 발생했나요? (로그 첨부)
-
-2. **사이드바 표시 확인**:
-   - ✅ 실시간 배차 모니터링 페이지에서 사이드바가 보이나요?
-   - ❌ 여전히 보이지 않나요? (스크린샷 첨부)
-
-3. **Telemetry API 테스트 결과**:
-   - HTTP 상태 코드: ?
-   - 응답 내용: ?
-
-4. **백엔드 에러 로그**:
-   - `AttributeError: ... 'timestamp'` 에러가 여전히 발생하나요?
+**배포일**: 2026-02-27  
+**커밋**: dab42fd  
+**대상**: 프로덕션 서버 (139.150.11.99)
 
 ---
 
-**작성일**: 2026-02-27  
-**버전**: 1.0  
-**적용 대상**: UVIS 콜드체인 배차 시스템  
-**GitHub**: https://github.com/rpaakdi1-spec/3-/tree/main
+## 🚀 빠른 배포
+
+### 1단계: 서버 접속
+```bash
+ssh root@139.150.11.99
+```
+
+### 2단계: 코드 업데이트
+```bash
+cd /root/uvis
+git pull origin main
+```
+
+### 3단계: Frontend 재배포
+```bash
+# Frontend 컨테이너 재시작 (빌드 포함)
+docker-compose down frontend
+docker-compose up -d --build frontend
+
+# 또는 전체 재시작
+docker-compose restart
+```
+
+### 4단계: 배포 확인
+```bash
+# 컨테이너 상태
+docker-compose ps
+
+# Frontend 로그 확인
+docker-compose logs -f frontend
+```
+
+### 5단계: 웹 접속 테스트
+- URL: http://139.150.11.99/vehicle-driver-management
+- 로그인: admin / admin123
+
+---
+
+## ✅ 배포 후 테스트
+
+### 필수 테스트 항목
+
+#### 1. 페이지 로드
+```
+✓ 페이지가 정상적으로 로드되는가?
+✓ 운전자 풀이 좌측에 표시되는가?
+✓ 차량 목록이 우측에 표시되는가?
+```
+
+#### 2. 드래그앤드롭 (핵심 수정 사항!)
+```
+✓ 운전자를 차량에 드래그하면 배정되는가?
+✓ 차량 A의 운전자를 차량 B로 드래그하면 MOVE(이동)되는가?
+  ❌ 이전: 복사됨 (버그)
+  ✅ 현재: 이동됨 (수정됨)
+✓ 차량의 운전자를 운전자 풀로 드래그하면 해제되는가?
+```
+
+#### 3. 필터 기능 (신규 추가!)
+```
+✓ 상태 필터가 작동하는가? (운행가능, 운행중, 정비중, 운행불가)
+✓ 차량유형 필터가 작동하는가? (냉동, 냉장, 겸용, 상온)
+✓ 면허 필터가 작동하는가? (1종 대형, 1종 보통, 2종)
+✓ 검색창이 작동하는가? (차량번호, 운전자명, 차량유형)
+✓ 필터 초기화 버튼이 나타나고 작동하는가?
+```
+
+#### 4. UI/UX
+```
+✓ 드래그 시 반투명 효과
+✓ 드롭 영역 하이라이트
+✓ Toast 메시지 표시
+✓ 모바일 반응형
+```
+
+---
+
+## 🔍 문제 해결
+
+### 문제 1: 페이지가 로드되지 않음
+```bash
+# Frontend 로그 확인
+docker-compose logs frontend
+
+# Frontend 재빌드
+docker-compose up -d --build frontend
+```
+
+### 문제 2: 드래그앤드롭이 작동하지 않음
+```bash
+# 브라우저 콘솔 확인 (F12)
+# react-dnd 라이브러리 로드 확인
+
+# 캐시 클리어
+Ctrl+Shift+R (Windows/Linux)
+Cmd+Shift+R (Mac)
+```
+
+### 문제 3: API 요청 실패
+```bash
+# Backend 로그 확인
+docker-compose logs backend
+
+# Backend 재시작
+docker-compose restart backend
+```
+
+### 문제 4: 여전히 복사되는 현상
+```bash
+# 코드 버전 확인
+cd /root/uvis
+git log --oneline -5
+
+# 최신 커밋이 79ec1b9 또는 dab42fd인지 확인
+# 아니면 다시 pull
+git pull origin main
+docker-compose up -d --build frontend
+```
+
+---
+
+## 📊 변경 사항 요약
+
+### 수정된 버그
+1. **운전자 복사 문제** → ✅ 이동으로 수정
+   - 이전: 차량 A → 차량 B로 드래그 시 복사됨
+   - 현재: 정확하게 이동됨 (차량 A에서 자동 해제)
+
+### 추가된 기능
+1. **상태 필터**: 차량 상태별 필터링
+2. **차량유형 필터**: 냉동/냉장/겸용/상온 필터링
+3. **면허 필터**: 운전자 면허별 필터링
+4. **필터 초기화**: 원클릭 초기화 버튼
+5. **확장된 검색**: 차량유형 포함 검색
+
+---
+
+## 🎯 핵심 기술 변경
+
+### Before (버그)
+```typescript
+// VehicleCard의 onDrop
+drop: (item) => {
+  if (item.vehicleId !== vehicle.id) {
+    onDropDriver(vehicle.id, item.driver);  // ❌ sourceVehicleId 없음
+  }
+}
+```
+
+### After (수정)
+```typescript
+// VehicleCard의 onDrop
+drop: (item) => {
+  if (item.vehicleId !== vehicle.id) {
+    onDropDriver(vehicle.id, item.driver, item.vehicleId);  // ✅ sourceVehicleId 전달
+  }
+}
+
+// handleDropDriver에서 처리
+if (sourceVehicleId) {
+  // 1. 이전 차량에서 제거
+  await vehiclesAPI.update(sourceVehicleId, { driver_name: null, driver_phone: null });
+}
+// 2. 새 차량에 배정
+await vehiclesAPI.update(vehicleId, { driver_name: driver.name, driver_phone: driver.phone });
+```
+
+---
+
+## 📱 사용자 가이드
+
+### 신규 배정
+1. 좌측 "운전자 풀"에서 운전자 카드를 선택
+2. 우측 차량의 배정 영역으로 드래그
+3. 드롭하면 배정 완료
+4. "OOO님이 차량에 배정되었습니다" 메시지 확인
+
+### 운전자 이동 (🆕 수정됨!)
+1. 차량 A의 운전자 카드를 선택
+2. 차량 B의 배정 영역으로 드래그
+3. 드롭하면 자동으로:
+   - 차량 A에서 해제
+   - 차량 B에 배정
+4. "OOO님이 다른 차량으로 이동되었습니다" 메시지 확인
+
+### 배정 해제
+1. 차량의 운전자 카드를 선택
+2. 좌측 "운전자 풀"로 드래그
+3. 드롭하면 배정 해제
+4. "OOO님의 배정이 해제되었습니다" 메시지 확인
+
+### 필터 사용 (🆕 신규!)
+1. **빠른 찾기**: 검색창에 차량번호, 운전자명, 차량유형 입력
+2. **상태로 찾기**: 상태 드롭다운에서 선택
+3. **유형으로 찾기**: 차량유형 드롭다운에서 선택
+4. **면허로 찾기**: 운전자 면허 드롭다운에서 선택
+5. **초기화**: "필터 초기화" 버튼 클릭
+
+---
+
+## 🔐 보안 체크리스트
+
+```
+✓ 인증 확인 (로그인 필요)
+✓ 권한 확인 (관리자만 접근)
+✓ API 인증 토큰
+✓ CORS 설정
+```
+
+---
+
+## 📈 성능 모니터링
+
+### 배포 후 확인 사항
+```bash
+# CPU 사용률
+docker stats
+
+# 메모리 사용량
+docker-compose ps
+
+# 로그 확인
+docker-compose logs -f frontend backend
+```
+
+---
+
+## 🎉 완료 체크리스트
+
+배포 완료 후 다음 항목을 확인하세요:
+
+- [ ] Git pull 완료
+- [ ] Frontend 컨테이너 재빌드 완료
+- [ ] 페이지 정상 로드 확인
+- [ ] 운전자 → 차량 드래그 테스트 (신규 배정)
+- [ ] 차량 → 차량 드래그 테스트 (이동, 복사 아님!)
+- [ ] 차량 → 운전자 풀 드래그 테스트 (배정 해제)
+- [ ] 상태 필터 테스트
+- [ ] 차량유형 필터 테스트
+- [ ] 면허 필터 테스트
+- [ ] 검색 기능 테스트
+- [ ] 필터 초기화 버튼 테스트
+- [ ] Toast 메시지 표시 확인
+- [ ] 모바일 반응형 확인
+
+---
+
+## 📞 지원
+
+문제 발생 시:
+1. 로그 확인: `docker-compose logs -f frontend backend`
+2. 브라우저 콘솔 확인 (F12)
+3. 커밋 해시 확인: `git log --oneline -1`
+
+**예상 커밋**: `79ec1b9` (버그 수정) 또는 `dab42fd` (문서 추가)
+
+---
+
+**배포 준비 완료!** 🚀
