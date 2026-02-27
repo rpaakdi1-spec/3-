@@ -125,18 +125,39 @@ async def get_dashboard_summary(
         start_date, end_date = parse_date_range(period)
         service = AnalyticsService(db)
         
-        # KPI 조회
-        kpis = service.get_all_kpis(start_date, end_date)
+        # KPI 조회 (에러 발생 시 빈 리스트)
+        try:
+            kpis = service.get_all_kpis(start_date, end_date)
+        except Exception as e:
+            logger.warning(f"KPI 조회 실패 (데이터 없음): {str(e)}")
+            kpis = []
         
-        # 트렌드 조회
-        revenue_trend = service.get_revenue_trend(days=30)
-        order_trend = service.get_order_trend(days=30)
+        # 트렌드 조회 (에러 발생 시 빈 데이터)
+        try:
+            revenue_trend = service.get_revenue_trend(days=30)
+        except Exception as e:
+            logger.warning(f"매출 트렌드 조회 실패: {str(e)}")
+            revenue_trend = TrendData(labels=[], values=[], period_type='daily')
         
-        # 상위 고객
-        top_clients = service.get_top_clients(start_date, end_date, limit=10)
+        try:
+            order_trend = service.get_order_trend(days=30)
+        except Exception as e:
+            logger.warning(f"주문 트렌드 조회 실패: {str(e)}")
+            order_trend = TrendData(labels=[], values=[], period_type='daily')
         
-        # 시간대별 분포
-        hourly_dist = service.get_hourly_distribution(start_date, end_date)
+        # 상위 고객 (에러 발생 시 빈 리스트)
+        try:
+            top_clients = service.get_top_clients(start_date, end_date, limit=10)
+        except Exception as e:
+            logger.warning(f"상위 고객 조회 실패 (고객 데이터 없음): {str(e)}")
+            top_clients = []
+        
+        # 시간대별 분포 (에러 발생 시 빈 리스트)
+        try:
+            hourly_dist = service.get_hourly_distribution(start_date, end_date)
+        except Exception as e:
+            logger.warning(f"시간대별 분포 조회 실패: {str(e)}")
+            hourly_dist = []
         
         return DashboardSummary(
             kpis=[
