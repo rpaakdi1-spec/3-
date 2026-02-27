@@ -1,375 +1,249 @@
-# 🚀 UVIS 프로덕션 배포 가이드
+# 🎯 실시간 배차 모니터링 사이드바 & Telemetry API 수정 완료
 
-## ✅ PR 병합 완료!
+## ✅ 완료된 작업
 
-**Pull Request #1**이 성공적으로 main 브랜치로 병합되었습니다!
+### 1. 실시간 배차 모니터링 페이지 사이드바 추가 ✅
+- **문제**: 실시간 배차 모니터링 페이지(`/dispatch-monitoring`)에서 사이드바가 표시되지 않음
+- **원인**: `App.tsx`에서 `LayoutWrapper`로 감싸지 않은 채로 라우팅됨
+- **수정**: `LayoutWrapper`로 감싸서 사이드바 표시되도록 수정
+- **커밋**: `56bce45 - fix: Add sidebar to Dispatch Monitoring page by wrapping with LayoutWrapper`
 
-- **PR URL**: https://github.com/rpaakdi1-spec/3-/pull/1
-- **병합 커밋**: 7780df5 - feat: Complete UVIS transportation management system (#1)
-- **변경 사항**: 531 파일, +158,336 줄, -3,460 줄
-- **커밋 압축**: 114개 → 1개
+### 2. Telemetry API 500 에러 수정 ✅
+- **문제**: `/api/v1/telemetry/vehicles/status` 엔드포인트가 500 에러 반환
+- **원인**: `VehicleLocation` 모델에 `timestamp` 컬럼이 없어서 `AttributeError` 발생
+- **수정**: `VehicleLocation` 모델에 `timestamp` 컬럼 추가
+- **커밋**: `1587141 - fix: Add timestamp column to VehicleLocation model for telemetry service compatibility`
 
----
+### 3. 자동 배포 스크립트 생성 ✅
+- **파일**: `FIX_TELEMETRY_AND_REDIS.sh`
+- **기능**:
+  - 최신 코드 pull
+  - Redis 비밀번호 확인 및 연결 테스트
+  - 백엔드 재빌드 (모델 업데이트 반영)
+  - 백엔드 재시작
+  - 헬스 체크
+  - API 엔드포인트 테스트 (Clients, Telemetry, AB Test, ML Predictions)
+- **커밋**: `3f8cd80 - feat: Add telemetry and Redis authentication fix script`
 
-## 🌡️ 최신 기능: 온도대별 자동 온도 입력
+### 4. 상세 문서 작성 ✅
+- **파일**: `TELEMETRY_FIX_SUMMARY.md`
+- **내용**:
+  - 문제 요약 및 원인 분석
+  - 적용된 수정 사항 상세 설명
+  - 자동/수동 배포 방법
+  - 테스트 체크리스트
+  - 문제 해결 가이드
+- **커밋**: `8d78976 - docs: Add comprehensive telemetry and Redis fix documentation`
 
-### 구현 내용
-프로덕션 환경 **139.150.11.99**에 배포하려면 서버에서 다음 명령어를 실행하세요:
+## 🚀 서버 배포 방법
+
+### 방법 1: 자동 배포 스크립트 (권장)
+
+서버 `/root/uvis` 디렉토리에서:
 
 ```bash
-# 1. 프로젝트 디렉토리로 이동
 cd /root/uvis
 
-# 2. 최신 변경사항 가져오기
-git fetch origin main
-git checkout main
+# 최신 코드 다운로드
 git pull origin main
 
-# 3. 현재 커밋 확인 (7780df5여야 함)
-git log --oneline -1
-
-# 4. 서비스 중지
-docker-compose -f docker-compose.prod.yml down
-
-# 5. 프론트엔드 재빌드 (온도 자동입력 기능 포함)
-docker-compose -f docker-compose.prod.yml build --no-cache frontend
-
-# 6. 백엔드 재빌드
-docker-compose -f docker-compose.prod.yml build backend
-
-# 7. 서비스 시작
-docker-compose -f docker-compose.prod.yml up -d
-
-# 8. 서비스 상태 확인
-docker-compose -f docker-compose.prod.yml ps
-
-# 9. 프론트엔드 로그 확인
-docker-compose -f docker-compose.prod.yml logs -f frontend
+# 자동 배포 스크립트 실행
+bash FIX_TELEMETRY_AND_REDIS.sh
 ```
 
----
+**스크립트가 자동으로 수행하는 작업**:
+1. ✅ 최신 코드 pull
+2. ✅ Redis 비밀번호 확인
+3. ✅ Redis 연결 테스트
+4. ✅ 백엔드 재빌드 (업데이트된 `VehicleLocation` 모델 반영)
+5. ✅ 백엔드 재시작
+6. ✅ 헬스 체크
+7. ✅ API 엔드포인트 테스트
 
-## 🧪 배포 후 테스트
+### 방법 2: 수동 배포 (단계별)
 
-### 1. 서비스 접근 확인
-- **프론트엔드**: http://139.150.11.99
-- **백엔드 API**: http://139.150.11.99:8000
-- **API 문서**: http://139.150.11.99:8000/docs
-
-### 2. 온도 자동입력 기능 테스트
-
-#### 테스트 시나리오
-1. **주문 관리 페이지 접근**
-   - URL: http://139.150.11.99/orders
-   - 로그인 필요
-
-2. **신규 주문 등록 모달 열기**
-   - "+ 신규 등록" 버튼 클릭
-
-3. **온도대 선택 테스트**
-
-   **냉동 선택 시:**
-   ```
-   온도대: 냉동 (-30°C ~ -18°C)
-   → 최저 온도: -30 (자동 입력)
-   → 최고 온도: -18 (자동 입력)
-   → 안내: "권장 온도 범위가 자동으로 입력됩니다. 필요시 수정 가능합니다."
-   ```
-
-   **냉장 선택 시:**
-   ```
-   온도대: 냉장 (0°C ~ 6°C)
-   → 최저 온도: 0 (자동 입력)
-   → 최고 온도: 6 (자동 입력)
-   ```
-
-   **상온 선택 시:**
-   ```
-   온도대: 상온 (-30°C ~ 60°C)
-   → 최저 온도: -30 (자동 입력)
-   → 최고 온도: 60 (자동 입력)
-   ```
-
-4. **온도 수동 수정 테스트**
-   - 자동 입력된 값을 변경 가능한지 확인
-   - 예: 냉동 -25°C ~ -20°C로 변경
-
-5. **주문 등록 완료**
-   - 거래처: 테스트 거래처 선택
-   - 출발지: 서울시 강남구
-   - 도착지: 경기도 성남시
-   - 팔레트 수량: 5
-   - 등록 버튼 클릭
-   - 등록 성공 메시지 확인
-
-### 3. 예상 결과
-- ✅ 온도대 선택 시 즉시 온도 범위 자동 입력
-- ✅ 사용자가 값을 수정 가능
-- ✅ 안내 메시지 표시
-- ✅ 주문 등록 성공
-
-### 4. 오류 대응
-
-#### 422 Unprocessable Entity 오류
-**원인**: 브라우저 캐시
-**해결**: 
-```
-Ctrl + Shift + R (Windows/Linux)
-Cmd + Shift + R (Mac)
-또는 브라우저 캐시 완전 삭제
-```
-
-#### 자동 입력이 작동하지 않는 경우
-**확인사항**:
-1. 브라우저 콘솔(F12) 확인
-2. 에러 메시지 확인
-3. 프론트엔드 로그 확인:
-   ```bash
-   docker-compose -f docker-compose.prod.yml logs frontend
-   ```
-
-#### 드롭다운이 표시되지 않는 경우
-**원인**: 빌드 캐시
-**해결**:
+#### 1단계: 코드 업데이트
 ```bash
-# 프론트엔드만 재빌드
-docker-compose -f docker-compose.prod.yml build --no-cache frontend
-docker-compose -f docker-compose.prod.yml up -d frontend
-```
-
----
-
-## 📊 배포 확인 체크리스트
-
-### 서비스 상태
-- [ ] Frontend 컨테이너 실행 중
-- [ ] Backend 컨테이너 실행 중 (healthy)
-- [ ] Database 컨테이너 실행 중 (healthy)
-- [ ] Redis 컨테이너 실행 중 (healthy)
-- [ ] Nginx 컨테이너 실행 중
-
-### 기능 테스트
-- [ ] 로그인 성공
-- [ ] 주문 목록 조회
-- [ ] 온도대 드롭다운 표시
-- [ ] 냉동 선택 시 -30 ~ -18 자동 입력
-- [ ] 냉장 선택 시 0 ~ 6 자동 입력
-- [ ] 상온 선택 시 -30 ~ 60 자동 입력
-- [ ] 온도 수동 수정 가능
-- [ ] 주문 등록 성공
-
-### 추가 기능 테스트
-- [ ] 주문 캘린더 페이지 (http://139.150.11.99/calendar)
-- [ ] 드래그앤드롭으로 날짜 변경
-- [ ] 실시간 모니터링 (http://139.150.11.99/realtime)
-- [ ] GPS 차량 추적
-- [ ] 엑셀 업로드/다운로드
-
----
-
-## 🔧 데이터베이스 마이그레이션
-
-배포 시 자동으로 실행되지만, 수동 실행이 필요한 경우:
-
-```bash
-# 백엔드 컨테이너 접속
-docker-compose -f docker-compose.prod.yml exec backend bash
-
-# 마이그레이션 실행
-alembic upgrade head
-
-# 현재 마이그레이션 버전 확인
-alembic current
-
-# 종료
-exit
-```
-
-### 새로운 마이그레이션
-1. `20260129113751_add_has_forklift_to_vehicles.py` - 지게차 운전자 필드
-2. `20260129115304_make_weight_optional.py` - 중량 필드 선택사항화
-3. `20260129140000_rename_forklift_fields.py` - 지게차 필드 이름 변경
-4. `20260129150000_merge_heads.py` - 마이그레이션 헤드 병합
-5. `20260129160000_add_calendar_fields_to_orders.py` - 캘린더 필드 추가
-   - is_reserved
-   - reserved_at
-   - confirmed_at
-   - recurring_type
-   - recurring_end_date
-
----
-
-## 📈 모니터링
-
-### 로그 확인
-```bash
-# 모든 서비스 로그
-docker-compose -f docker-compose.prod.yml logs -f
-
-# 프론트엔드 로그만
-docker-compose -f docker-compose.prod.yml logs -f frontend
-
-# 백엔드 로그만
-docker-compose -f docker-compose.prod.yml logs -f backend
-
-# 최근 100줄만 확인
-docker-compose -f docker-compose.prod.yml logs --tail=100
-```
-
-### 리소스 모니터링
-```bash
-# 컨테이너 리소스 사용량
-docker stats
-
-# 디스크 사용량
-df -h
-
-# 메모리 사용량
-free -h
-```
-
-### Health Check
-```bash
-# Backend health check
-curl http://139.150.11.99:8000/health
-
-# Frontend health check
-curl http://139.150.11.99/
-
-# Database connection test
-docker-compose -f docker-compose.prod.yml exec backend python -c "from app.core.database import engine; print(engine.url)"
-```
-
----
-
-## 🚨 문제 해결
-
-### 서비스가 시작되지 않는 경우
-```bash
-# 로그 확인
-docker-compose -f docker-compose.prod.yml logs
-
-# 개별 컨테이너 재시작
-docker-compose -f docker-compose.prod.yml restart frontend
-docker-compose -f docker-compose.prod.yml restart backend
-
-# 전체 재시작
-docker-compose -f docker-compose.prod.yml restart
-```
-
-### 데이터베이스 연결 오류
-```bash
-# PostgreSQL 컨테이너 상태 확인
-docker-compose -f docker-compose.prod.yml ps db
-
-# PostgreSQL 로그 확인
-docker-compose -f docker-compose.prod.yml logs db
-
-# PostgreSQL 재시작
-docker-compose -f docker-compose.prod.yml restart db
-```
-
-### 빌드 오류
-```bash
-# 이미지 삭제 후 재빌드
-docker-compose -f docker-compose.prod.yml down
-docker rmi uvis-frontend uvis-backend
-docker-compose -f docker-compose.prod.yml build --no-cache
-docker-compose -f docker-compose.prod.yml up -d
-```
-
-### 디스크 공간 부족
-```bash
-# 사용하지 않는 이미지 삭제
-docker image prune -a
-
-# 사용하지 않는 컨테이너 삭제
-docker container prune
-
-# 사용하지 않는 볼륨 삭제
-docker volume prune
-
-# 전체 정리
-docker system prune -a
-```
-
----
-
-## 📞 지원
-
-### 문제 발생 시
-1. **로그 수집**
-   ```bash
-   docker-compose -f docker-compose.prod.yml logs > deployment_logs.txt
-   ```
-
-2. **스크린샷 캡처**
-   - 브라우저 화면
-   - 브라우저 콘솔 (F12)
-   - 에러 메시지
-
-3. **환경 정보**
-   ```bash
-   docker --version
-   docker-compose --version
-   git log --oneline -1
-   ```
-
-4. **이슈 생성**
-   - GitHub 저장소에 이슈 등록
-   - 수집한 정보 첨부
-
-### 긴급 롤백
-문제가 심각한 경우 이전 버전으로 롤백:
-
-```bash
-# 이전 커밋으로 롤백
 cd /root/uvis
-git log --oneline -5  # 이전 커밋 확인
-git checkout <이전_커밋_해시>
-
-# 재배포
-docker-compose -f docker-compose.prod.yml down
-docker-compose -f docker-compose.prod.yml up -d --build
+git pull origin main
 ```
 
+#### 2단계: 백엔드 재빌드
+```bash
+docker-compose stop backend
+docker-compose rm -f backend
+docker-compose build --no-cache backend
+```
+
+#### 3단계: 백엔드 재시작
+```bash
+docker-compose up -d backend
+sleep 30
+```
+
+#### 4단계: 헬스 체크
+```bash
+docker-compose ps backend
+curl -s http://localhost:8000/api/v1/health | jq .
+```
+
+#### 5단계: API 테스트
+```bash
+# JWT 토큰 발급
+TOKEN=$(curl -s -X POST http://localhost:8000/api/v1/auth/login \
+    -H "Content-Type: application/x-www-form-urlencoded" \
+    -d "username=admin&password=admin123" | jq -r '.access_token')
+
+# Telemetry API 테스트
+curl -s -H "Authorization: Bearer ${TOKEN}" \
+    http://localhost:8000/api/v1/telemetry/vehicles/status | jq .
+```
+
+## 🧪 테스트 체크리스트
+
+배포 후 다음 항목들을 확인하세요:
+
+### Backend API 테스트
+- [ ] Backend 컨테이너 정상 실행: `docker-compose ps backend`
+- [ ] 헬스 엔드포인트: `GET /api/v1/health` → 200 OK
+- [ ] Clients API: `GET /api/v1/clients/` → 200 OK
+- [ ] Telemetry API: `GET /api/v1/telemetry/vehicles/status` → 200 OK (토큰 필요)
+- [ ] AB Test API: `GET /api/v1/ab-test/stats` → 200 OK (토큰 필요)
+
+### Frontend 사이드바 테스트
+1. 브라우저에서 http://139.150.11.99/login 접속
+2. 로그인 (admin / admin123)
+3. **실시간 배차 모니터링** 페이지 접속 (http://139.150.11.99/dispatch-monitoring)
+4. ✅ **왼쪽 사이드바가 표시되는지 확인**:
+   - Dashboard
+   - **운영 관리 ▼** (펼치면: 배차 관리, 실시간 배차 모니터링, 주문 관리, 차량 관리, 기사 관리)
+   - AI & 최적화 ▼
+   - 요금 관리 ▼
+   - 정비 관리 ▼
+   - 모니터링 & 분석 ▼
+   - 커뮤니케이션 ▼
+   - 설정
+   - 더보기 ...
+
+### 에러 로그 확인
+```bash
+# 최근 에러 로그 확인
+docker-compose logs backend --tail 50 | grep -i "error\|exception"
+
+# Telemetry 관련 로그
+docker-compose logs backend --tail 50 | grep -i "telemetry"
+```
+
+**예상 결과**:
+- ❌ `AttributeError: type object 'VehicleLocation' has no attribute 'timestamp'` → **더 이상 발생하지 않음**
+- ❌ `UndefinedColumn: column clients.xxx does not exist` → **더 이상 발생하지 않음**
+
+## 📝 수정된 파일 목록
+
+### Backend
+1. **backend/app/models/vehicle_location.py**
+   - `timestamp` 컬럼 추가 (기존 `recorded_at`과 호환)
+   - `vehicle_telemetry_service.py`에서 사용하는 `timestamp` 속성 지원
+
+### Frontend
+2. **frontend/src/App.tsx**
+   - `/dispatch-monitoring` 라우트를 `LayoutWrapper`로 감싸서 사이드바 표시
+
+### Documentation & Scripts
+3. **FIX_TELEMETRY_AND_REDIS.sh** (신규)
+   - 자동 배포 스크립트
+
+4. **TELEMETRY_FIX_SUMMARY.md** (신규)
+   - 상세 문서 및 문제 해결 가이드
+
+## 🔧 문제 해결
+
+### Telemetry API가 여전히 500 에러를 반환하는 경우
+
+1. **모델이 제대로 업데이트되었는지 확인**:
+```bash
+cd /root/uvis
+grep -n "timestamp" backend/app/models/vehicle_location.py
+```
+출력에 `timestamp = Column(...)` 라인이 있어야 함
+
+2. **백엔드가 재빌드되었는지 확인**:
+```bash
+docker-compose images backend
+```
+이미지 생성 시간이 최근이어야 함
+
+3. **백엔드 로그 확인**:
+```bash
+docker-compose logs backend --tail 100 | grep -A 10 "Traceback"
+```
+
+### 사이드바가 여전히 표시되지 않는 경우
+
+1. **프론트엔드 재빌드**:
+```bash
+cd /root/uvis
+docker-compose stop frontend
+docker-compose rm -f frontend
+docker-compose build --no-cache frontend
+docker-compose up -d frontend
+```
+
+2. **브라우저 캐시 클리어**:
+   - 개발자 도구 (F12) 열기
+   - Console에서 실행:
+   ```javascript
+   localStorage.clear();
+   sessionStorage.clear();
+   location.reload();
+   ```
+
+3. **App.tsx 확인**:
+```bash
+cd /root/uvis
+grep -A 3 "/dispatch-monitoring" frontend/src/App.tsx
+```
+출력에 `<LayoutWrapper>` 태그가 있어야 함
+
+## 📊 Git 커밋 히스토리
+
+```
+8d78976 - docs: Add comprehensive telemetry and Redis fix documentation
+3f8cd80 - feat: Add telemetry and Redis authentication fix script
+1587141 - fix: Add timestamp column to VehicleLocation model for telemetry service compatibility
+56bce45 - fix: Add sidebar to Dispatch Monitoring page by wrapping with LayoutWrapper
+f6249e7 - feat: Reorganize sidebar navigation with grouped categories
+```
+
+## 🎯 다음 단계
+
+1. **서버 배포 실행** (`bash FIX_TELEMETRY_AND_REDIS.sh`)
+2. **사이드바 테스트** (http://139.150.11.99/dispatch-monitoring 접속)
+3. **API 테스트** (Telemetry, AB Test 등)
+4. **에러 로그 확인** (500 에러가 없는지 확인)
+
+## 📞 배포 완료 후 보고 사항
+
+배포 완료 후 다음 사항들을 확인하고 알려주세요:
+
+1. **자동 배포 스크립트 실행 결과**:
+   - ✅ 모든 단계가 성공했나요?
+   - ❌ 에러가 발생했나요? (로그 첨부)
+
+2. **사이드바 표시 확인**:
+   - ✅ 실시간 배차 모니터링 페이지에서 사이드바가 보이나요?
+   - ❌ 여전히 보이지 않나요? (스크린샷 첨부)
+
+3. **Telemetry API 테스트 결과**:
+   - HTTP 상태 코드: ?
+   - 응답 내용: ?
+
+4. **백엔드 에러 로그**:
+   - `AttributeError: ... 'timestamp'` 에러가 여전히 발생하나요?
+
 ---
 
-## ✅ 배포 완료 확인
-
-모든 단계가 완료되면:
-
-1. ✅ PR 병합 완료 (https://github.com/rpaakdi1-spec/3-/pull/1)
-2. ✅ 프로덕션 배포 완료
-3. ✅ 서비스 정상 작동
-4. ✅ 온도 자동입력 기능 작동
-5. ✅ 모든 테스트 통과
-
-**배포 완료!** 🎉
-
----
-
-## 📅 다음 작업
-
-1. **사용자 피드백 수집**
-   - 온도 자동입력 기능 사용성
-   - 추가 개선사항
-
-2. **성능 모니터링**
-   - 응답 시간 측정
-   - 에러 발생 추적
-
-3. **추가 기능 개발**
-   - PDF 리포트 생성
-   - SMS 알림
-   - 운전자 평가 시스템
-
-4. **모바일 앱 배포**
-   - Google Play Store
-   - Apple App Store
-
----
-
-**문서 작성일**: 2026-01-29  
-**버전**: 1.0.0  
-**작성자**: GenSpark AI Developer
+**작성일**: 2026-02-27  
+**버전**: 1.0  
+**적용 대상**: UVIS 콜드체인 배차 시스템  
+**GitHub**: https://github.com/rpaakdi1-spec/3-/tree/main
