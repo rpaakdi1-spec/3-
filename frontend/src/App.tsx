@@ -425,14 +425,6 @@ const App: React.FC = () => {
                 </LayoutWrapper>
               }
             />
-            <Route
-              path="/analytics"
-              element={
-                <LayoutWrapper>
-                  <AnalyticsDashboardPage />
-                </LayoutWrapper>
-              }
-            />
 
             {/* IoT Sensor Routes */}
             <Route
