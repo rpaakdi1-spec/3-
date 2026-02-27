@@ -51,6 +51,9 @@ const DispatchMonitoringDashboard = lazy(() => import('./pages/DispatchMonitorin
 // Dispatch Rules Management Page
 const DispatchRulesPage = lazy(() => import('./pages/DispatchRulesPage'));
 
+// Vehicle-Driver Management Page
+const VehicleDriverManagementPage = lazy(() => import('./pages/VehicleDriverManagementPage'));
+
 // IoT Sensor Pages
 const IoTSensorsPage = lazy(() => import('./pages/IoTSensorsPage'));
 const IoTSensorDetailPage = lazy(() => import('./pages/IoTSensorDetailPage'));
@@ -246,6 +249,14 @@ const App: React.FC = () => {
               element={
                 <LayoutWrapper>
                   <VehiclesPage />
+                </LayoutWrapper>
+              }
+            />
+            <Route
+              path="/vehicle-driver-management"
+              element={
+                <LayoutWrapper>
+                  <VehicleDriverManagementPage />
                 </LayoutWrapper>
               }
             />

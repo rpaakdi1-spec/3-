@@ -2,7 +2,7 @@ import {
   Home, Package, Truck, Users, Building2, BarChart3, Settings, Radio, Calendar,
   Brain, Zap, MessageSquare, DollarSign, Activity, Thermometer, Wrench, Calculator,
   Clock, CheckSquare, Bell, Download, ListChecks, MoreHorizontal, FileText, Folder,
-  TrendingUp, ClipboardList, Target
+  TrendingUp, ClipboardList, Target, UserCheck
 } from 'lucide-react';
 import { LucideIcon } from 'lucide-react';
 
@@ -38,6 +38,7 @@ export const navigationConfig: MenuItem[] = [
       { path: '/dispatches', label: '배차 관리', icon: Truck, roles: ['ADMIN', 'DISPATCHER'] },
       { path: '/dispatch-rules', label: '배차 규칙 관리', icon: ListChecks, roles: ['ADMIN', 'DISPATCHER'] },
       { path: '/vehicles', label: '차량 관리', icon: Truck, roles: ['ADMIN', 'DISPATCHER'] },
+      { path: '/vehicle-driver-management', label: '차량-운전자 배정', icon: UserCheck, roles: ['ADMIN', 'DISPATCHER'], isNew: true },
       { path: '/clients', label: '거래처 관리', icon: Building2, roles: ['ADMIN', 'DISPATCHER'] }
     ]
   },
