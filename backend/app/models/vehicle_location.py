@@ -34,6 +34,7 @@ class VehicleLocation(Base):
     
     # 메타데이터
     recorded_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    timestamp = Column(DateTime, nullable=True, default=datetime.utcnow, index=True)  # 타임스탬프 (호환성)
     is_ignition_on = Column(Boolean, default=True)  # 시동 상태
     battery_voltage = Column(Float, nullable=True)  # 배터리 전압 (V)
     fuel_level_percent = Column(Float, nullable=True)  # 연료 잔량 (%)
