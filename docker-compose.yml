@@ -75,7 +75,10 @@ services:
       DATABASE_URL: postgresql://${DB_USER:-uvis_user}:${DB_PASSWORD}@db:5432/${DB_NAME:-uvis_db}
       
       # Redis
-      REDIS_URL: redis://:{REDIS_PASSWORD:-redispass}@redis:6379/0
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redispass}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redispass}@redis:6379/0
       
       # JWT
       JWT_SECRET: ${JWT_SECRET:?JWT secret required}
