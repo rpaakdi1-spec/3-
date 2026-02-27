@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
-import { Users, Truck, Phone, Clock, AlertCircle, Search, RefreshCw } from 'lucide-react';
+import { Users, Truck, Phone, Clock, AlertCircle, Search, RefreshCw, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
@@ -194,6 +194,22 @@ const VehicleDriverManagementPage: React.FC = () => {
     }
   };
 
+  const handleUnassignDriver = async (vehicleId: number, driver: Driver) => {
+    try {
+      await vehiclesAPI.update(vehicleId, {
+        driver_name: null,
+        driver_phone: null
+      });
+      toast.success(`${driver.name}님의 배정이 해제되었습니다`);
+      
+      // Refresh data
+      await fetchData();
+    } catch (error) {
+      console.error('Failed to unassign driver:', error);
+      toast.error('배정 해제에 실패했습니다');
+    }
+  };
+
   const unassignedDrivers = drivers.filter(d => !d.assigned_vehicle_id && d.is_active);
   
   // Apply filters
@@ -354,6 +370,7 @@ const VehicleDriverManagementPage: React.FC = () => {
                     key={vehicle.id}
                     vehicle={vehicle}
                     onDropDriver={handleDropDriver}
+                    onUnassignDriver={handleUnassignDriver}
                   />
                 ))
               )}
@@ -473,9 +490,10 @@ const DriverCard: React.FC<DriverCardProps> = ({ driver, sourceType, vehicleId }
 interface VehicleCardProps {
   vehicle: Vehicle;
   onDropDriver: (vehicleId: number | null, driver: Driver, sourceVehicleId?: number) => void;
+  onUnassignDriver: (vehicleId: number, driver: Driver) => void;
 }
 
-const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle, onDropDriver }) => {
+const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle, onDropDriver, onUnassignDriver }) => {
   const [{ isOver }, drop] = useDrop(() => ({
     accept: ItemTypes.DRIVER,
     drop: (item: { driver: Driver; sourceType: string; vehicleId?: number }) => {
@@ -498,6 +516,13 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle, onDropDriver }) => {
       '운행불가': 'bg-gray-100 text-gray-800'
     };
     return colors[status] || 'bg-gray-100 text-gray-800';
+  };
+
+  const handleUnassign = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (vehicle.assigned_driver) {
+      onUnassignDriver(vehicle.id, vehicle.assigned_driver);
+    }
   };
 
   return (
@@ -528,7 +553,7 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle, onDropDriver }) => {
       {/* Driver Assignment Area */}
       <div
         ref={drop}
-        className={`p-4 rounded-lg border-2 transition-all min-h-[140px] ${
+        className={`p-4 rounded-lg border-2 transition-all min-h-[140px] relative ${
           vehicle.assigned_driver 
             ? 'border-green-300 bg-green-50' 
             : isOver
@@ -537,11 +562,22 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle, onDropDriver }) => {
         }`}
       >
         {vehicle.assigned_driver ? (
-          <DriverCard
-            driver={vehicle.assigned_driver}
-            sourceType="vehicle"
-            vehicleId={vehicle.id}
-          />
+          <>
+            {/* Unassign Button */}
+            <button
+              onClick={handleUnassign}
+              className="absolute top-2 right-2 w-8 h-8 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center transition-all shadow-md hover:shadow-lg z-10 group"
+              title="배정 해제"
+            >
+              <X size={16} />
+            </button>
+            
+            <DriverCard
+              driver={vehicle.assigned_driver}
+              sourceType="vehicle"
+              vehicleId={vehicle.id}
+            />
+          </>
         ) : (
           <div className="text-center py-6">
             <Users size={32} className="mx-auto text-gray-300 mb-2" />
