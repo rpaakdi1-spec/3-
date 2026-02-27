@@ -141,25 +141,45 @@ const DispatchMonitoringDashboard: React.FC = () => {
     const wsUrl = `${protocol}//${window.location.host}/api/v1/dispatch/monitoring/ws/live-updates`;
     
     let ws: WebSocket | null = null;
-    let reconnectTimeout: NodeJS.Timeout;
-    let countdownInterval: NodeJS.Timeout;
+    let reconnectTimeout: NodeJS.Timeout | null = null;
+    let countdownInterval: NodeJS.Timeout | null = null;
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 5;
+    let isCleanedUp = false;
     
     const connectWebSocket = () => {
-      if (!autoRefresh) return;
+      if (!autoRefresh || isCleanedUp || reconnectAttempts >= maxReconnectAttempts) {
+        if (reconnectAttempts >= maxReconnectAttempts) {
+          console.warn('⚠️ Max WebSocket reconnection attempts reached. Using polling fallback.');
+          // Fallback to polling every 30 seconds
+          const pollingInterval = setInterval(fetchLiveStats, 30000);
+          return () => clearInterval(pollingInterval);
+        }
+        return;
+      }
       
       try {
+        // Close existing connection if any
+        if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+          console.log('⚠️ WebSocket already connecting/connected, skipping...');
+          return;
+        }
+        
         ws = new WebSocket(wsUrl);
         
         ws.onopen = () => {
           console.log('✅ WebSocket connected: live-updates');
           setIsConnected(true);
           setCountdown(5);
+          reconnectAttempts = 0; // Reset on successful connection
         };
         
         ws.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
-            console.log('📊 Monitoring stats updated via WebSocket');
+            if (process.env.NODE_ENV === 'development') {
+              console.log('📊 Monitoring stats updated via WebSocket');
+            }
             setLiveStats(data);
             setCountdown(5); // 리셋
           } catch (error) {
@@ -168,28 +188,39 @@ const DispatchMonitoringDashboard: React.FC = () => {
         };
         
         ws.onerror = (error) => {
-          console.error('❌ WebSocket error:', error);
+          if (process.env.NODE_ENV === 'development') {
+            console.error('❌ WebSocket error:', error);
+          }
           setIsConnected(false);
         };
         
         ws.onclose = () => {
-          console.log('🔌 WebSocket disconnected, reconnecting in 5s...');
+          if (process.env.NODE_ENV === 'development') {
+            console.log('🔌 WebSocket disconnected');
+          }
           setIsConnected(false);
           
-          // 5초 후 재연결
-          if (autoRefresh) {
+          // Only reconnect if not cleaned up, autoRefresh is on, and within attempt limit
+          if (!isCleanedUp && autoRefresh && reconnectAttempts < maxReconnectAttempts) {
+            reconnectAttempts++;
+            // Exponential backoff: 5s, 10s, 20s, 40s, 80s
+            const delay = Math.min(5000 * Math.pow(2, reconnectAttempts - 1), 80000);
+            
+            if (process.env.NODE_ENV === 'development') {
+              console.log(`🔄 Reconnecting WebSocket in ${delay/1000}s (attempt ${reconnectAttempts}/${maxReconnectAttempts})...`);
+            }
+            
             reconnectTimeout = setTimeout(() => {
-              console.log('🔄 Reconnecting WebSocket...');
               connectWebSocket();
-            }, 5000);
+            }, delay);
+          } else if (reconnectAttempts >= maxReconnectAttempts) {
+            console.warn('⚠️ Max reconnection attempts reached. Please refresh the page.');
           }
         };
       } catch (error) {
         console.error('Failed to create WebSocket:', error);
         setIsConnected(false);
-        // Fallback to polling
-        const interval = setInterval(fetchLiveStats, 5000);
-        return () => clearInterval(interval);
+        reconnectAttempts++;
       }
     };
     
@@ -204,14 +235,28 @@ const DispatchMonitoringDashboard: React.FC = () => {
 
     // Cleanup
     return () => {
-      if (ws) {
-        ws.close();
-      }
+      isCleanedUp = true;
+      
       if (reconnectTimeout) {
         clearTimeout(reconnectTimeout);
+        reconnectTimeout = null;
       }
+      
       if (countdownInterval) {
         clearInterval(countdownInterval);
+        countdownInterval = null;
+      }
+      
+      if (ws) {
+        ws.onclose = null;
+        ws.onerror = null;
+        ws.onmessage = null;
+        ws.onopen = null;
+        
+        if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+          ws.close(1000, 'Component unmounting');
+        }
+        ws = null;
       }
     };
   }, [autoRefresh]);
