@@ -37,7 +37,7 @@ export const ChatRoomList: React.FC<ChatRoomListProps> = ({
   // 채팅방 목록 조회
   const fetchRooms = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('access_token');
       const response = await fetch('/api/v1/chat/rooms', {
         headers: {
           'Authorization': `Bearer ${token}`

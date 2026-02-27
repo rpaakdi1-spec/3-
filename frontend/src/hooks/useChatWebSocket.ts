@@ -48,7 +48,7 @@ export const useChatWebSocket = ({
     }
 
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('access_token');
       if (!token) {
         console.error('인증 토큰이 없습니다');
         return;
