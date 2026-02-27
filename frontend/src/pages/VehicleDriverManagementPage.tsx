@@ -46,6 +46,9 @@ const VehicleDriverManagementPage: React.FC = () => {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [licenseFilter, setLicenseFilter] = useState<string>('all');
 
   useEffect(() => {
     fetchData();
@@ -149,7 +152,7 @@ const VehicleDriverManagementPage: React.FC = () => {
     }
   };
 
-  const handleDropDriver = async (vehicleId: number | null, driver: Driver) => {
+  const handleDropDriver = async (vehicleId: number | null, driver: Driver, sourceVehicleId?: number) => {
     try {
       if (vehicleId === null) {
         // Unassign driver - find current vehicle
@@ -162,12 +165,25 @@ const VehicleDriverManagementPage: React.FC = () => {
           toast.success(`${driver.name}님의 배정이 해제되었습니다`);
         }
       } else {
-        // Assign driver to vehicle
+        // When moving from vehicle to vehicle, unassign from source first
+        if (sourceVehicleId) {
+          await vehiclesAPI.update(sourceVehicleId, {
+            driver_name: null,
+            driver_phone: null
+          });
+        }
+        
+        // Then assign to new vehicle
         await vehiclesAPI.update(vehicleId, {
           driver_name: driver.name,
           driver_phone: driver.phone
         });
-        toast.success(`${driver.name}님이 차량에 배정되었습니다`);
+        
+        if (sourceVehicleId) {
+          toast.success(`${driver.name}님이 다른 차량으로 이동되었습니다`);
+        } else {
+          toast.success(`${driver.name}님이 차량에 배정되었습니다`);
+        }
       }
       
       // Refresh data
@@ -179,10 +195,26 @@ const VehicleDriverManagementPage: React.FC = () => {
   };
 
   const unassignedDrivers = drivers.filter(d => !d.assigned_vehicle_id && d.is_active);
-  const filteredVehicles = vehicles.filter(vehicle =>
-    vehicle.plate_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    vehicle.driver_name?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  
+  // Apply filters
+  const filteredVehicles = vehicles.filter(vehicle => {
+    // Search filter
+    const matchesSearch = vehicle.plate_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      vehicle.driver_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      vehicle.vehicle_type?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    // Status filter
+    const matchesStatus = statusFilter === 'all' || vehicle.status === statusFilter;
+    
+    // Type filter
+    const matchesType = typeFilter === 'all' || vehicle.vehicle_type === typeFilter;
+    
+    // License filter (for assigned drivers)
+    const matchesLicense = licenseFilter === 'all' || 
+      (vehicle.assigned_driver?.license_type?.includes(licenseFilter));
+    
+    return matchesSearch && matchesStatus && matchesType && matchesLicense;
+  });
 
   if (loading) return <Loading />;
 
@@ -194,24 +226,94 @@ const VehicleDriverManagementPage: React.FC = () => {
           <p className="text-gray-600 mt-1">드래그 앤 드롭으로 운전자를 차량에 배정하거나 해제하세요</p>
         </div>
 
-        {/* Search and Refresh */}
+        {/* Search and Filters */}
         <Card className="mb-6">
-          <div className="flex items-center gap-4">
-            <Search size={20} className="text-gray-400" />
-            <Input
-              placeholder="차량번호 또는 운전자명으로 검색..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="flex-1"
-            />
-            <Button
-              onClick={fetchData}
-              variant="outline"
-              size="sm"
-            >
-              <RefreshCw size={18} className="mr-2" />
-              새로고침
-            </Button>
+          <div className="space-y-4">
+            {/* Search Bar */}
+            <div className="flex items-center gap-4">
+              <Search size={20} className="text-gray-400" />
+              <Input
+                placeholder="차량번호, 운전자명, 차량유형으로 검색..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="flex-1"
+              />
+              <Button
+                onClick={fetchData}
+                variant="outline"
+                size="sm"
+              >
+                <RefreshCw size={18} className="mr-2" />
+                새로고침
+              </Button>
+            </div>
+            
+            {/* Filters */}
+            <div className="flex flex-wrap gap-3">
+              {/* Status Filter */}
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium text-gray-700">상태:</label>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="all">전체</option>
+                  <option value="운행가능">운행가능</option>
+                  <option value="운행중">운행중</option>
+                  <option value="정비중">정비중</option>
+                  <option value="운행불가">운행불가</option>
+                </select>
+              </div>
+              
+              {/* Type Filter */}
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium text-gray-700">차량유형:</label>
+                <select
+                  value={typeFilter}
+                  onChange={(e) => setTypeFilter(e.target.value)}
+                  className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="all">전체</option>
+                  <option value="냉동">냉동</option>
+                  <option value="냉장">냉장</option>
+                  <option value="겸용">겸용</option>
+                  <option value="상온">상온</option>
+                </select>
+              </div>
+              
+              {/* License Filter */}
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium text-gray-700">운전자 면허:</label>
+                <select
+                  value={licenseFilter}
+                  onChange={(e) => setLicenseFilter(e.target.value)}
+                  className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="all">전체</option>
+                  <option value="1종 대형">1종 대형</option>
+                  <option value="1종 보통">1종 보통</option>
+                  <option value="2종">2종</option>
+                </select>
+              </div>
+              
+              {/* Clear Filters */}
+              {(statusFilter !== 'all' || typeFilter !== 'all' || licenseFilter !== 'all' || searchTerm) && (
+                <Button
+                  onClick={() => {
+                    setStatusFilter('all');
+                    setTypeFilter('all');
+                    setLicenseFilter('all');
+                    setSearchTerm('');
+                  }}
+                  variant="ghost"
+                  size="sm"
+                  className="ml-auto"
+                >
+                  필터 초기화
+                </Button>
+              )}
+            </div>
           </div>
         </Card>
 
@@ -266,15 +368,15 @@ const VehicleDriverManagementPage: React.FC = () => {
 // Driver Pool Component with Drop Zone
 interface DriverPoolProps {
   drivers: Driver[];
-  onDropDriver: (vehicleId: number | null, driver: Driver) => void;
+  onDropDriver: (vehicleId: number | null, driver: Driver, sourceVehicleId?: number) => void;
 }
 
 const DriverPool: React.FC<DriverPoolProps> = ({ drivers, onDropDriver }) => {
   const [{ isOver }, drop] = useDrop(() => ({
     accept: ItemTypes.DRIVER,
-    drop: (item: { driver: Driver; sourceType: string }) => {
+    drop: (item: { driver: Driver; sourceType: string; vehicleId?: number }) => {
       if (item.sourceType === 'vehicle') {
-        onDropDriver(null, item.driver);
+        onDropDriver(null, item.driver, item.vehicleId);
       }
     },
     collect: (monitor) => ({
@@ -370,7 +472,7 @@ const DriverCard: React.FC<DriverCardProps> = ({ driver, sourceType, vehicleId }
 // Vehicle Card Component (Drop Target)
 interface VehicleCardProps {
   vehicle: Vehicle;
-  onDropDriver: (vehicleId: number | null, driver: Driver) => void;
+  onDropDriver: (vehicleId: number | null, driver: Driver, sourceVehicleId?: number) => void;
 }
 
 const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle, onDropDriver }) => {
@@ -379,7 +481,8 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle, onDropDriver }) => {
     drop: (item: { driver: Driver; sourceType: string; vehicleId?: number }) => {
       // Prevent dropping driver on same vehicle
       if (item.vehicleId !== vehicle.id) {
-        onDropDriver(vehicle.id, item.driver);
+        // Pass sourceVehicleId to properly handle the move operation
+        onDropDriver(vehicle.id, item.driver, item.vehicleId);
       }
     },
     collect: (monitor) => ({
