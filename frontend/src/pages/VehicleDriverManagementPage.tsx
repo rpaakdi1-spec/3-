@@ -49,6 +49,7 @@ const VehicleDriverManagementPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [licenseFilter, setLicenseFilter] = useState<string>('all');
+  const [assignmentFilter, setAssignmentFilter] = useState<string>('all');
 
   useEffect(() => {
     fetchData();
@@ -229,7 +230,12 @@ const VehicleDriverManagementPage: React.FC = () => {
     const matchesLicense = licenseFilter === 'all' || 
       (vehicle.assigned_driver?.license_type?.includes(licenseFilter));
     
-    return matchesSearch && matchesStatus && matchesType && matchesLicense;
+    // Assignment filter
+    const matchesAssignment = assignmentFilter === 'all' ||
+      (assignmentFilter === 'assigned' && vehicle.assigned_driver) ||
+      (assignmentFilter === 'unassigned' && !vehicle.assigned_driver);
+    
+    return matchesSearch && matchesStatus && matchesType && matchesLicense && matchesAssignment;
   });
 
   if (loading) return <Loading />;
@@ -313,13 +319,28 @@ const VehicleDriverManagementPage: React.FC = () => {
                 </select>
               </div>
               
+              {/* Assignment Filter */}
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium text-gray-700">배정 상태:</label>
+                <select
+                  value={assignmentFilter}
+                  onChange={(e) => setAssignmentFilter(e.target.value)}
+                  className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="all">전체</option>
+                  <option value="assigned">운전자 배정됨</option>
+                  <option value="unassigned">운전자 배정 안됨</option>
+                </select>
+              </div>
+              
               {/* Clear Filters */}
-              {(statusFilter !== 'all' || typeFilter !== 'all' || licenseFilter !== 'all' || searchTerm) && (
+              {(statusFilter !== 'all' || typeFilter !== 'all' || licenseFilter !== 'all' || assignmentFilter !== 'all' || searchTerm) && (
                 <Button
                   onClick={() => {
                     setStatusFilter('all');
                     setTypeFilter('all');
                     setLicenseFilter('all');
+                    setAssignmentFilter('all');
                     setSearchTerm('');
                   }}
                   variant="ghost"
