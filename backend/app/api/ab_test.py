@@ -21,14 +21,18 @@ def get_redis():
     """Get Redis connection"""
     redis_host = os.getenv("REDIS_HOST", "redis")  # Docker service name
     redis_port = int(os.getenv("REDIS_PORT", 6379))
-    redis_password = os.getenv("REDIS_PASSWORD", None)
+    redis_password = os.getenv("REDIS_PASSWORD", "")
     
-    return Redis(
-        host=redis_host, 
-        port=redis_port, 
-        password=redis_password,
-        decode_responses=False
-    )
+    # Only pass password if it's not empty
+    redis_kwargs = {
+        "host": redis_host,
+        "port": redis_port,
+        "decode_responses": False
+    }
+    if redis_password:
+        redis_kwargs["password"] = redis_password
+    
+    return Redis(**redis_kwargs)
 
 
 router = APIRouter(prefix="/api/v1/ab-test")

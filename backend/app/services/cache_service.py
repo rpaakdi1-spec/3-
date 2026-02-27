@@ -20,13 +20,17 @@ class CacheService:
     """Advanced Redis Caching Service"""
     
     def __init__(self):
-        self.redis_client = redis.Redis(
-            host=settings.REDIS_HOST,
-            port=settings.REDIS_PORT,
-            password=settings.REDIS_PASSWORD or None,
-            db=0,
-            decode_responses=True
-        )
+        redis_kwargs = {
+            "host": settings.REDIS_HOST,
+            "port": settings.REDIS_PORT,
+            "db": 0,
+            "decode_responses": True
+        }
+        # Only add password if it's not empty
+        if settings.REDIS_PASSWORD:
+            redis_kwargs["password"] = settings.REDIS_PASSWORD
+        
+        self.redis_client = redis.Redis(**redis_kwargs)
         self.default_ttl = 300  # 5 minutes
     
     def _generate_key(self, prefix: str, *args, **kwargs) -> str:
