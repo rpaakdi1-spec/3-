@@ -1,144 +1,159 @@
-# 🎯 UVIS Layout Fix - Quick Reference
+# 빠른 참조 가이드 (Quick Reference Guide)
 
-## ⚡ 빠른 실행
+## 🚀 즉시 실행 가능한 명령어
 
+### 서버 배포 (Server Deployment)
 ```bash
-# 파일 복사
-cp /home/user/webapp/{complete_layout_fix.sh,batch_remove_layout.sh,verify_layout_fix.sh} /root/uvis/
-
-# 실행
+# 1. 최신 코드 가져오기
 cd /root/uvis
-chmod +x *.sh
-./complete_layout_fix.sh
+git pull origin main
+
+# 2. 네이버 지도 API 배포 (필수)
+bash DEPLOY_NAVER_MAP.sh
+
+# 3. WebSocket 수정 배포 (필요시)
+bash FIX_WEBSOCKET_OVERLOAD.sh
+
+# 4. 전체 시스템 재시작
+docker-compose down
+docker-compose up -d --build
 ```
 
-**소요 시간**: 약 5-7분
-
----
-
-## 📋 문제 & 해결
-
-### 문제
-- ❌ 일부 페이지에서 메뉴/사이드바 사라짐
-- ❌ 44개 페이지가 개별 Layout 사용
-
-### 해결
-- ✅ 모든 페이지에서 Layout 제거
-- ✅ App.tsx의 단일 Layout만 사용
-
----
-
-## 🔧 3가지 실행 옵션
-
-### 1️⃣ 원클릭 (추천)
+### 시스템 상태 확인
 ```bash
-./complete_layout_fix.sh
+# Docker 컨테이너 상태
+docker-compose ps
+
+# Backend API 상태
+curl http://139.150.11.99/api/v1/health
+
+# 로그 확인
+docker-compose logs --tail=100 -f
 ```
 
-### 2️⃣ 단계별
+### 긴급 롤백
 ```bash
-./batch_remove_layout.sh    # Layout 제거
-./verify_layout_fix.sh       # 검증
-cd frontend && npm run build # 빌드
-docker-compose build --no-cache frontend
-docker-compose up -d frontend
-```
-
-### 3️⃣ 수동 (비추천)
-```bash
-# 각 페이지마다
-sed -i '/import.*Layout/d' Page.tsx
-sed -i '/<Layout>/d' Page.tsx
-sed -i '/<\/Layout>/d' Page.tsx
+cd /root/uvis
+git checkout error-fully-corrected
+docker-compose down
+docker-compose up -d --build
 ```
 
 ---
 
-## ✅ 테스트
+## 🔧 네이버 지도 API 활성화 (수동 작업 필수)
 
-### 브라우저
-1. **캐시 삭제** (Ctrl+Shift+Delete, 전체 기간)
-2. **Chrome 재시작**
-3. http://139.150.11.99/login
-4. admin / admin123
-5. **모든 페이지 확인**
-   - [ ] 사이드바 표시
-   - [ ] 메뉴 동작
-   - [ ] 페이지 전환 정상
+### Naver Cloud Console에서 실행:
+1. https://www.ncloud.com/ 로그인
+2. **Console** → **Services** → **AI·NAVER API** → **Maps**
+3. Application 선택 (Client ID: `oimsa0yj4k`)
+4. **Web Service URL** 섹션에 추가:
+   ```
+   http://139.150.11.99
+   http://139.150.11.99/vehicles
+   http://139.150.11.99*
+   ```
+5. **저장** 후 **5-10분 대기** (DNS 전파)
 
-### 콘솔 확인
+### 테스트:
+```
+http://139.150.11.99/vehicles
+로그인: admin / admin123
+지도 정상 표시 확인
+```
+
+---
+
+## 📊 중요 URL
+
+| 서비스 | URL |
+|--------|-----|
+| 메인 시스템 | http://139.150.11.99 |
+| Backend API | http://139.150.11.99/api/v1 |
+| Health Check | http://139.150.11.99/api/v1/health |
+| Prometheus | http://139.150.11.99:9090 |
+| Grafana | http://139.150.11.99:3000 |
+| GitHub Repo | https://github.com/rpaakdi1-spec/3- |
+
+---
+
+## 🆘 문제 해결
+
+### 브라우저 과부하 (WebSocket 문제)
 ```javascript
-// 브라우저 콘솔 (F12)
-console.log('Path:', window.location.pathname);
-console.log('Nav count:', document.querySelectorAll('nav').length); // 1이어야 함
+// 브라우저 콘솔에서 실행
+localStorage.clear();
+sessionStorage.clear();
+location.reload();
+```
+
+### 지도 안 나올 때
+1. Naver Cloud URL 등록 재확인
+2. 5-10분 대기 (DNS 전파)
+3. 브라우저 캐시 삭제 (Ctrl+Shift+R)
+4. 시크릿 모드로 테스트
+
+### Backend 오류
+```bash
+# 로그 확인
+docker-compose logs backend --tail=100
+
+# 백엔드 재시작
+docker-compose restart backend
+```
+
+### Database 문제
+```bash
+# PostgreSQL 접속
+docker exec -it uvis-postgres psql -U postgres -d uvis_db
+
+# 테이블 확인
+\dt
+
+# 데이터 확인
+SELECT COUNT(*) FROM orders;
+SELECT COUNT(*) FROM vehicles;
 ```
 
 ---
 
-## 🐛 문제 해결
+## 📁 중요 문서
 
-| 문제 | 해결 |
+| 문서 | 용도 |
 |------|------|
-| Permission denied | `chmod +x /root/uvis/*.sh` |
-| 빌드 실패 | 백업 복구 후 재시도 |
-| 컨테이너 안 됨 | `docker logs uvis-frontend` 확인 |
-| 이전 버전 로드 | 캐시 재삭제, 시크릿 모드 |
-
-### 백업 복구
-```bash
-cd /root/uvis/frontend/src/pages
-BACKUP=$(ls -dt layout_removal_backup_* | head -1)
-cp "$BACKUP"/*.tsx ./
-```
+| `CURRENT_SYSTEM_STATUS.md` | 전체 시스템 현황 |
+| `ERROR_FULLY_CORRECTED_SNAPSHOT.md` | 스냅샷 요약 |
+| `ROLLBACK_GUIDE.md` | 롤백 가이드 |
+| `NAVER_MAP_SETUP_GUIDE.md` | 네이버 지도 설정 |
+| `ADDITIONAL_ENGINE_PROPOSAL.md` | 추가 엔진 제안서 |
+| `WEBSOCKET_OVERLOAD_FIX_SUMMARY.md` | WebSocket 수정 내용 |
 
 ---
 
-## 📊 예상 결과
+## 🎯 다음 할 일 (To-Do)
 
-### Before
-```
-📊 Layout을 사용하는 페이지: 44 개
-❌ UI 일관성 없음
-```
+### 즉시 (Immediate)
+- [ ] 네이버 지도 API URL 등록 (Naver Cloud Console)
+- [ ] 서버에서 `bash DEPLOY_NAVER_MAP.sh` 실행
+- [ ] 지도 동작 테스트
 
-### After
-```
-✅ 성공: 44 개
-✅ Layout이 남아있는 페이지: 0 개
-✅ 모든 페이지에서 사이드바 표시
-```
+### 단기 (1-2주)
+- [ ] 실제 고객 데이터 입력
+- [ ] 차량 데이터 입력
+- [ ] 주문 데이터 입력
+- [ ] ML 모델 훈련 완료 확인
 
----
-
-## 📦 파일 목록
-
-| 파일 | 크기 | 용도 |
-|------|------|------|
-| complete_layout_fix.sh | 5.3K | 전체 자동화 |
-| batch_remove_layout.sh | 3.9K | Layout 일괄 제거 |
-| verify_layout_fix.sh | 5.2K | 검증 |
-| LAYOUT_BATCH_REMOVAL_GUIDE.md | 7.7K | 상세 가이드 |
-| UVIS_UI_FIX_COMPLETE_GUIDE.md | 7.2K | 완전 가이드 |
+### 중기 (1개월)
+- [ ] ML Auto-Training Scheduler 구현
+- [ ] Enhanced Dispatch Simulation 구현
 
 ---
 
-## 💡 핵심 원칙
+## 📞 연락처
 
-### ✅ DO
-- Layout은 **App.tsx에만**
-- 페이지는 **순수 컴포넌트**
-- 캐시 **완전 삭제**
-
-### ❌ DON'T
-- 개별 페이지에서 Layout import 금지
-- 부분 캐시 삭제 금지
-- 백업 없이 수정 금지
+**GitHub**: rpaakdi1-spec  
+**Repository**: https://github.com/rpaakdi1-spec/3-
 
 ---
 
-**TL;DR**
-```bash
-cp /home/user/webapp/*.sh /root/uvis/
-cd /root/uvis && chmod +x *.sh && ./complete_layout_fix.sh
-# 브라우저 캐시 삭제 → 테스트
-```
+**Last Updated**: 2026-02-27
