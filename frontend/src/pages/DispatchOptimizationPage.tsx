@@ -136,7 +136,7 @@ const DispatchOptimizationPage: React.FC = () => {
       const res = await axios.get(`${API_URL}/orders`, {
         headers: { Authorization: `Bearer ${token}` },
         params: {
-          status: 'CONFIRMED',
+          status: '배차대기',
           limit: 100
         }
       });

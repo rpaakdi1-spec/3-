@@ -97,8 +97,11 @@ const TemperatureMonitoringPage: React.FC = () => {
       setLoading(true);
       const response = await apiClient.get('/vehicles');
       
+      // Handle both array and object responses
+      const vehiclesList = Array.isArray(response.data) ? response.data : (response.data.vehicles || []);
+      
       // Mock temperature data for vehicles (in real scenario, this comes from backend)
-      const vehiclesWithTemp = response.data.map((vehicle: any) => ({
+      const vehiclesWithTemp = vehiclesList.map((vehicle: any) => ({
         vehicle_id: vehicle.id,
         vehicle_number: vehicle.plate_number,
         current_temp_a: vehicle.gps_data?.temperature_a,

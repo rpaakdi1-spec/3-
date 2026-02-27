@@ -18,7 +18,7 @@ import {
 import axios from 'axios';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api/v1';
-const WS_URL = API_URL.replace('http', 'ws');
+const WS_URL = (import.meta.env.VITE_API_URL || '/api/v1').replace('http', 'ws').replace('https', 'wss');
 
 interface VehicleStatus {
   vehicle_id: number;
@@ -98,7 +98,7 @@ const RealtimeTelemetryPage: React.FC = () => {
 
   const connectWebSocket = () => {
     try {
-      const ws = new WebSocket(`${WS_URL}/api/v1/ws/telemetry`);
+      const ws = new WebSocket(`${WS_URL}/ws/telemetry`);
       
       ws.onopen = () => {
         console.log('✅ WebSocket connected');
