@@ -128,7 +128,10 @@ export function useRealtimeData<T = any>(
       };
 
       ws.onerror = (event) => {
-        console.error(`❌ WebSocket error: ${url}`, event);
+        // Suppress error logging for production - errors are handled via reconnection
+        if (process.env.NODE_ENV === 'development') {
+          console.error(`❌ WebSocket error: ${url}`, event);
+        }
         setError('WebSocket connection error');
         
         if (onError) {
