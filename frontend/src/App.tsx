@@ -220,9 +220,9 @@ const App: React.FC = () => {
             <Route
               path="/dispatch/monitoring"
               element={
-                <ProtectedRoute>
+                <LayoutWrapper>
                   <DispatchMonitoringDashboard />
-                </ProtectedRoute>
+                </LayoutWrapper>
               }
             />
             <Route
