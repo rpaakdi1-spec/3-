@@ -72,6 +72,11 @@ class ChangePassword(BaseModel):
     new_password: str = Field(..., min_length=6)
 
 
+class UserStatusUpdate(BaseModel):
+    """사용자 상태 변경 스키마"""
+    is_active: bool
+
+
 class PendingEmployeeData(BaseModel):
     """승인 대기 중인 인사카드 정보"""
     employee_code: str

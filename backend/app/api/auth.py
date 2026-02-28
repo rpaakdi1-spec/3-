@@ -14,7 +14,7 @@ from app.services.auth_service import AuthService
 from app.schemas.auth import (
     Token, TokenData, UserCreate, UserResponse, UserUpdate,
     UserListResponse, ChangePassword, SignupRequest, ApprovalRequest,
-    UserResponseWithPending, PendingEmployeeData
+    UserResponseWithPending, PendingEmployeeData, UserStatusUpdate
 )
 from app.models.employee import Employee, EmployeeRole, EmploymentType
 from app.models.pending_employee import PendingEmployee
@@ -328,7 +328,7 @@ async def update_user(
 @router.put("/users/{user_id}/status")
 async def update_user_status(
     user_id: int,
-    is_active: bool,
+    status_data: UserStatusUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.ADMIN))  # Admin only
 ):
@@ -342,18 +342,18 @@ async def update_user_status(
         )
     
     # Cannot deactivate self
-    if user.id == current_user.id and not is_active:
+    if user.id == current_user.id and not status_data.is_active:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="자기 자신을 비활성화할 수 없습니다"
         )
     
-    user.is_active = is_active
+    user.is_active = status_data.is_active
     db.commit()
     
-    status_text = "활성화" if is_active else "비활성화"
+    status_text = "활성화" if status_data.is_active else "비활성화"
     logger.info(f"User {status_text}: {user.username}")
-    return {"message": f"사용자가 {status_text}되었습니다", "is_active": is_active}
+    return {"message": f"사용자가 {status_text}되었습니다", "is_active": status_data.is_active}
 
 
 @router.delete("/users/{user_id}")
