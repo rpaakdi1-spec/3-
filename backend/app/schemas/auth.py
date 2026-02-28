@@ -13,7 +13,7 @@ from app.models.employee import EmployeeRole, EmploymentType
 class UserBase(BaseModel):
     """사용자 기본 스키마"""
     username: str = Field(..., min_length=3, max_length=50)
-    email: EmailStr
+    email: Optional[EmailStr] = None
     full_name: Optional[str] = None
     phone: Optional[str] = Field(None, max_length=20)
     role: UserRole = UserRole.VIEWER
