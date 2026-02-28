@@ -196,7 +196,7 @@ class VehicleAnalyticsService:
             
             if latest_gps:
                 time_since_update = datetime.now(timezone.utc) - latest_gps.created_at
-                if time_since_update < timedelta(hours=1):
+                if time_since_update < timedelta(hours=24):  # 1시간 → 24시간으로 완화
                     active_vehicles += 1
         
         return {
@@ -244,7 +244,7 @@ class VehicleAnalyticsService:
         time_since_update = datetime.now(timezone.utc) - latest_gps.created_at
         
         # 상태 판단
-        if time_since_update > timedelta(hours=1):
+        if time_since_update > timedelta(hours=24):  # 1시간 → 24시간으로 완화
             status = "offline"
             message = f"{int(time_since_update.total_seconds() / 3600)}시간 전 마지막 신호"
         elif latest_gps.is_engine_on:
