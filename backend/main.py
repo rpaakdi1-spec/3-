@@ -158,7 +158,7 @@ async def internal_error_handler(request, exc):
 # from app.api import auth, clients, vehicles, orders, dispatches, tracking, uvis, redispatch, notices, purchase_orders, band_messages, uvis_gps, analytics, delivery_tracking, traffic, monitoring, cache
 from app.api import auth, clients, vehicles, orders, dispatches, tracking, uvis, redispatch, notices, purchase_orders, band_messages, uvis_gps, delivery_tracking, traffic, monitoring, cache, emergency, ml_training, ai_chat, ai_usage, ml_dispatch, ab_test, recurring_orders, order_templates, driver_schedules, urgent_dispatches, notifications, temperature_monitoring, temperature_analytics, billing, vehicle_maintenance, ml_predictions, telemetry, dispatch_optimization, analytics, mobile, dispatch_monitoring, ml_autolearning, files, chat, chat_ws
 from app.api.v1 import reports, realtime_monitoring, ml_models, fcm_notifications, performance, security, websocket, mobile_enhanced, billing_enhanced
-from app.api.v1.endpoints import dispatch_rules
+from app.api.v1.endpoints import dispatch_rules, employees
 app.include_router(auth.router, prefix=f"{settings.API_PREFIX}/auth", tags=["Authentication"])
 app.include_router(clients.router, prefix=f"{settings.API_PREFIX}/clients", tags=["Clients"])
 app.include_router(vehicles.router, prefix=f"{settings.API_PREFIX}/vehicles", tags=["Vehicles"])
@@ -187,6 +187,7 @@ app.include_router(ml_training.router, prefix=f"{settings.API_PREFIX}/ml", tags=
 app.include_router(ml_dispatch.router, tags=["ML Dispatch"])
 app.include_router(ml_autolearning.router, prefix=f"{settings.API_PREFIX}", tags=["ML Auto-Learning"])
 app.include_router(dispatch_rules.router, prefix=f"{settings.API_PREFIX}/dispatch-rules", tags=["Dispatch Rules"])
+app.include_router(employees.router, prefix=f"{settings.API_PREFIX}/employees", tags=["Employees"])
 # app.include_router(analytics.router, prefix=f"{settings.API_PREFIX}", tags=["Analytics"])  # Temporarily disabled due to Pydantic recursion issue
 app.include_router(reports.router, prefix=f"{settings.API_PREFIX}/reports", tags=["Reports"])
 app.include_router(realtime_monitoring.router, prefix=f"{settings.API_PREFIX}/realtime", tags=["Realtime Monitoring"])
