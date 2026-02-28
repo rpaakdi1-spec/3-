@@ -24,7 +24,7 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True, comment="ID")
     username = Column(String(50), unique=True, nullable=False, index=True, comment="사용자명")
-    email = Column(String(100), unique=True, nullable=False, index=True, comment="이메일")
+    email = Column(String(100), unique=True, nullable=True, index=True, comment="이메일")
     hashed_password = Column(String(255), nullable=False, comment="해시된 비밀번호")
     full_name = Column(String(100), nullable=True, comment="전체 이름")
     role = Column(Enum(UserRole), default=UserRole.VIEWER, nullable=False, comment="사용자 역할")
