@@ -1,6 +1,7 @@
 from .base import Base
 from .user import User
 from .employee import Employee, EmployeeRole, EmploymentType
+from .pending_employee import PendingEmployee
 from .client import Client
 from .vehicle import Vehicle, VehicleType, VehicleStatus
 from .driver import Driver
@@ -48,6 +49,7 @@ __all__ = [
     "Employee",
     "EmployeeRole",
     "EmploymentType",
+    "PendingEmployee",
     "Client",
     "Vehicle",
     "VehicleType",

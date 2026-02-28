@@ -15,7 +15,8 @@ from app.schemas.auth import (
     Token, TokenData, UserCreate, UserResponse, UserUpdate,
     UserListResponse, ChangePassword, SignupRequest, ApprovalRequest
 )
-from app.models.employee import Employee
+from app.models.employee import Employee, EmployeeRole, EmploymentType
+from app.models.pending_employee import PendingEmployee
 from loguru import logger
 
 
@@ -110,7 +111,7 @@ async def signup(
     signup_data: SignupRequest,
     db: Session = Depends(get_db)
 ):
-    """공개 회원가입 (인사카드 직원번호로 연동)"""
+    """공개 회원가입 (인사카드 양식으로 전체 정보 입력)"""
     # Check if user exists
     existing_user = db.query(User).filter(
         (User.username == signup_data.username) | (User.email == signup_data.email)
@@ -122,29 +123,27 @@ async def signup(
             detail="이미 존재하는 사용자명 또는 이메일입니다"
         )
     
-    # Find employee by employee_code
-    employee = db.query(Employee).filter(
+    # Check if employee_code already exists
+    existing_employee = db.query(Employee).filter(
         Employee.employee_code == signup_data.employee_code
     ).first()
     
-    if not employee:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="해당 직원번호를 찾을 수 없습니다. 인사카드에 등록된 직원번호를 입력해주세요."
-        )
-    
-    # Validate phone number matches
-    if employee.phone != signup_data.phone:
+    if existing_employee:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="등록된 전화번호와 일치하지 않습니다"
+            detail="이미 사용 중인 사원번호입니다"
         )
     
-    # Validate name matches
-    if employee.name != signup_data.full_name:
+    # Check if employee_code is pending
+    existing_pending = db.query(PendingEmployee).join(User).filter(
+        PendingEmployee.employee_code == signup_data.employee_code,
+        User.approval_status == "pending"
+    ).first()
+    
+    if existing_pending:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="등록된 이름과 일치하지 않습니다"
+            detail="이미 승인 대기 중인 사원번호입니다"
         )
     
     # Create user in pending status
@@ -152,20 +151,55 @@ async def signup(
         username=signup_data.username,
         email=signup_data.email,
         hashed_password=AuthService.get_password_hash(signup_data.password),
-        full_name=signup_data.full_name,
+        full_name=signup_data.name,
         phone=signup_data.phone,
         role=signup_data.role,
-        employee_id=employee.id,
-        is_active=False,  # Not active until approved
+        employee_id=None,  # Will be set after approval
+        is_active=False,
         approval_status="pending",
         is_superuser=False
     )
     
     db.add(new_user)
+    db.flush()  # Get user.id without committing
+    
+    # Store pending employee data
+    pending_employee = PendingEmployee(
+        user_id=new_user.id,
+        employee_code=signup_data.employee_code,
+        name=signup_data.name,
+        name_en=signup_data.name_en,
+        phone=signup_data.phone,
+        email=signup_data.email,
+        address=signup_data.address,
+        emergency_contact=signup_data.emergency_contact,
+        role=signup_data.employee_role.value,
+        employment_type=signup_data.employment_type.value,
+        department=signup_data.department,
+        position=signup_data.position,
+        hire_date=signup_data.hire_date,
+        work_start_time=signup_data.work_start_time,
+        work_end_time=signup_data.work_end_time,
+        max_work_hours=signup_data.max_work_hours,
+        license_type=signup_data.license_type,
+        license_number=signup_data.license_number,
+        license_issue_date=signup_data.license_issue_date,
+        has_cargo_license=signup_data.has_cargo_license,
+        cargo_license_number=signup_data.cargo_license_number,
+        cargo_license_issue_date=signup_data.cargo_license_issue_date,
+        cargo_license_expiry_date=signup_data.cargo_license_expiry_date,
+        can_drive_forklift=signup_data.can_drive_forklift,
+        has_forklift_certificate=signup_data.has_forklift_certificate,
+        forklift_certificate_number=signup_data.forklift_certificate_number,
+        forklift_certificate_issue_date=signup_data.forklift_certificate_issue_date,
+        forklift_certificate_expiry_date=signup_data.forklift_certificate_expiry_date
+    )
+    
+    db.add(pending_employee)
     db.commit()
     db.refresh(new_user)
     
-    logger.info(f"New signup pending approval: {new_user.username} (employee: {employee.employee_code})")
+    logger.info(f"New signup pending approval: {new_user.username} ({signup_data.employee_code})")
     return new_user
 
 
@@ -394,7 +428,7 @@ async def approve_user(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """사용자 승인 (MASTER, ADMIN만 가능)"""
+    """사용자 승인 및 인사카드 생성 (MASTER, ADMIN만 가능)"""
     # Only MASTER and ADMIN can approve users
     if current_user.role not in [UserRole.MASTER, UserRole.ADMIN]:
         raise HTTPException(
@@ -416,15 +450,65 @@ async def approve_user(
             detail="대기 중인 사용자만 승인할 수 있습니다"
         )
     
+    # Get pending employee data
+    pending_emp = db.query(PendingEmployee).filter(PendingEmployee.user_id == user_id).first()
+    
+    if not pending_emp:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="인사카드 정보를 찾을 수 없습니다"
+        )
+    
+    # Create Employee record from pending data
+    new_employee = Employee(
+        employee_code=pending_emp.employee_code,
+        name=pending_emp.name,
+        name_en=pending_emp.name_en,
+        phone=pending_emp.phone,
+        email=pending_emp.email,
+        address=pending_emp.address,
+        emergency_contact=pending_emp.emergency_contact,
+        role=EmployeeRole(pending_emp.role),
+        employment_type=EmploymentType(pending_emp.employment_type),
+        department=pending_emp.department,
+        position=pending_emp.position,
+        hire_date=pending_emp.hire_date,
+        work_start_time=pending_emp.work_start_time,
+        work_end_time=pending_emp.work_end_time,
+        max_work_hours=pending_emp.max_work_hours,
+        license_type=pending_emp.license_type,
+        license_number=pending_emp.license_number,
+        license_issue_date=pending_emp.license_issue_date,
+        has_cargo_license=pending_emp.has_cargo_license,
+        cargo_license_number=pending_emp.cargo_license_number,
+        cargo_license_issue_date=pending_emp.cargo_license_issue_date,
+        cargo_license_expiry_date=pending_emp.cargo_license_expiry_date,
+        can_drive_forklift=pending_emp.can_drive_forklift,
+        has_forklift_certificate=pending_emp.has_forklift_certificate,
+        forklift_certificate_number=pending_emp.forklift_certificate_number,
+        forklift_certificate_issue_date=pending_emp.forklift_certificate_issue_date,
+        forklift_certificate_expiry_date=pending_emp.forklift_certificate_expiry_date
+    )
+    
+    db.add(new_employee)
+    db.flush()  # Get employee.id
+    
+    # Update user
+    user.employee_id = new_employee.id
     user.approval_status = "approved"
     user.approved_by = current_user.id
     user.approved_at = datetime.utcnow()
     user.is_active = True
+    
+    # Delete pending employee data (no longer needed)
+    db.delete(pending_emp)
+    
     db.commit()
     db.refresh(user)
+    db.refresh(new_employee)
     
-    logger.info(f"User approved: {user.username} by {current_user.username}")
-    return {"message": "사용자가 승인되었습니다", "user": UserResponse.model_validate(user)}
+    logger.info(f"User approved & Employee created: {user.username} ({new_employee.employee_code}) by {current_user.username}")
+    return {"message": "사용자가 승인되고 인사카드가 생성되었습니다", "user": UserResponse.model_validate(user)}
 
 
 @router.post("/users/{user_id}/reject")
@@ -456,6 +540,11 @@ async def reject_user(
             detail="대기 중인 사용자만 거부할 수 있습니다"
         )
     
+    # Delete pending employee data
+    pending_emp = db.query(PendingEmployee).filter(PendingEmployee.user_id == user_id).first()
+    if pending_emp:
+        db.delete(pending_emp)
+    
     user.approval_status = "rejected"
     user.approved_by = current_user.id
     user.approved_at = datetime.utcnow()
@@ -463,6 +552,7 @@ async def reject_user(
     db.refresh(user)
     
     logger.info(f"User rejected: {user.username} by {current_user.username}")
+    return {"message": f"사용자 가입이 거부되었습니다{f': {rejection_reason}' if rejection_reason else ''}", "user": UserResponse.model_validate(user)}
     return {"message": f"사용자 가입이 거부되었습니다{f': {rejection_reason}' if rejection_reason else ''}", "user": UserResponse.model_validate(user)}
 
 
