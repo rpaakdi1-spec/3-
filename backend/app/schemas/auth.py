@@ -72,6 +72,33 @@ class ChangePassword(BaseModel):
     new_password: str = Field(..., min_length=6)
 
 
+class PendingEmployeeData(BaseModel):
+    """승인 대기 중인 인사카드 정보"""
+    employee_code: str
+    name: str
+    name_en: Optional[str] = None
+    phone: str
+    email: Optional[str] = None
+    address: Optional[str] = None
+    emergency_contact: Optional[str] = None
+    role: str
+    employment_type: str
+    department: Optional[str] = None
+    position: Optional[str] = None
+    hire_date: date
+    license_type: Optional[str] = None
+    has_cargo_license: bool
+    can_drive_forklift: bool
+    has_forklift_certificate: bool
+    
+    model_config = ConfigDict(from_attributes=True)
+
+
+class UserResponseWithPending(UserResponse):
+    """사용자 응답 스키마 (PendingEmployee 정보 포함)"""
+    pending_employee: Optional[PendingEmployeeData] = None
+
+
 class SignupRequest(BaseModel):
     """회원가입 요청 스키마 (인사카드 양식 전체 정보)"""
     # 계정 정보

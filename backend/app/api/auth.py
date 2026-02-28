@@ -13,7 +13,8 @@ from app.models.user import User, UserRole
 from app.services.auth_service import AuthService
 from app.schemas.auth import (
     Token, TokenData, UserCreate, UserResponse, UserUpdate,
-    UserListResponse, ChangePassword, SignupRequest, ApprovalRequest
+    UserListResponse, ChangePassword, SignupRequest, ApprovalRequest,
+    UserResponseWithPending, PendingEmployeeData
 )
 from app.models.employee import Employee, EmployeeRole, EmploymentType
 from app.models.pending_employee import PendingEmployee
@@ -401,14 +402,14 @@ async def delete_user(
     return {"message": "사용자가 삭제되었습니다"}
 
 
-@router.get("/users/pending", response_model=UserListResponse)
+@router.get("/users/pending")
 async def get_pending_users(
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """승인 대기 중인 사용자 목록 조회 (MASTER, ADMIN만 가능)"""
+    """승인 대기 중인 사용자 목록 조회 with PendingEmployee (MASTER, ADMIN만 가능)"""
     # Only MASTER and ADMIN can view pending users
     if current_user.role not in [UserRole.MASTER, UserRole.ADMIN]:
         raise HTTPException(
@@ -419,7 +420,18 @@ async def get_pending_users(
     total = db.query(User).filter(User.approval_status == "pending").count()
     users = db.query(User).filter(User.approval_status == "pending").offset(skip).limit(limit).all()
     
-    return UserListResponse(total=total, items=users)
+    # Manually load pending_employee for each user
+    items = []
+    for user in users:
+        pending_emp = db.query(PendingEmployee).filter(PendingEmployee.user_id == user.id).first()
+        user_dict = UserResponse.model_validate(user).model_dump()
+        if pending_emp:
+            user_dict['pending_employee'] = PendingEmployeeData.model_validate(pending_emp).model_dump()
+        else:
+            user_dict['pending_employee'] = None
+        items.append(user_dict)
+    
+    return {"total": total, "items": items}
 
 
 @router.post("/users/{user_id}/approve")
