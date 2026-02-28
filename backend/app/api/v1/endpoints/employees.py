@@ -169,9 +169,10 @@ def update_employee(
 @router.delete("/{employee_id}", status_code=204)
 def delete_employee(employee_id: int, db: Session = Depends(get_db)):
     """
-    직원 삭제 (소프트 삭제)
+    직원 삭제 (소프트 삭제 - 휴지통으로 이동)
     
-    실제로는 is_active를 False로 설정
+    실제로는 is_active를 False로 설정하고 resignation_date를 기록
+    복구는 restore endpoint를 사용
     """
     employee = db.query(Employee).filter(Employee.id == employee_id).first()
     if not employee:
@@ -181,8 +182,34 @@ def delete_employee(employee_id: int, db: Session = Depends(get_db)):
     employee.resignation_date = date.today()
     db.commit()
     
-    logger.info(f"Soft deleted employee: {employee.employee_code} - {employee.name}")
+    logger.info(f"Moved to trash: {employee.employee_code} - {employee.name}")
     return None
+
+
+@router.post("/{employee_id}/restore", response_model=EmployeeResponse)
+def restore_employee(employee_id: int, db: Session = Depends(get_db)):
+    """
+    퇴사자 복구 (휴지통에서 복원)
+    
+    - 퇴사 처리된 직원을 재직 상태로 되돌림
+    - resignation_date를 null로 설정
+    - is_active를 True로 설정
+    """
+    employee = db.query(Employee).filter(Employee.id == employee_id).first()
+    if not employee:
+        raise HTTPException(status_code=404, detail="직원을 찾을 수 없습니다.")
+    
+    if employee.is_active:
+        raise HTTPException(status_code=400, detail="이미 재직 중인 직원입니다.")
+    
+    # Restore employee
+    employee.is_active = True
+    employee.resignation_date = None
+    db.commit()
+    db.refresh(employee)
+    
+    logger.info(f"Restored employee from trash: {employee.employee_code} - {employee.name}")
+    return employee_to_response(employee)
 
 
 # ==================== 운전자 특화 Endpoints ====================

@@ -1,9 +1,9 @@
 /**
  * Employee Management Page - Full Featured
- * 인사관리 페이지 (전체 기능)
+ * 인사관리 페이지 (전체 기능 + 휴지통)
  */
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, RefreshCw, Edit, Trash2, Users, Upload, Download, AlertTriangle, X } from 'lucide-react';
+import { Plus, Search, RefreshCw, Edit, Trash2, Users, Upload, Download, AlertTriangle, X, RotateCcw, Archive } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
@@ -28,6 +28,7 @@ const EmployeeManagementPage: React.FC = () => {
   // Modal States
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showTrashModal, setShowTrashModal] = useState(false);
   const [currentEmployee, setCurrentEmployee] = useState<Employee | null>(null);
   const [currentTab, setCurrentTab] = useState<ModalTab>('basic');
 
@@ -135,17 +136,37 @@ const EmployeeManagementPage: React.FC = () => {
 
   // Handle delete
   const handleDelete = async (id: number, name: string) => {
-    if (!confirm(`${name}님을 퇴사 처리하시겠습니까?`)) return;
+    if (!confirm(`${name}님을 퇴사 처리하시겠습니까?\n\n퇴사 처리된 직원은 휴지통에서 복구할 수 있습니다.`)) return;
     
     try {
       await employeeAPI.delete(id);
-      toast.success('퇴사 처리되었습니다');
+      toast.success(`${name}님이 휴지통으로 이동되었습니다`);
       fetchEmployees();
       fetchStatistics();
     } catch (error) {
       console.error('Failed to delete employee:', error);
       toast.error('퇴사 처리 실패');
     }
+  };
+
+  // Handle restore
+  const handleRestore = async (id: number, name: string) => {
+    if (!confirm(`${name}님을 복구하시겠습니까?`)) return;
+    
+    try {
+      await employeeAPI.restore(id);
+      toast.success(`${name}님이 복구되었습니다`);
+      fetchEmployees();
+      fetchStatistics();
+    } catch (error) {
+      console.error('Failed to restore employee:', error);
+      toast.error('복구 실패');
+    }
+  };
+
+  // Open trash modal
+  const openTrashModal = () => {
+    setShowTrashModal(true);
   };
 
   // Open create modal
@@ -815,6 +836,10 @@ const EmployeeManagementPage: React.FC = () => {
           <p className="text-gray-500 mt-1">직원 정보 조회 및 관리</p>
         </div>
         <div className="flex gap-2">
+          <Button onClick={openTrashModal} variant="outline" className="flex items-center gap-2">
+            <Archive size={20} />
+            휴지통
+          </Button>
           <label className="cursor-pointer">
             <input
               type="file"
@@ -1165,6 +1190,111 @@ const EmployeeManagementPage: React.FC = () => {
               </Button>
               <Button onClick={handleUpdate}>
                 저장
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Trash Modal (Resigned Employees) */}
+      {showTrashModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col">
+            <div className="p-6 border-b flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <Archive className="text-gray-600" size={28} />
+                <div>
+                  <h2 className="text-2xl font-bold">휴지통 (퇴사자)</h2>
+                  <p className="text-sm text-gray-500 mt-1">퇴사 처리된 직원 목록 - 복구 가능</p>
+                </div>
+              </div>
+              <button onClick={() => setShowTrashModal(false)} className="text-gray-500 hover:text-gray-700">
+                <X size={24} />
+              </button>
+            </div>
+
+            {/* Trash Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {employees.filter(emp => !emp.is_active).length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  <Archive size={48} className="mx-auto mb-4 text-gray-400" />
+                  <p className="text-lg font-medium">휴지통이 비어있습니다</p>
+                  <p className="text-sm mt-2">퇴사 처리된 직원이 없습니다</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {employees.filter(emp => !emp.is_active).map((emp) => (
+                    <Card key={emp.id} className="bg-gray-50">
+                      <div className="p-4">
+                        <div className="flex justify-between items-start mb-3">
+                          <div>
+                            <div className="flex items-center gap-2 mb-2 flex-wrap">
+                              <span className={`px-2 py-1 rounded text-xs font-semibold ${getRoleColor(emp.role)}`}>
+                                {getRoleLabel(emp.role)}
+                              </span>
+                              <span className="px-2 py-1 rounded text-xs font-semibold bg-gray-100 text-gray-700">
+                                {getEmploymentTypeLabel(emp.employment_type)}
+                              </span>
+                              <span className="px-2 py-1 rounded text-xs font-semibold bg-red-100 text-red-800">
+                                퇴사
+                              </span>
+                            </div>
+                            <h3 className="text-lg font-bold text-gray-900">{emp.name}</h3>
+                            <p className="text-sm text-gray-500">{emp.employee_code}</p>
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-1 text-sm mb-4 text-gray-600">
+                          <p className="flex items-center gap-1">📞 {emp.phone}</p>
+                          {emp.department && <p className="flex items-center gap-1">🏢 {emp.department}</p>}
+                          {emp.resignation_date && (
+                            <p className="flex items-center gap-1 text-red-600">
+                              📅 퇴사일: {emp.resignation_date}
+                            </p>
+                          )}
+                          <div className="flex gap-2 flex-wrap mt-2">
+                            {emp.has_cargo_license && (
+                              <span className="px-2 py-1 rounded text-xs bg-blue-100 text-blue-800">화물자격증 ✓</span>
+                            )}
+                            {emp.can_drive_forklift && (
+                              <span className={`px-2 py-1 rounded text-xs ${emp.has_forklift_certificate ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'}`}>
+                                🔧 지게차 {emp.has_forklift_certificate ? '✅' : '⚠️'}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex gap-2">
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            onClick={() => handleRestore(emp.id, emp.name)}
+                            className="flex-1 flex items-center justify-center gap-1"
+                          >
+                            <RotateCcw size={16} />
+                            복구
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            onClick={() => openEditModal(emp)}
+                            className="flex-1 flex items-center justify-center gap-1"
+                          >
+                            <Edit size={16} />
+                            보기
+                          </Button>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Actions */}
+            <div className="p-6 border-t flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowTrashModal(false)}>
+                닫기
               </Button>
             </div>
           </div>

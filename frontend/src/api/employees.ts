@@ -160,10 +160,18 @@ class EmployeeAPI {
   }
 
   /**
-   * 직원 삭제 (소프트 삭제)
+   * 직원 삭제 (소프트 삭제 - 휴지통으로 이동)
    */
   async delete(id: number): Promise<void> {
     await apiClient.delete(`${this.baseURL}/${id}`);
+  }
+
+  /**
+   * 퇴사자 복구 (휴지통에서 복원)
+   */
+  async restore(id: number): Promise<Employee> {
+    const response = await apiClient.post<Employee>(`${this.baseURL}/${id}/restore`);
+    return response.data;
   }
 
   /**
