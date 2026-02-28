@@ -94,7 +94,7 @@ const UserManagementTab: React.FC = () => {
     try {
       setLoading(true);
       const response = await api.get('/auth/users');
-      setUsers(response.data);
+      setUsers(response.data.items || response.data);
     } catch (error) {
       console.error('Failed to load users:', error);
       toast.error('사용자 목록 조회에 실패했습니다');
