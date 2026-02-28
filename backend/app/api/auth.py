@@ -183,7 +183,7 @@ async def signup(
     db.commit()
     db.refresh(new_user)
     
-    logger.info(f"New signup pending approval: {new_user.username} ({signup_data.employee_code})")
+    logger.info(f"New signup pending approval: {new_user.username} ({employee_code})")
     return new_user
 
 
