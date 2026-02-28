@@ -1,5 +1,6 @@
 from .base import Base
 from .user import User
+from .employee import Employee, EmployeeRole, EmploymentType
 from .client import Client
 from .vehicle import Vehicle, VehicleType, VehicleStatus
 from .driver import Driver
@@ -44,6 +45,9 @@ from .dispatch_rule import DispatchRule, RuleConstraint, RuleExecutionLog, Optim
 __all__ = [
     "Base",
     "User",
+    "Employee",
+    "EmployeeRole",
+    "EmploymentType",
     "Client",
     "Vehicle",
     "VehicleType",
