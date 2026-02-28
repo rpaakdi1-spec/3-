@@ -196,6 +196,83 @@ async def get_users(
     return UserListResponse(total=total, items=users)
 
 
+@router.get("/users/{user_id}", response_model=UserResponse)
+async def get_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.ADMIN))  # Admin only
+):
+    """사용자 상세 정보 조회 (Admin만 가능)"""
+    user = db.query(User).filter(User.id == user_id).first()
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="사용자를 찾을 수 없습니다"
+        )
+    
+    return user
+
+
+@router.put("/users/{user_id}", response_model=UserResponse)
+async def update_user(
+    user_id: int,
+    user_update: UserUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.ADMIN))  # Admin only
+):
+    """사용자 정보 수정 (Admin만 가능)"""
+    user = db.query(User).filter(User.id == user_id).first()
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="사용자를 찾을 수 없습니다"
+        )
+    
+    update_data = user_update.model_dump(exclude_unset=True)
+    
+    for field, value in update_data.items():
+        setattr(user, field, value)
+    
+    db.commit()
+    db.refresh(user)
+    
+    logger.info(f"User updated by admin: {user.username}")
+    return user
+
+
+@router.put("/users/{user_id}/status")
+async def update_user_status(
+    user_id: int,
+    is_active: bool,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.ADMIN))  # Admin only
+):
+    """사용자 활성화/비활성화 (Admin만 가능)"""
+    user = db.query(User).filter(User.id == user_id).first()
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="사용자를 찾을 수 없습니다"
+        )
+    
+    # Cannot deactivate self
+    if user.id == current_user.id and not is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="자기 자신을 비활성화할 수 없습니다"
+        )
+    
+    user.is_active = is_active
+    db.commit()
+    
+    status_text = "활성화" if is_active else "비활성화"
+    logger.info(f"User {status_text}: {user.username}")
+    return {"message": f"사용자가 {status_text}되었습니다", "is_active": is_active}
+
+
 @router.delete("/users/{user_id}")
 async def delete_user(
     user_id: int,

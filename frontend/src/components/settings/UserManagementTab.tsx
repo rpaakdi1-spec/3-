@@ -62,6 +62,8 @@ const UserManagementTab: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showNewUserModal, setShowNewUserModal] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingUser, setEditingUser] = useState<UserAccount | null>(null);
 
   const [newUser, setNewUser] = useState<NewUserForm>({
     username: '',
@@ -174,16 +176,40 @@ const UserManagementTab: React.FC = () => {
 
   const handleToggleActive = async (userId: number, currentStatus: boolean) => {
     try {
-      // Backend doesn't have toggle endpoint yet, use delete to deactivate
-      if (currentStatus) {
-        await api.delete(`/auth/users/${userId}`);
-        toast.success('사용자가 비활성화되었습니다');
-        loadUsers();
-      } else {
-        toast.warning('활성화 기능은 아직 구현되지 않았습니다');
-      }
+      await api.put(`/auth/users/${userId}/status`, { is_active: !currentStatus });
+      toast.success(currentStatus ? '사용자가 비활성화되었습니다' : '사용자가 활성화되었습니다');
+      loadUsers();
     } catch (error) {
       toast.error('상태 변경에 실패했습니다');
+    }
+  };
+
+  const handleEditUser = async (userId: number) => {
+    try {
+      const response = await api.get(`/auth/users/${userId}`);
+      setEditingUser(response.data);
+      setShowEditModal(true);
+    } catch (error) {
+      toast.error('사용자 정보를 불러오는데 실패했습니다');
+    }
+  };
+
+  const handleUpdateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+
+    try {
+      await api.put(`/auth/users/${editingUser.id}`, {
+        email: editingUser.email,
+        full_name: editingUser.full_name,
+        role: editingUser.role
+      });
+      toast.success('사용자 정보가 수정되었습니다');
+      setShowEditModal(false);
+      setEditingUser(null);
+      loadUsers();
+    } catch (error) {
+      toast.error('수정에 실패했습니다');
     }
   };
 
@@ -312,6 +338,13 @@ const UserManagementTab: React.FC = () => {
                   </td>
                   <td className="py-3 px-4">
                     <div className="flex justify-center space-x-2">
+                      <button
+                        onClick={() => handleEditUser(user.id)}
+                        className="text-blue-600 hover:text-blue-700"
+                        title="수정"
+                      >
+                        <Edit2 size={18} />
+                      </button>
                       <button
                         onClick={() => handleDeleteUser(user.id)}
                         className="text-red-600 hover:text-red-700"
@@ -651,6 +684,72 @@ const UserManagementTab: React.FC = () => {
                   </Button>
                   <Button type="submit" loading={loading}>
                     등록
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit User Modal */}
+      {showEditModal && editingUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full">
+            <div className="p-6">
+              <h3 className="text-2xl font-bold text-gray-800 mb-6">사용자 정보 수정</h3>
+              
+              <form onSubmit={handleUpdateUser} className="space-y-6">
+                <div className="border-b pb-4">
+                  <h4 className="text-lg font-semibold text-gray-700 mb-4">계정 정보</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Input
+                      label="사용자명"
+                      value={editingUser.username}
+                      disabled
+                    />
+                    <Input
+                      label="이메일"
+                      type="email"
+                      value={editingUser.email}
+                      onChange={(e) => setEditingUser({...editingUser, email: e.target.value})}
+                    />
+                    <Input
+                      label="이름"
+                      value={editingUser.full_name}
+                      onChange={(e) => setEditingUser({...editingUser, full_name: e.target.value})}
+                    />
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        권한
+                      </label>
+                      <select
+                        value={editingUser.role}
+                        onChange={(e) => setEditingUser({...editingUser, role: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="VIEWER">운전직</option>
+                        <option value="ADMIN">관리자</option>
+                        <option value="OPERATOR">운영</option>
+                        <option value="VEHICLE_MANAGER">차량관리</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4 border-t">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => {
+                      setShowEditModal(false);
+                      setEditingUser(null);
+                    }}
+                  >
+                    취소
+                  </Button>
+                  <Button type="submit" loading={loading}>
+                    저장
                   </Button>
                 </div>
               </form>
