@@ -31,7 +31,26 @@ Swap Used: 251MB / 2.0GB (12.5%)
 
 ## 🔍 주요 문제점
 
-### 1. ⚠️ **Grafana 블록 I/O 과다** (94.7GB)
+### 1. 🔴 **Docker 캐시 과다** (15.13GB) - 🆕 발견!
+- **현재**: 15.13GB 빌드 캐시
+- **매우 심각** - 디스크 공간 낭비
+- **원인**:
+  - 반복된 이미지 빌드
+  - 캐시 레이어 축적
+  - 자동 정리 미설정
+- **해결**: `docker builder prune -af` 실행
+
+### 2. ⚠️ **미사용 Docker 이미지** (8.5GB) - 🆕 발견!
+- **현재**: 8.5GB (83% 회수 가능)
+- **원인**: 이전 버전 이미지 미삭제
+- **해결**: `docker image prune -af`
+
+### 3. ⚠️ **미사용 볼륨** (789MB) - 🆕 발견!
+- **현재**: 789MB (85% 회수 가능)
+- **원인**: 삭제된 컨테이너의 볼륨 잔존
+- **해결**: `docker volume prune -f`
+
+### 4. ⚠️ **Grafana 블록 I/O 과다** (94.7GB)
 - **현재**: 94.7GB 블록 I/O
 - **비정상적으로 높음** - 디스크 읽기/쓰기 과다
 - **원인**: 
@@ -39,14 +58,14 @@ Swap Used: 251MB / 2.0GB (12.5%)
   - 대시보드 새로고침 빈도 높음
   - 히스토리 데이터 축적
 
-### 2. ⚠️ **Prometheus 블록 I/O 과다** (44.9GB)
+### 5. ⚠️ **Prometheus 블록 I/O 과다** (44.9GB)
 - **현재**: 44.9GB 블록 I/O
 - **원인**:
   - 메트릭 수집 간격 짧음
   - 보존 기간 길음
   - 메트릭 종류 과다
 
-### 3. 🔴 **Backend 메모리 사용량 높음** (1.2GB)
+### 6. 🔴 **Backend 메모리 사용량 높음** (1.2GB)
 - **현재**: 1.196GB (33.42%)
 - **원인**:
   - Uvicorn workers 4개 × ~300MB
@@ -54,7 +73,7 @@ Swap Used: 251MB / 2.0GB (12.5%)
   - 캐시 메모리
   - 머신러닝 모델 로드 (있는 경우)
 
-### 4. 📉 **여유 메모리 부족**
+### 7. 📉 **여유 메모리 부족**
 - **Free**: 127MB (3.5%) - 매우 낮음
 - **Available**: 891MB (24.7%) - 보통
 - **Swap 사용**: 251MB (스왑 사용은 성능 저하 신호)
@@ -65,7 +84,21 @@ Swap Used: 251MB / 2.0GB (12.5%)
 
 ### A. 즉시 조치 (Priority: 🔴 High)
 
-#### 1. **Grafana 최적화**
+#### 1. **Docker 캐시 및 미사용 리소스 정리** (🆕 최우선)
+```bash
+# 빌드 캐시 정리 (15.13GB)
+docker builder prune -af
+
+# 미사용 이미지 정리 (8.5GB)
+docker image prune -af
+
+# 미사용 볼륨 정리 (789MB)
+docker volume prune -f
+```
+
+**효과**: 디스크 ~24GB 절약
+
+#### 2. **Grafana 최적화**
 ```bash
 # Grafana 설정 수정
 docker exec coldchain-grafana sh -c 'cat > /etc/grafana/grafana.ini << EOL
@@ -87,7 +120,7 @@ docker restart coldchain-grafana
 
 **효과**: 메모리 ~40-50MB 절약, I/O 80% 감소
 
-#### 2. **Prometheus 메트릭 보존 기간 단축**
+#### 3. **Prometheus 메트릭 보존 기간 단축**
 ```yaml
 # docker-compose.yml의 prometheus 설정
 prometheus:
@@ -99,7 +132,7 @@ prometheus:
 
 **효과**: 디스크 I/O 60% 감소, 메모리 ~20MB 절약
 
-#### 3. **Backend Workers 감소**
+#### 4. **Backend Workers 감소**
 ```yaml
 # docker-compose.yml
 backend:
@@ -171,25 +204,29 @@ db:
 
 ## 📝 권장 조치 순서
 
-### 1단계: 즉시 적용 (오늘)
+### 1단계: 즉시 적용 (오늘) - 🆕 종합 스크립트 사용
 ```bash
 cd /root/uvis
 
-# Backend workers 2개로 감소
-sed -i 's/--workers 4/--workers 2/' docker-compose.yml
+# 종합 최적화 스크립트 복사
+# (GitHub에서 comprehensive_optimize.sh 다운로드)
 
-# Prometheus 보존 기간 단축
-# docker-compose.yml 수동 편집 필요
-
-# 재시작
-docker-compose down backend
-docker-compose up -d backend
-
-# 확인
-docker stats --no-stream
+# 실행
+bash comprehensive_optimize.sh
 ```
 
-**예상 효과**: 메모리 사용량 2.4GB → 1.8GB (25% 감소)
+**스크립트가 자동 수행하는 작업:**
+1. Docker 빌드 캐시 정리 (15.13GB)
+2. 미사용 이미지 정리 (8.5GB)
+3. 미사용 볼륨 정리 (789MB)
+4. Backend workers 4 → 2로 감소
+5. 테스트 컨테이너 제거
+6. 시스템 캐시 정리
+7. 최적화 전/후 비교
+
+**예상 효과**: 
+- 디스크 ~24GB 절약
+- 메모리 사용량 2.4GB → 1.8GB (25% 감소)
 
 ### 2단계: 1시간 후 확인
 ```bash
@@ -214,6 +251,10 @@ watch -n 5 'docker stats --no-stream && free -h'
 | **시스템 Used** | 2.4GB | 1.8GB | -25% |
 | **Available 메모리** | 891MB | 1.5GB | +68% |
 | **Swap 사용** | 251MB | 100MB | -60% |
+| **🆕 Docker 빌드 캐시** | 15.13GB | 0GB | -100% |
+| **🆕 미사용 이미지** | 8.5GB | 0GB | -100% |
+| **🆕 미사용 볼륨** | 789MB | 0GB | -100% |
+| **🆕 총 디스크 절약** | - | ~24GB | - |
 
 ---
 
@@ -280,10 +321,23 @@ chmod +x /root/memory_monitor.sh
 
 ## 결론
 
-**현재 상태**: ⚠️ 주의 필요 (75.4% 메모리 사용)  
-**주요 원인**: Backend workers 과다 (4개), Grafana/Prometheus I/O 과다  
-**즉시 조치**: Backend workers 2개로 감소 → **메모리 25% 절약**  
+**현재 상태**: ⚠️ 주의 필요 (메모리 75.4%, 디스크 캐시 24GB)  
+**주요 원인**: 
+- 🔴 Docker 캐시 15.13GB (최우선)
+- 🔴 미사용 이미지 8.5GB
+- 🟡 Backend workers 과다 (4개)
+- 🟡 Grafana/Prometheus I/O 과다
+
+**즉시 조치**: 
+1. Docker 캐시/이미지/볼륨 정리 → **디스크 24GB 절약**
+2. Backend workers 2개로 감소 → **메모리 25% 절약**
+
 **안정화**: Grafana/Prometheus 최적화 → **I/O 80% 감소**  
 
-**최종 목표**: 메모리 사용률 60% 이하 유지, Swap 사용 최소화
+**최종 목표**: 
+- 메모리 사용률 60% 이하 유지
+- 디스크 공간 24GB 확보
+- Swap 사용 최소화
+
+**🚀 실행 방법**: 서버에서 `bash comprehensive_optimize.sh` 실행
 
