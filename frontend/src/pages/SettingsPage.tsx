@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, User, Bell, Shield, Save } from 'lucide-react';
+import { Settings, User, Bell, Shield, Save, Users } from 'lucide-react';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
 import api from '../api/client';
 import { useAuthStore } from '../store/authStore';
+import UserManagementTab from '../components/settings/UserManagementTab';
 
 const SettingsPage: React.FC = () => {
   const { user } = useAuthStore();
@@ -139,6 +140,7 @@ const SettingsPage: React.FC = () => {
 
   const tabs = [
     { id: 'profile', label: '프로필', icon: User },
+    { id: 'users', label: '회원관리', icon: Users },
     { id: 'notifications', label: '알림 설정', icon: Bell },
     { id: 'security', label: '보안', icon: Shield },
     { id: 'system', label: '시스템', icon: Settings }
@@ -213,6 +215,9 @@ const SettingsPage: React.FC = () => {
               </form>
             </Card>
           )}
+
+          {/* Users Management Tab */}
+          {activeTab === 'users' && <UserManagementTab />}
 
           {/* Notifications Tab */}
           {activeTab === 'notifications' && (
