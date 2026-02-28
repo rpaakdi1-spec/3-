@@ -1,15 +1,14 @@
 /**
- * Employee Management Page (Simplified)
+ * Employee Management Page (Simplified - No UI Library)
  * 인사관리 페이지
  */
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, RefreshCw, Edit, Trash2, Users, Loader2 } from 'lucide-react';
+import { Plus, Search, RefreshCw, Edit, Trash2, Users } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { Badge } from '../components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import Button from '../components/common/Button';
+import Input from '../components/common/Input';
+import Card from '../components/common/Card';
+import Loading from '../components/common/Loading';
 import employeeAPI, { Employee, EmployeeFilterParams, EmployeeStatistics } from '../api/employees';
 
 const EmployeeManagementPage: React.FC = () => {
@@ -77,38 +76,26 @@ const EmployeeManagementPage: React.FC = () => {
     }
   };
 
-  // Role badge color
-  const getRoleBadgeColor = (role: string) => {
-    switch (role) {
-      case 'MASTER': return 'bg-purple-500';
-      case 'ADMIN': return 'bg-blue-500';
-      case 'MANAGER': return 'bg-green-500';
-      case 'DRIVER': return 'bg-gray-500';
-      default: return 'bg-gray-400';
-    }
-  };
-
   // Role label
   const getRoleLabel = (role: string) => {
-    const labels = {
+    const labels: Record<string, string> = {
       MASTER: '총괄',
       ADMIN: '관리자',
       MANAGER: '현장관리자',
       DRIVER: '운전직',
     };
-    return labels[role as keyof typeof labels] || role;
+    return labels[role] || role;
   };
 
-  // Forklift status badge
-  const getForkliftBadge = (employee: Employee) => {
-    if (!employee.can_drive_forklift) return null;
-    
-    const hasCert = employee.has_forklift_certificate;
-    return (
-      <Badge variant={hasCert ? 'default' : 'warning'} className="ml-2">
-        🔧 지게차 {hasCert ? '✅' : '⚠️'}
-      </Badge>
-    );
+  // Role color
+  const getRoleColor = (role: string) => {
+    const colors: Record<string, string> = {
+      MASTER: 'bg-purple-100 text-purple-800',
+      ADMIN: 'bg-blue-100 text-blue-800',
+      MANAGER: 'bg-green-100 text-green-800',
+      DRIVER: 'bg-gray-100 text-gray-800',
+    };
+    return colors[role] || 'bg-gray-100 text-gray-800';
   };
 
   return (
@@ -116,7 +103,7 @@ const EmployeeManagementPage: React.FC = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">인사 관리</h1>
+          <h1 className="text-3xl font-bold text-gray-900">인사 관리</h1>
           <p className="text-gray-500 mt-1">직원 정보 조회 및 관리</p>
         </div>
         <Button onClick={() => toast.info('신규 등록 기능은 곧 추가됩니다')} className="flex items-center gap-2">
@@ -129,47 +116,39 @@ const EmployeeManagementPage: React.FC = () => {
       {statistics && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">전체 직원</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{statistics.total_employees}명</div>
+            <div className="p-4">
+              <p className="text-sm font-medium text-gray-600 mb-2">전체 직원</p>
+              <p className="text-3xl font-bold text-gray-900">{statistics.total_employees}명</p>
               <p className="text-xs text-gray-500 mt-1">재직 {statistics.active_employees}명</p>
-            </CardContent>
+            </div>
           </Card>
           <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">운전직</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{statistics.by_role?.DRIVER || 0}명</div>
+            <div className="p-4">
+              <p className="text-sm font-medium text-gray-600 mb-2">운전직</p>
+              <p className="text-3xl font-bold text-gray-900">{statistics.by_role?.DRIVER || 0}명</p>
               <p className="text-xs text-gray-500 mt-1">화물자격증 {statistics.drivers_with_cargo_license}명</p>
-            </CardContent>
+            </div>
           </Card>
           <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">지게차 가능</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{statistics.drivers_with_forklift_ability}명</div>
+            <div className="p-4">
+              <p className="text-sm font-medium text-gray-600 mb-2">지게차 가능</p>
+              <p className="text-3xl font-bold text-gray-900">{statistics.drivers_with_forklift_ability}명</p>
               <p className="text-xs text-gray-500 mt-1">자격증 {statistics.drivers_with_forklift_certificate}명</p>
-            </CardContent>
+            </div>
           </Card>
           <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">교육 필요</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-orange-500">{statistics.drivers_needing_training}명</div>
+            <div className="p-4">
+              <p className="text-sm font-medium text-gray-600 mb-2">교육 필요</p>
+              <p className="text-3xl font-bold text-orange-600">{statistics.drivers_needing_training}명</p>
               <p className="text-xs text-gray-500 mt-1">지게차 교육 대상</p>
-            </CardContent>
+            </div>
           </Card>
         </div>
       )}
 
       {/* Search & Filters */}
       <Card>
-        <CardContent className="pt-6">
+        <div className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             {/* Search */}
             <div className="md:col-span-2 flex gap-2">
@@ -185,120 +164,139 @@ const EmployeeManagementPage: React.FC = () => {
             </div>
 
             {/* Role Filter */}
-            <Select value={filters.role || 'all'} onValueChange={(v) => setFilters({ ...filters, role: v === 'all' ? undefined : v, page: 1 })}>
-              <SelectTrigger>
-                <SelectValue placeholder="직급" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">전체 직급</SelectItem>
-                <SelectItem value="MASTER">총괄</SelectItem>
-                <SelectItem value="ADMIN">관리자</SelectItem>
-                <SelectItem value="MANAGER">현장관리자</SelectItem>
-                <SelectItem value="DRIVER">운전직</SelectItem>
-              </SelectContent>
-            </Select>
+            <select 
+              className="px-3 py-2 border border-gray-300 rounded-md"
+              value={filters.role || 'all'}
+              onChange={(e) => setFilters({ ...filters, role: e.target.value === 'all' ? undefined : e.target.value, page: 1 })}
+            >
+              <option value="all">전체 직급</option>
+              <option value="MASTER">총괄</option>
+              <option value="ADMIN">관리자</option>
+              <option value="MANAGER">현장관리자</option>
+              <option value="DRIVER">운전직</option>
+            </select>
 
             {/* Active Filter */}
-            <Select value={filters.is_active === undefined ? 'all' : filters.is_active.toString()} onValueChange={(v) => setFilters({ ...filters, is_active: v === 'all' ? undefined : v === 'true', page: 1 })}>
-              <SelectTrigger>
-                <SelectValue placeholder="재직 상태" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">전체</SelectItem>
-                <SelectItem value="true">재직</SelectItem>
-                <SelectItem value="false">퇴사</SelectItem>
-              </SelectContent>
-            </Select>
+            <select 
+              className="px-3 py-2 border border-gray-300 rounded-md"
+              value={filters.is_active === undefined ? 'all' : filters.is_active.toString()}
+              onChange={(e) => setFilters({ ...filters, is_active: e.target.value === 'all' ? undefined : e.target.value === 'true', page: 1 })}
+            >
+              <option value="all">전체</option>
+              <option value="true">재직</option>
+              <option value="false">퇴사</option>
+            </select>
 
             {/* Refresh */}
             <Button onClick={() => { fetchEmployees(); fetchStatistics(); }} variant="outline">
               <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
             </Button>
           </div>
-        </CardContent>
+        </div>
       </Card>
 
       {/* Employee List */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+        <div className="p-6">
+          <div className="flex items-center gap-2 mb-4">
             <Users size={20} />
-            직원 목록 ({total}명)
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+            <h2 className="text-xl font-bold">직원 목록 ({total}명)</h2>
+          </div>
+
           {loading ? (
-            <div className="flex justify-center items-center py-12">
-              <Loader2 className="animate-spin" size={40} />
-            </div>
+            <Loading />
           ) : employees.length === 0 ? (
             <div className="text-center py-12 text-gray-500">
               검색 결과가 없습니다
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {employees.map((emp) => (
-                <Card key={emp.id} className={!emp.is_active ? 'opacity-60' : ''}>
-                  <CardContent className="pt-6">
-                    <div className="flex justify-between items-start mb-3">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <Badge className={getRoleBadgeColor(emp.role)}>
-                            {getRoleLabel(emp.role)}
-                          </Badge>
-                          {!emp.is_active && <Badge variant="destructive">퇴사</Badge>}
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {employees.map((emp) => (
+                  <Card key={emp.id} className={!emp.is_active ? 'opacity-60' : ''}>
+                    <div className="p-4">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className={`px-2 py-1 rounded text-xs font-semibold ${getRoleColor(emp.role)}`}>
+                              {getRoleLabel(emp.role)}
+                            </span>
+                            {!emp.is_active && (
+                              <span className="px-2 py-1 rounded text-xs font-semibold bg-red-100 text-red-800">
+                                퇴사
+                              </span>
+                            )}
+                          </div>
+                          <h3 className="text-lg font-bold">{emp.name}</h3>
+                          <p className="text-sm text-gray-500">{emp.employee_code}</p>
                         </div>
-                        <h3 className="text-lg font-bold mt-2">{emp.name}</h3>
-                        <p className="text-sm text-gray-500">{emp.employee_code}</p>
+                      </div>
+                      
+                      <div className="space-y-1 text-sm mb-4">
+                        <p className="flex items-center gap-1">📞 {emp.phone}</p>
+                        {emp.license_type && <p className="flex items-center gap-1">🚗 {emp.license_type}</p>}
+                        <div className="flex gap-2 flex-wrap mt-2">
+                          {emp.has_cargo_license && (
+                            <span className="px-2 py-1 rounded text-xs bg-blue-100 text-blue-800">화물자격증 ✓</span>
+                          )}
+                          {emp.can_drive_forklift && (
+                            <span className={`px-2 py-1 rounded text-xs ${emp.has_forklift_certificate ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'}`}>
+                              🔧 지게차 {emp.has_forklift_certificate ? '✅' : '⚠️'}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          onClick={() => toast.info('상세 보기 기능은 곧 추가됩니다')}
+                          className="flex-1"
+                        >
+                          <Edit size={16} className="mr-1" />
+                          수정
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="danger" 
+                          onClick={() => handleDelete(emp.id, emp.name)}
+                          className="flex-1"
+                        >
+                          <Trash2 size={16} className="mr-1" />
+                          퇴사
+                        </Button>
                       </div>
                     </div>
-                    
-                    <div className="space-y-1 text-sm">
-                      <p>📞 {emp.phone}</p>
-                      {emp.license_type && <p>🚗 {emp.license_type}</p>}
-                      {emp.has_cargo_license && <Badge variant="secondary">화물자격증 ✓</Badge>}
-                      {getForkliftBadge(emp)}
-                    </div>
+                  </Card>
+                ))}
+              </div>
 
-                    <div className="mt-4 flex gap-2">
-                      <Button size="sm" variant="outline" onClick={() => toast.info('상세 보기 기능은 곧 추가됩니다')}>
-                        <Edit size={16} className="mr-1" />
-                        수정
-                      </Button>
-                      <Button size="sm" variant="destructive" onClick={() => handleDelete(emp.id, emp.name)}>
-                        <Trash2 size={16} className="mr-1" />
-                        퇴사
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+              {/* Pagination */}
+              {total > (filters.page_size || 20) && (
+                <div className="flex justify-center gap-2 mt-6">
+                  <Button
+                    variant="outline"
+                    onClick={() => setFilters({ ...filters, page: (filters.page || 1) - 1 })}
+                    disabled={filters.page === 1}
+                  >
+                    이전
+                  </Button>
+                  <span className="py-2 px-4">
+                    {filters.page} / {Math.ceil(total / (filters.page_size || 20))}
+                  </span>
+                  <Button
+                    variant="outline"
+                    onClick={() => setFilters({ ...filters, page: (filters.page || 1) + 1 })}
+                    disabled={filters.page === Math.ceil(total / (filters.page_size || 20))}
+                  >
+                    다음
+                  </Button>
+                </div>
+              )}
+            </>
           )}
-
-          {/* Pagination */}
-          {total > (filters.page_size || 20) && (
-            <div className="flex justify-center gap-2 mt-6">
-              <Button
-                variant="outline"
-                onClick={() => setFilters({ ...filters, page: (filters.page || 1) - 1 })}
-                disabled={filters.page === 1}
-              >
-                이전
-              </Button>
-              <span className="py-2 px-4">
-                {filters.page} / {Math.ceil(total / (filters.page_size || 20))}
-              </span>
-              <Button
-                variant="outline"
-                onClick={() => setFilters({ ...filters, page: (filters.page || 1) + 1 })}
-                disabled={filters.page === Math.ceil(total / (filters.page_size || 20))}
-              >
-                다음
-              </Button>
-            </div>
-          )}
-        </CardContent>
+        </div>
       </Card>
     </div>
   );
