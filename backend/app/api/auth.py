@@ -115,42 +115,28 @@ async def signup(
     """공개 회원가입 (인사카드 양식으로 전체 정보 입력)"""
     # Check if user exists
     existing_user = db.query(User).filter(
-        (User.username == signup_data.username) | (User.email == signup_data.email)
+        User.username == signup_data.username
     ).first()
     
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="이미 존재하는 사용자명 또는 이메일입니다"
+            detail="이미 존재하는 사용자명입니다"
         )
     
-    # Check if employee_code already exists
-    existing_employee = db.query(Employee).filter(
-        Employee.employee_code == signup_data.employee_code
-    ).first()
-    
-    if existing_employee:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="이미 사용 중인 사원번호입니다"
-        )
-    
-    # Check if employee_code is pending
-    existing_pending = db.query(PendingEmployee).join(User).filter(
-        PendingEmployee.employee_code == signup_data.employee_code,
-        User.approval_status == "pending"
-    ).first()
-    
-    if existing_pending:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="이미 승인 대기 중인 사원번호입니다"
-        )
+    # Generate unique employee_code (format: PENDING_YYYYMMDD_XXX)
+    from datetime import datetime
+    today = datetime.now().strftime("%Y%m%d")
+    # Count pending employees today
+    pending_count = db.query(PendingEmployee).filter(
+        PendingEmployee.employee_code.like(f"PENDING_{today}_%")
+    ).count()
+    employee_code = f"PENDING_{today}_{str(pending_count + 1).zfill(3)}"
     
     # Create user in pending status
     new_user = User(
         username=signup_data.username,
-        email=signup_data.email,
+        email=signup_data.email or f"{signup_data.username}@pending.local",
         hashed_password=AuthService.get_password_hash(signup_data.password),
         full_name=signup_data.name,
         phone=signup_data.phone,
@@ -167,11 +153,11 @@ async def signup(
     # Store pending employee data
     pending_employee = PendingEmployee(
         user_id=new_user.id,
-        employee_code=signup_data.employee_code,
+        employee_code=employee_code,  # Auto-generated
         name=signup_data.name,
         name_en=signup_data.name_en,
         phone=signup_data.phone,
-        email=signup_data.email,
+        email=signup_data.email or new_user.email,
         address=signup_data.address,
         emergency_contact=signup_data.emergency_contact,
         role=signup_data.employee_role.value,

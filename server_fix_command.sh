@@ -1,0 +1,31 @@
+#!/bin/bash
+# Commands to run on the server
+
+echo "=========================================="
+echo "Server Fix Commands"
+echo "=========================================="
+echo ""
+
+echo "Run these commands on the server:"
+echo ""
+echo "cd /root/uvis"
+echo ""
+echo "# Check the revision IDs in both files"
+echo "echo '=== File 1: 20260228_224233 ==='"
+echo "grep '^revision' backend/alembic/versions/20260228_224233_add_pending_employees.py"
+echo ""
+echo "echo '=== File 2: 20260228_133550 ==='"
+echo "grep '^revision' backend/alembic/versions/20260228_133550_add_pending_employees.py"
+echo ""
+echo "# The older file (20260228_224233) should be deleted"
+echo "# It was created at 22:42:33, the newer one at 13:35:50"
+echo "# But wait - 22:42 is LATER than 13:35, so let's check content"
+echo ""
+echo "# Show first 20 lines of each file"
+echo "echo '=== Content of 20260228_224233 ==='"
+echo "head -20 backend/alembic/versions/20260228_224233_add_pending_employees.py"
+echo ""
+echo "echo '=== Content of 20260228_133550 ==='"
+echo "head -20 backend/alembic/versions/20260228_133550_add_pending_employees.py"
+echo ""
+

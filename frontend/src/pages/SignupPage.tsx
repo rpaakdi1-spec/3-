@@ -11,11 +11,9 @@ interface SignupFormData {
   username: string;
   password: string;
   confirmPassword: string;
-  email: string;
   role: string;
   
   // 기본 인적사항
-  employee_code: string;
   name: string;
   name_en: string;
   phone: string;
@@ -60,11 +58,9 @@ const SignupPage: React.FC = () => {
     username: '',
     password: '',
     confirmPassword: '',
-    email: '',
     role: 'DRIVER',
     
     // 기본 인적사항
-    employee_code: '',
     name: '',
     name_en: '',
     phone: '',
@@ -115,6 +111,31 @@ const SignupPage: React.FC = () => {
     }
   };
 
+  // 전화번호 자동 하이픈 포맷팅
+  const formatPhoneNumber = (value: string): string => {
+    // 숫자만 추출
+    const numbers = value.replace(/[^\d]/g, '');
+    
+    // 길이에 따라 포맷팅
+    if (numbers.length <= 3) {
+      return numbers;
+    } else if (numbers.length <= 7) {
+      return `${numbers.slice(0, 3)}-${numbers.slice(3)}`;
+    } else if (numbers.length <= 11) {
+      return `${numbers.slice(0, 3)}-${numbers.slice(3, 7)}-${numbers.slice(7)}`;
+    }
+    // 11자리 초과는 잘라냄
+    return `${numbers.slice(0, 3)}-${numbers.slice(3, 7)}-${numbers.slice(7, 11)}`;
+  };
+
+  const handlePhoneChange = (field: 'phone' | 'emergency_contact', value: string) => {
+    const formatted = formatPhoneNumber(value);
+    setFormData({ ...formData, [field]: formatted });
+    if (errors[field]) {
+      setErrors({ ...errors, [field]: '' });
+    }
+  };
+
   const validateStep1 = (): boolean => {
     const newErrors: Partial<Record<keyof SignupFormData, string>> = {};
     
@@ -130,10 +151,6 @@ const SignupPage: React.FC = () => {
       newErrors.confirmPassword = '비밀번호가 일치하지 않습니다';
     }
     
-    if (!formData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = '올바른 이메일 주소를 입력하세요';
-    }
-    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -141,15 +158,11 @@ const SignupPage: React.FC = () => {
   const validateStep2 = (): boolean => {
     const newErrors: Partial<Record<keyof SignupFormData, string>> = {};
     
-    if (!formData.employee_code) {
-      newErrors.employee_code = '사원번호를 입력하세요';
-    }
-    
     if (!formData.name || formData.name.length < 2) {
       newErrors.name = '이름을 입력하세요';
     }
     
-    if (!formData.phone || !/^\d{3}-\d{3,4}-\d{4}$/.test(formData.phone)) {
+    if (!formData.phone || !/^\d{3}-\d{4}-\d{4}$/.test(formData.phone)) {
       newErrors.phone = '올바른 전화번호를 입력하세요 (예: 010-1234-5678)';
     }
     
@@ -325,16 +338,6 @@ const SignupPage: React.FC = () => {
               />
 
               <Input
-                label="이메일 *"
-                type="email"
-                placeholder="example@company.com"
-                value={formData.email}
-                onChange={(e) => handleChange('email', e.target.value)}
-                error={errors.email}
-                disabled={isLoading}
-              />
-
-              <Input
                 label="비밀번호 *"
                 type="password"
                 placeholder="6자 이상"
@@ -382,17 +385,6 @@ const SignupPage: React.FC = () => {
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Input
-                  label="사원번호 *"
-                  type="text"
-                  placeholder="예: D001, A001"
-                  value={formData.employee_code}
-                  onChange={(e) => handleChange('employee_code', e.target.value)}
-                  error={errors.employee_code}
-                  disabled={isLoading}
-                  helperText="고유한 사원번호를 입력하세요"
-                />
-
-                <Input
                   label="이름 *"
                   type="text"
                   placeholder="홍길동"
@@ -416,9 +408,10 @@ const SignupPage: React.FC = () => {
                   type="text"
                   placeholder="010-1234-5678"
                   value={formData.phone}
-                  onChange={(e) => handleChange('phone', e.target.value)}
+                  onChange={(e) => handlePhoneChange('phone', e.target.value)}
                   error={errors.phone}
                   disabled={isLoading}
+                  helperText="숫자만 입력하면 자동으로 하이픈이 추가됩니다"
                 />
 
                 <Input
@@ -426,8 +419,9 @@ const SignupPage: React.FC = () => {
                   type="text"
                   placeholder="010-9876-5432"
                   value={formData.emergency_contact}
-                  onChange={(e) => handleChange('emergency_contact', e.target.value)}
+                  onChange={(e) => handlePhoneChange('emergency_contact', e.target.value)}
                   disabled={isLoading}
+                  helperText="숫자만 입력하면 자동으로 하이픈이 추가됩니다"
                 />
               </div>
 
@@ -439,6 +433,12 @@ const SignupPage: React.FC = () => {
                 onChange={(e) => handleChange('address', e.target.value)}
                 disabled={isLoading}
               />
+              
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-4">
+                <p className="text-sm text-blue-800">
+                  💡 사원번호는 관리자가 승인 시 부여합니다
+                </p>
+              </div>
             </div>
           )}
 

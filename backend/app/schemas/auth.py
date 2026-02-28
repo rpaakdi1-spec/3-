@@ -104,16 +104,15 @@ class SignupRequest(BaseModel):
     # 계정 정보
     username: str = Field(..., min_length=3, max_length=50, description="로그인 사용자명")
     password: str = Field(..., min_length=6, description="로그인 비밀번호")
-    email: EmailStr = Field(..., description="이메일 주소")
     role: UserRole = Field(default=UserRole.DRIVER, description="시스템 권한")
     
     # 기본 인적사항
-    employee_code: str = Field(..., max_length=50, description="사원번호 (예: D001, A001)")
     name: str = Field(..., min_length=2, max_length=100, description="이름")
     name_en: Optional[str] = Field(None, max_length=100, description="영문명")
-    phone: str = Field(..., min_length=10, max_length=20, description="전화번호")
+    phone: str = Field(..., min_length=12, max_length=13, description="전화번호 (000-0000-0000)")
+    email: Optional[str] = Field(None, description="이메일 주소 (선택사항)")
     address: Optional[str] = Field(None, description="주소")
-    emergency_contact: Optional[str] = Field(None, max_length=20, description="비상연락처")
+    emergency_contact: Optional[str] = Field(None, max_length=13, description="비상연락처")
     
     # 조직 정보
     employee_role: EmployeeRole = Field(default=EmployeeRole.DRIVER, description="직급")
