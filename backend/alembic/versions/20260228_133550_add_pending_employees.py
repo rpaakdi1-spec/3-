@@ -11,7 +11,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = 'pending_emp_001'
-down_revision = None  # Update with your latest revision
+down_revision = 'e001_employee_model'  # Latest revision
 branch_labels = None
 depends_on = None
 
