@@ -91,7 +91,7 @@ const UserManagementTab: React.FC = () => {
   const loadUsers = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/users');
+      const response = await api.get('/auth/users');
       setUsers(response.data);
     } catch (error) {
       console.error('Failed to load users:', error);
@@ -104,8 +104,9 @@ const UserManagementTab: React.FC = () => {
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!newUser.username || !newUser.password || !newUser.email) {
-      toast.error('필수 정보를 입력해주세요');
+    // Validate required fields
+    if (!newUser.username || !newUser.password || !newUser.full_name) {
+      toast.error('필수 정보를 입력해주세요 (아이디, 비밀번호, 이름)');
       return;
     }
 
@@ -114,19 +115,61 @@ const UserManagementTab: React.FC = () => {
       return;
     }
 
+    if (newUser.createEmployee && !newUser.employee.phone) {
+      toast.error('전화번호를 입력해주세요');
+      return;
+    }
+
     setLoading(true);
     try {
-      await api.post('/users/register', {
-        ...newUser,
-        employee: newUser.createEmployee ? newUser.employee : undefined
-      });
+      // Map frontend role to backend UserRole
+      const roleMap: {[key: string]: string} = {
+        'operator': 'ADMIN',
+        'vehicle_manager': 'ADMIN', 
+        'driver': 'VIEWER'
+      };
+
+      // Prepare payload matching backend UserCreate schema
+      const payload = {
+        username: newUser.username,
+        email: newUser.email || `${newUser.username}@uvis.local`, // Use dummy email if not provided
+        password: newUser.password,
+        full_name: newUser.full_name,
+        role: roleMap[newUser.role] || 'VIEWER',
+        is_superuser: false
+      };
+
+      await api.post('/auth/register', payload);
       
       toast.success('사용자가 등록되었습니다');
       setShowNewUserModal(false);
       resetNewUserForm();
       loadUsers();
     } catch (error: any) {
-      const message = error.response?.data?.detail || '사용자 등록에 실패했습니다';
+      console.error('Registration error:', error);
+      
+      // Handle validation errors properly
+      let message = '사용자 등록에 실패했습니다';
+      
+      if (error.response?.data?.detail) {
+        const detail = error.response.data.detail;
+        
+        // If detail is an array of validation errors
+        if (Array.isArray(detail)) {
+          message = detail.map((err: any) => 
+            `${err.loc?.join('.') || 'Error'}: ${err.msg}`
+          ).join(', ');
+        } 
+        // If detail is a string
+        else if (typeof detail === 'string') {
+          message = detail;
+        }
+        // If detail is an object
+        else {
+          message = JSON.stringify(detail);
+        }
+      }
+      
       toast.error(message);
     } finally {
       setLoading(false);
@@ -135,9 +178,14 @@ const UserManagementTab: React.FC = () => {
 
   const handleToggleActive = async (userId: number, currentStatus: boolean) => {
     try {
-      await api.put(`/users/${userId}/status`, { is_active: !currentStatus });
-      toast.success(currentStatus ? '사용자가 비활성화되었습니다' : '사용자가 활성화되었습니다');
-      loadUsers();
+      // Backend doesn't have toggle endpoint yet, use delete to deactivate
+      if (currentStatus) {
+        await api.delete(`/auth/users/${userId}`);
+        toast.success('사용자가 비활성화되었습니다');
+        loadUsers();
+      } else {
+        toast.warning('활성화 기능은 아직 구현되지 않았습니다');
+      }
     } catch (error) {
       toast.error('상태 변경에 실패했습니다');
     }
@@ -149,7 +197,7 @@ const UserManagementTab: React.FC = () => {
     }
 
     try {
-      await api.delete(`/users/${userId}`);
+      await api.delete(`/auth/users/${userId}`);
       toast.success('사용자가 삭제되었습니다');
       loadUsers();
     } catch (error) {
