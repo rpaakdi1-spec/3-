@@ -8,24 +8,14 @@ import Button from '../components/common/Button';
 import Input from '../components/common/Input';
 import Loading from '../components/common/Loading';
 import { vehiclesAPI } from '../services/api';
+import employeeAPI, { DriverPoolItem } from '../api/employees';
 
 const ItemTypes = {
   DRIVER: 'driver'
 };
 
-interface Driver {
-  id: number;
-  code: string;
-  name: string;
-  phone: string;
-  emergency_contact?: string;
-  work_start_time: string;
-  work_end_time: string;
-  max_work_hours: number;
-  license_number?: string;
-  license_type?: string;
-  notes?: string;
-  is_active: boolean;
+// Use DriverPoolItem from API
+interface Driver extends DriverPoolItem {
   assigned_vehicle_id?: number;
 }
 
@@ -63,71 +53,12 @@ const VehicleDriverManagementPage: React.FC = () => {
       const vehiclesResponse = await vehiclesAPI.list();
       const vehiclesList = vehiclesResponse.data.items || [];
       
-      // TODO: Fetch drivers from API endpoint
-      // For now, using mock data - replace with actual API call
-      const mockDrivers: Driver[] = [
-        {
-          id: 1,
-          code: 'D001',
-          name: '김철수',
-          phone: '010-1234-5678',
-          emergency_contact: '010-9876-5432',
-          work_start_time: '08:00',
-          work_end_time: '18:00',
-          max_work_hours: 10,
-          license_number: '서울12-345678-90',
-          license_type: '1종 대형',
-          is_active: true
-        },
-        {
-          id: 2,
-          code: 'D002',
-          name: '이영희',
-          phone: '010-2345-6789',
-          work_start_time: '09:00',
-          work_end_time: '19:00',
-          max_work_hours: 10,
-          license_type: '1종 보통',
-          is_active: true
-        },
-        {
-          id: 3,
-          code: 'D003',
-          name: '박민수',
-          phone: '010-3456-7890',
-          work_start_time: '07:00',
-          work_end_time: '17:00',
-          max_work_hours: 10,
-          license_type: '1종 대형',
-          is_active: true
-        },
-        {
-          id: 4,
-          code: 'D004',
-          name: '정수진',
-          phone: '010-4567-8901',
-          work_start_time: '08:30',
-          work_end_time: '18:30',
-          max_work_hours: 10,
-          license_type: '1종 보통',
-          is_active: true
-        },
-        {
-          id: 5,
-          code: 'D005',
-          name: '최동욱',
-          phone: '010-5678-9012',
-          work_start_time: '06:00',
-          work_end_time: '16:00',
-          max_work_hours: 10,
-          license_type: '1종 대형',
-          is_active: true
-        }
-      ];
+      // 🆕 Fetch drivers from Employee API
+      const driversFromAPI = await employeeAPI.getDriverPool({ only_available: false });
       
       // Match drivers with vehicles based on driver_name or driver_phone
       const vehiclesWithDrivers = vehiclesList.map((vehicle: Vehicle) => {
-        const assignedDriver = mockDrivers.find(d => 
+        const assignedDriver = driversFromAPI.find(d => 
           d.name === vehicle.driver_name || 
           d.phone === vehicle.driver_phone
         );
@@ -138,7 +69,7 @@ const VehicleDriverManagementPage: React.FC = () => {
       });
       
       // Mark drivers as assigned
-      const driversWithAssignment = mockDrivers.map(driver => ({
+      const driversWithAssignment = driversFromAPI.map(driver => ({
         ...driver,
         assigned_vehicle_id: vehiclesWithDrivers.find(v => v.assigned_driver?.id === driver.id)?.id
       }));
@@ -486,11 +417,32 @@ const DriverCard: React.FC<DriverCardProps> = ({ driver, sourceType, vehicleId }
       <div className="flex items-start justify-between mb-2">
         <div>
           <h3 className="font-bold text-gray-800">{driver.name}</h3>
-          <p className="text-xs text-gray-500">{driver.code}</p>
+          <p className="text-xs text-gray-500">{driver.employee_code}</p>
         </div>
-        <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full font-medium">
-          {driver.license_type || '면허정보없음'}
-        </span>
+        <div className="flex flex-col gap-1 items-end">
+          <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full font-medium">
+            {driver.license_type || '면허정보없음'}
+          </span>
+          {/* 🆕 Cargo License Badge */}
+          {driver.has_cargo_license && (
+            <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full font-medium">
+              화물 ✓
+            </span>
+          )}
+          {/* 🆕 Forklift Badge */}
+          {driver.can_drive_forklift && (
+            <span 
+              className={`text-xs px-2 py-1 rounded-full font-medium ${
+                driver.has_forklift_certificate 
+                  ? 'bg-orange-100 text-orange-700' 
+                  : 'bg-yellow-100 text-yellow-700'
+              }`}
+              title={driver.forklift_status}
+            >
+              🔧 {driver.has_forklift_certificate ? '자격증 ✅' : '교육 필요'}
+            </span>
+          )}
+        </div>
       </div>
       
       <div className="space-y-1 text-sm">
@@ -500,7 +452,7 @@ const DriverCard: React.FC<DriverCardProps> = ({ driver, sourceType, vehicleId }
         </div>
         <div className="flex items-center gap-2 text-gray-600">
           <Clock size={14} />
-          <span>{driver.work_start_time} ~ {driver.work_end_time}</span>
+          <span>{driver.work_hours}</span>
         </div>
       </div>
     </div>
