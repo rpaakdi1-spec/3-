@@ -110,11 +110,6 @@ const UserManagementTab: React.FC = () => {
       return;
     }
 
-    if (newUser.createEmployee && !newUser.employee.name) {
-      toast.error('직원 이름을 입력해주세요');
-      return;
-    }
-
     if (newUser.createEmployee && !newUser.employee.phone) {
       toast.error('전화번호를 입력해주세요');
       return;
@@ -139,6 +134,7 @@ const UserManagementTab: React.FC = () => {
         is_superuser: false
       };
 
+      console.log('Sending registration payload:', payload);
       await api.post('/auth/register', payload);
       
       toast.success('사용자가 등록되었습니다');
@@ -357,11 +353,10 @@ const UserManagementTab: React.FC = () => {
                       required
                     />
                     <Input
-                      label="이메일 *"
+                      label="이메일 (선택)"
                       type="email"
                       value={newUser.email}
                       onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-                      required
                     />
                     <div className="relative">
                       <Input
@@ -380,9 +375,10 @@ const UserManagementTab: React.FC = () => {
                       </button>
                     </div>
                     <Input
-                      label="이름"
+                      label="이름 *"
                       value={newUser.full_name}
                       onChange={(e) => setNewUser({ ...newUser, full_name: e.target.value })}
+                      required
                     />
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -394,9 +390,9 @@ const UserManagementTab: React.FC = () => {
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                         required
                       >
-                        <option value="driver">운전자</option>
-                        <option value="manager">관리자</option>
-                        <option value="admin">시스템 관리자</option>
+                        <option value="driver">운전직</option>
+                        <option value="vehicle_manager">차량관리</option>
+                        <option value="operator">운영</option>
                       </select>
                     </div>
                   </div>
@@ -433,15 +429,7 @@ const UserManagementTab: React.FC = () => {
                           placeholder="예: D001, A001"
                           required={newUser.createEmployee}
                         />
-                        <Input
-                          label="이름 *"
-                          value={newUser.employee.name}
-                          onChange={(e) => setNewUser({
-                            ...newUser,
-                            employee: { ...newUser.employee, name: e.target.value }
-                          })}
-                          required={newUser.createEmployee}
-                        />
+
                         <Input
                           label="전화번호 *"
                           value={newUser.employee.phone}
@@ -449,6 +437,7 @@ const UserManagementTab: React.FC = () => {
                             ...newUser,
                             employee: { ...newUser.employee, phone: e.target.value }
                           })}
+                          placeholder="010-1234-5678"
                           required={newUser.createEmployee}
                         />
                         <Input
