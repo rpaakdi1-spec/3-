@@ -35,8 +35,15 @@ const UvisFleetStats: React.FC<UvisFleetStatsProps> = ({
 
   const fetchStats = async () => {
     try {
-      const today = new Date().toISOString().split('T')[0];
-      const response = await fetch(`/api/v1/vehicles/analytics/fleet?start_date=${today}&end_date=${today}`);
+      const today = new Date();
+      const endDate = today.toISOString().split('T')[0];
+      
+      // 최근 7일 데이터 조회 (GPS 데이터가 오래된 경우를 위해)
+      const startDate = new Date(today);
+      startDate.setDate(today.getDate() - 7);
+      const start = startDate.toISOString().split('T')[0];
+      
+      const response = await fetch(`/api/v1/vehicles/analytics/fleet?start_date=${start}&end_date=${endDate}`);
       const data = await response.json();
       
       setStats(data);
