@@ -136,7 +136,7 @@ async def signup(
     # Create user in pending status
     new_user = User(
         username=signup_data.username,
-        email=signup_data.email or f"{signup_data.username}@pending.local",
+        email=signup_data.email or f"{signup_data.username}@pending.example.com",
         hashed_password=AuthService.get_password_hash(signup_data.password),
         full_name=signup_data.name,
         phone=signup_data.phone,
