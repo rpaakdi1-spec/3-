@@ -4,9 +4,10 @@ import { clsx } from 'clsx';
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
+  helperText?: string;
 }
 
-const Input: React.FC<InputProps> = ({ label, error, className, ...props }) => {
+const Input: React.FC<InputProps> = ({ label, error, helperText, className, ...props }) => {
   return (
     <div className="w-full">
       {label && (
@@ -23,6 +24,7 @@ const Input: React.FC<InputProps> = ({ label, error, className, ...props }) => {
         {...props}
       />
       {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+      {!error && helperText && <p className="mt-1 text-xs text-gray-500">{helperText}</p>}
     </div>
   );
 };
