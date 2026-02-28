@@ -54,6 +54,9 @@ const DispatchRulesPage = lazy(() => import('./pages/DispatchRulesPage'));
 // Vehicle-Driver Management Page
 const VehicleDriverManagementPage = lazy(() => import('./pages/VehicleDriverManagementPage'));
 
+// Employee Management Page
+const EmployeeManagementPage = lazy(() => import('./pages/EmployeeManagementPage'));
+
 // IoT Sensor Pages
 const IoTSensorsPage = lazy(() => import('./pages/IoTSensorsPage'));
 const IoTSensorDetailPage = lazy(() => import('./pages/IoTSensorDetailPage'));
@@ -257,6 +260,14 @@ const App: React.FC = () => {
               element={
                 <LayoutWrapper>
                   <VehicleDriverManagementPage />
+                </LayoutWrapper>
+              }
+            />
+            <Route
+              path="/employees"
+              element={
+                <LayoutWrapper>
+                  <EmployeeManagementPage />
                 </LayoutWrapper>
               }
             />
