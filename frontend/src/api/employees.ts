@@ -125,7 +125,7 @@ export interface EmployeeFilterParams {
 }
 
 class EmployeeAPI {
-  private baseURL = '/api/v1/employees';
+  private baseURL = '/employees';
 
   /**
    * 직원 목록 조회

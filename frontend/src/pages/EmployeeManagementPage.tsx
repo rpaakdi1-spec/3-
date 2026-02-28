@@ -542,33 +542,6 @@ const EmployeeManagementPage: React.FC = () => {
               </div>
             )}
 
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">근무 시작 *</label>
-                <Input
-                  type="time"
-                  value={formData.work_start_time || '09:00'}
-                  onChange={(e) => setFormData({ ...formData, work_start_time: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">근무 종료 *</label>
-                <Input
-                  type="time"
-                  value={formData.work_end_time || '18:00'}
-                  onChange={(e) => setFormData({ ...formData, work_end_time: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">최대 근무시간 *</label>
-                <Input
-                  type="number"
-                  value={formData.max_work_hours || 8}
-                  onChange={(e) => setFormData({ ...formData, max_work_hours: parseInt(e.target.value) })}
-                />
-              </div>
-            </div>
-
             <div className="flex items-center gap-2 p-3 bg-gray-50 rounded">
               <input
                 type="checkbox"
