@@ -38,9 +38,6 @@ class PendingEmployee(Base):
     
     # 근무 정보
     hire_date = Column(Date, nullable=False, comment="입사일")
-    work_start_time = Column(String(5), default="08:00", comment="근무 시작 시간")
-    work_end_time = Column(String(5), default="18:00", comment="근무 종료 시간")
-    max_work_hours = Column(Integer, default=10, comment="최대 근무 시간")
     
     # 운전면허 정보
     license_type = Column(String(20), nullable=True, comment="운전면허 종류")

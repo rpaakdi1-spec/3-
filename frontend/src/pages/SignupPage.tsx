@@ -30,9 +30,6 @@ interface SignupFormData {
   
   // 근무 정보
   hire_date: string;
-  work_start_time: string;
-  work_end_time: string;
-  max_work_hours: number;
   
   // 운전면허
   license_type: string;
@@ -82,9 +79,6 @@ const SignupPage: React.FC = () => {
     
     // 근무 정보
     hire_date: new Date().toISOString().split('T')[0],
-    work_start_time: '08:00',
-    work_end_time: '18:00',
-    max_work_hours: 10,
     
     // 운전면허
     license_type: '',
@@ -512,33 +506,6 @@ const SignupPage: React.FC = () => {
                   value={formData.hire_date}
                   onChange={(e) => handleChange('hire_date', e.target.value)}
                   error={errors.hire_date}
-                  disabled={isLoading}
-                />
-
-                <Input
-                  label="최대 근무시간"
-                  type="number"
-                  min="1"
-                  max="24"
-                  value={formData.max_work_hours.toString()}
-                  onChange={(e) => handleChange('max_work_hours', parseInt(e.target.value))}
-                  disabled={isLoading}
-                  helperText="하루 최대 근무 가능 시간"
-                />
-
-                <Input
-                  label="근무 시작 시간"
-                  type="time"
-                  value={formData.work_start_time}
-                  onChange={(e) => handleChange('work_start_time', e.target.value)}
-                  disabled={isLoading}
-                />
-
-                <Input
-                  label="근무 종료 시간"
-                  type="time"
-                  value={formData.work_end_time}
-                  onChange={(e) => handleChange('work_end_time', e.target.value)}
                   disabled={isLoading}
                 />
               </div>

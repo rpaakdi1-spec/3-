@@ -123,9 +123,6 @@ class SignupRequest(BaseModel):
     
     # 근무 정보
     hire_date: date = Field(..., description="입사일")
-    work_start_time: str = Field(default="08:00", max_length=5, description="근무 시작 시간 (HH:MM)")
-    work_end_time: str = Field(default="18:00", max_length=5, description="근무 종료 시간 (HH:MM)")
-    max_work_hours: int = Field(default=10, ge=1, le=24, description="최대 근무 시간")
     
     # 운전면허 정보
     license_type: Optional[str] = Field(None, max_length=20, description="운전면허 종류")
