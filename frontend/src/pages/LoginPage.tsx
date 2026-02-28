@@ -97,6 +97,19 @@ const LoginPage: React.FC = () => {
           </Button>
         </form>
 
+        {/* Signup link */}
+        <div className="mt-6 text-center">
+          <p className="text-sm text-gray-600">
+            계정이 없으신가요?{' '}
+            <button
+              onClick={() => navigate('/signup')}
+              className="text-blue-600 hover:text-blue-800 font-medium"
+            >
+              회원가입
+            </button>
+          </p>
+        </div>
+
         {/* Demo credentials */}
         <div className="mt-8 p-4 bg-blue-50 rounded-lg">
           <p className="text-sm text-gray-600 mb-2">데모 계정:</p>

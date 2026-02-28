@@ -11,6 +11,7 @@ import Layout from './components/common/Layout';
 
 // Lazy load pages for better performance
 const LoginPage = lazy(() => import('./pages/LoginPage'));
+const SignupPage = lazy(() => import('./pages/SignupPage'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const OrdersPage = lazy(() => import('./pages/OrdersPage'));
 const OrderCalendarPage = lazy(() => import('./pages/OrderCalendarPage'));
@@ -172,6 +173,7 @@ const App: React.FC = () => {
           <Routes>
             {/* Public Routes */}
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/signup" element={<SignupPage />} />
             <Route path="/tracking/:trackingNumber" element={<TrackingPage />} />
 
             {/* Protected Routes */}
