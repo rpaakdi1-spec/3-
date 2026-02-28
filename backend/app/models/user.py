@@ -2,7 +2,7 @@
 User model for authentication and authorization
 """
 from enum import Enum as PyEnum
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Enum
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Enum, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -11,9 +11,10 @@ from app.models.base import Base
 
 class UserRole(str, PyEnum):
     """사용자 역할"""
-    ADMIN = "ADMIN"  # 관리자 (모든 권한)
-    DISPATCHER = "DISPATCHER"  # 배차 담당자 (배차 관리)
-    DRIVER = "DRIVER"  # 기사 (배차 조회, 상태 업데이트)
+    MASTER = "MASTER"  # 총괄관리자
+    ADMIN = "ADMIN"  # 운영부
+    VEHICLE_MANAGER = "VEHICLE_MANAGER"  # 차량관리부
+    DRIVER = "DRIVER"  # 운전사원
     VIEWER = "VIEWER"  # 조회자 (읽기 전용)
 
 
@@ -29,10 +30,14 @@ class User(Base):
     role = Column(Enum(UserRole), default=UserRole.VIEWER, nullable=False, comment="사용자 역할")
 
     is_active = Column(Boolean, default=True, nullable=False, comment="활성 상태")
+    approval_status = Column(String(20), default="pending", nullable=False, comment="승인 상태: pending, approved, rejected")
+    approved_by = Column(Integer, nullable=True, comment="승인한 사용자 ID")
+    approved_at = Column(DateTime(timezone=True), nullable=True, comment="승인 일시")
     is_superuser = Column(Boolean, default=False, nullable=False, comment="슈퍼유저 여부")
     
     # 새로운 필드 추가
     phone = Column(String(20), nullable=True, comment="전화번호")
+    employee_id = Column(Integer, ForeignKey("employees.id"), nullable=True, comment="연동된 직원 ID")
 
     created_at = Column(DateTime(timezone=True), server_default=func.now(), comment="생성일시")
     updated_at = Column(DateTime(timezone=True), onupdate=func.now(), comment="수정일시")
@@ -43,8 +48,7 @@ class User(Base):
     fcm_tokens = relationship("FCMToken", back_populates="user", cascade="all, delete-orphan", lazy="dynamic")
     two_factor_auth = relationship("TwoFactorAuth", back_populates="user", uselist=False, cascade="all, delete-orphan")
     notification_preferences = relationship("NotificationPreferences", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    employee = relationship("Employee", foreign_keys=[employee_id], lazy="joined")
     
-    def __repr__(self):
-        return f"<User(id={self.id}, username='{self.username}', role={self.role})>"
     def __repr__(self):
         return f"<User(id={self.id}, username='{self.username}', role={self.role})>"
