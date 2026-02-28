@@ -75,6 +75,10 @@ docker-compose exec db psql -U uvis_user -d uvis_db -c "\d pending_employees"
 **주의**: work_start_time, work_end_time, max_work_hours 컬럼이 없어야 합니다!
 
 ## 커밋 정보
-- Commit: a1071a7
-- Message: "fix: set correct down_revision for pending_employees migration"
+- Commit: 0f204ca
+- Message: "fix: change pending_employees migration revision ID to avoid duplicates"
 - Date: 2026-02-28
+
+## 변경 이력
+1. `a1071a7` - down_revision을 None에서 e001_employee_model로 수정
+2. `0f204ca` - revision ID를 pending_emp_001에서 pending_emp_20260228_140810로 변경 (중복 방지)
