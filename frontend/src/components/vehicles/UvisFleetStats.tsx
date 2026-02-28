@@ -85,7 +85,10 @@ const UvisFleetStats: React.FC<UvisFleetStatsProps> = ({
 
   // Calculate statistics from vehicle_stats
   const vehicleStats = stats.vehicle_stats || [];
-  const engineOnCount = vehicleStats.filter(v => v.engine_on_ratio > 50).length;
+  
+  // Use active_vehicles from API (vehicles with GPS data in last 24 hours)
+  const activeCount = stats.active_vehicles || 0;
+  
   const avgSpeed = vehicleStats.length > 0
     ? vehicleStats.reduce((sum, v) => sum + (v.avg_speed_kmh || 0), 0) / vehicleStats.length
     : 0;
@@ -96,7 +99,7 @@ const UvisFleetStats: React.FC<UvisFleetStatsProps> = ({
   const statCards = [
     {
       title: '운행 중 차량',
-      value: engineOnCount,
+      value: activeCount,
       total: stats.total_vehicles,
       unit: '대',
       icon: <Activity className="text-green-600" size={24} />,
