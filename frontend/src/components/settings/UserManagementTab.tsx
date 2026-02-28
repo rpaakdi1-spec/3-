@@ -129,7 +129,7 @@ const UserManagementTab: React.FC = () => {
       // Prepare payload matching backend UserCreate schema
       const payload = {
         username: newUser.username,
-        email: newUser.email || `${newUser.username}@uvis.local`, // Use dummy email if not provided
+        email: newUser.email || `${newUser.username}@example.com`, // Use dummy email if not provided
         password: newUser.password,
         full_name: newUser.full_name,
         role: roleMap[newUser.role] || 'VIEWER',
