@@ -32,7 +32,7 @@ class EmployeeBase(BaseModel):
     name: str = Field(..., max_length=100, description="이름")
     name_en: Optional[str] = Field(None, max_length=100, description="영문명")
     phone: str = Field(..., max_length=20, description="전화번호")
-    email: Optional[EmailStr] = Field(None, description="이메일")
+    email: Optional[str] = Field(None, description="이메일")  # EmailStr → str로 변경 (pending.local 같은 도메인 허용)
     address: Optional[str] = Field(None, description="주소")
     emergency_contact: Optional[str] = Field(None, max_length=20, description="비상연락처")
     photo_url: Optional[str] = Field(None, max_length=255, description="사진 URL")
