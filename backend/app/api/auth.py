@@ -286,6 +286,38 @@ async def get_users(
     return UserListResponse(total=total, items=users)
 
 
+@router.get("/users/pending")
+async def get_pending_users(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """승인 대기 중인 사용자 목록 조회 with PendingEmployee (MASTER, ADMIN만 가능)"""
+    # Only MASTER and ADMIN can view pending users
+    if current_user.role not in [UserRole.MASTER, UserRole.ADMIN]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="권한이 부족합니다"
+        )
+    
+    total = db.query(User).filter(User.approval_status == "pending").count()
+    users = db.query(User).filter(User.approval_status == "pending").offset(skip).limit(limit).all()
+    
+    # Manually load pending_employee for each user
+    items = []
+    for user in users:
+        pending_emp = db.query(PendingEmployee).filter(PendingEmployee.user_id == user.id).first()
+        user_dict = UserResponse.model_validate(user).model_dump()
+        if pending_emp:
+            user_dict['pending_employee'] = PendingEmployeeData.model_validate(pending_emp).model_dump()
+        else:
+            user_dict['pending_employee'] = None
+        items.append(user_dict)
+    
+    return {"total": total, "items": items}
+
+
 @router.get("/users/{user_id}", response_model=UserResponse)
 async def get_user(
     user_id: int,
@@ -405,38 +437,6 @@ async def delete_user(
         db.commit()
         logger.info(f"User deactivated: {user.username}")
         return {"message": "사용자가 비활성화되었습니다"}
-
-
-@router.get("/users/pending")
-async def get_pending_users(
-    skip: int = 0,
-    limit: int = 100,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """승인 대기 중인 사용자 목록 조회 with PendingEmployee (MASTER, ADMIN만 가능)"""
-    # Only MASTER and ADMIN can view pending users
-    if current_user.role not in [UserRole.MASTER, UserRole.ADMIN]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="권한이 부족합니다"
-        )
-    
-    total = db.query(User).filter(User.approval_status == "pending").count()
-    users = db.query(User).filter(User.approval_status == "pending").offset(skip).limit(limit).all()
-    
-    # Manually load pending_employee for each user
-    items = []
-    for user in users:
-        pending_emp = db.query(PendingEmployee).filter(PendingEmployee.user_id == user.id).first()
-        user_dict = UserResponse.model_validate(user).model_dump()
-        if pending_emp:
-            user_dict['pending_employee'] = PendingEmployeeData.model_validate(pending_emp).model_dump()
-        else:
-            user_dict['pending_employee'] = None
-        items.append(user_dict)
-    
-    return {"total": total, "items": items}
 
 
 @router.post("/users/{user_id}/approve")
