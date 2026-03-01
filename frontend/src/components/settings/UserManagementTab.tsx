@@ -11,15 +11,75 @@ interface UserAccount {
   username: string;
   email: string;
   full_name: string;
+  phone?: string;
   role: string;
   is_active: boolean;
+  approval_status?: string;
   employee_id?: number;
+  
+  // 기본 인적사항 (전체 필드)
+  name_en?: string;
+  address?: string;
+  emergency_contact?: string;
+  
+  // 조직 정보
+  employment_type?: string;
+  department?: string;
+  position?: string;
+  
+  // 근무 정보
+  hire_date?: string;
+  
+  // 운전면허
+  license_type?: string;
+  license_number?: string;
+  license_issue_date?: string;
+  
+  // 화물운송자격증
+  has_cargo_license?: boolean;
+  cargo_license_number?: string;
+  cargo_license_issue_date?: string;
+  cargo_license_expiry_date?: string;
+  
+  // 지게차 자격
+  can_drive_forklift?: boolean;
+  has_forklift_certificate?: boolean;
+  forklift_certificate_number?: string;
+  forklift_certificate_issue_date?: string;
+  forklift_certificate_expiry_date?: string;
+  
   employee?: {
     employee_code: string;
     name: string;
     phone: string;
     department?: string;
     position?: string;
+  };
+  pending_employee?: {
+    employee_code: string;
+    name: string;
+    name_en?: string;
+    phone: string;
+    email?: string;
+    address?: string;
+    emergency_contact?: string;
+    role: string;
+    employment_type: string;
+    department?: string;
+    position?: string;
+    hire_date: string;
+    license_type?: string;
+    license_number?: string;
+    license_issue_date?: string;
+    has_cargo_license: boolean;
+    cargo_license_number?: string;
+    cargo_license_issue_date?: string;
+    cargo_license_expiry_date?: string;
+    can_drive_forklift: boolean;
+    has_forklift_certificate: boolean;
+    forklift_certificate_number?: string;
+    forklift_certificate_issue_date?: string;
+    forklift_certificate_expiry_date?: string;
   };
   created_at: string;
 }
@@ -63,6 +123,7 @@ const UserManagementTab: React.FC = () => {
   const [showNewUserModal, setShowNewUserModal] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [editStep, setEditStep] = useState(1);
   const [editingUser, setEditingUser] = useState<UserAccount | null>(null);
 
   const [newUser, setNewUser] = useState<NewUserForm>({
@@ -188,7 +249,38 @@ const UserManagementTab: React.FC = () => {
   const handleEditUser = async (userId: number) => {
     try {
       const response = await api.get(`/auth/users/${userId}`);
-      setEditingUser(response.data);
+      const userData = response.data;
+      
+      // pending_employee 정보가 있으면 메인 필드로 병합
+      if (userData.pending_employee) {
+        const merged = {
+          ...userData,
+          name_en: userData.pending_employee.name_en,
+          address: userData.pending_employee.address,
+          emergency_contact: userData.pending_employee.emergency_contact,
+          employment_type: userData.pending_employee.employment_type,
+          department: userData.pending_employee.department,
+          position: userData.pending_employee.position,
+          hire_date: userData.pending_employee.hire_date,
+          license_type: userData.pending_employee.license_type,
+          license_number: userData.pending_employee.license_number,
+          license_issue_date: userData.pending_employee.license_issue_date,
+          has_cargo_license: userData.pending_employee.has_cargo_license,
+          cargo_license_number: userData.pending_employee.cargo_license_number,
+          cargo_license_issue_date: userData.pending_employee.cargo_license_issue_date,
+          cargo_license_expiry_date: userData.pending_employee.cargo_license_expiry_date,
+          can_drive_forklift: userData.pending_employee.can_drive_forklift,
+          has_forklift_certificate: userData.pending_employee.has_forklift_certificate,
+          forklift_certificate_number: userData.pending_employee.forklift_certificate_number,
+          forklift_certificate_issue_date: userData.pending_employee.forklift_certificate_issue_date,
+          forklift_certificate_expiry_date: userData.pending_employee.forklift_certificate_expiry_date,
+        };
+        setEditingUser(merged);
+      } else {
+        setEditingUser(userData);
+      }
+      
+      setEditStep(1);
       setShowEditModal(true);
     } catch (error) {
       toast.error('사용자 정보를 불러오는데 실패했습니다');
@@ -200,17 +292,57 @@ const UserManagementTab: React.FC = () => {
     if (!editingUser) return;
 
     try {
-      await api.put(`/auth/users/${editingUser.id}`, {
-        email: editingUser.email,
+      setLoading(true);
+      
+      // 전체 필드를 전송 (빈 문자열 날짜 필드는 undefined로 변환)
+      const updateData: any = {
+        email: editingUser.email || undefined,
         full_name: editingUser.full_name,
-        role: editingUser.role
-      });
+        phone: editingUser.phone || undefined,
+        role: editingUser.role,
+        
+        // 기본 인적사항
+        name_en: editingUser.name_en || undefined,
+        address: editingUser.address || undefined,
+        emergency_contact: editingUser.emergency_contact || undefined,
+        
+        // 조직 정보
+        employment_type: editingUser.employment_type || undefined,
+        department: editingUser.department || undefined,
+        position: editingUser.position || undefined,
+        
+        // 근무 정보
+        hire_date: editingUser.hire_date || undefined,
+        
+        // 운전면허
+        license_type: editingUser.license_type || undefined,
+        license_number: editingUser.license_number || undefined,
+        license_issue_date: editingUser.license_issue_date || undefined,
+        
+        // 화물운송자격증
+        has_cargo_license: editingUser.has_cargo_license,
+        cargo_license_number: editingUser.cargo_license_number || undefined,
+        cargo_license_issue_date: editingUser.cargo_license_issue_date || undefined,
+        cargo_license_expiry_date: editingUser.cargo_license_expiry_date || undefined,
+        
+        // 지게차 자격
+        can_drive_forklift: editingUser.can_drive_forklift,
+        has_forklift_certificate: editingUser.has_forklift_certificate,
+        forklift_certificate_number: editingUser.forklift_certificate_number || undefined,
+        forklift_certificate_issue_date: editingUser.forklift_certificate_issue_date || undefined,
+        forklift_certificate_expiry_date: editingUser.forklift_certificate_expiry_date || undefined,
+      };
+      
+      await api.put(`/auth/users/${editingUser.id}`, updateData);
       toast.success('사용자 정보가 수정되었습니다');
       setShowEditModal(false);
       setEditingUser(null);
+      setEditStep(1);
       loadUsers();
     } catch (error) {
       toast.error('수정에 실패했습니다');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -698,62 +830,309 @@ const UserManagementTab: React.FC = () => {
       {/* Edit User Modal */}
       {showEditModal && editingUser && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <h3 className="text-2xl font-bold text-gray-800 mb-6">사용자 정보 수정</h3>
               
+              {/* Step Indicator */}
+              <div className="flex items-center justify-center mb-8">
+                <div className="flex items-center space-x-4">
+                  {[1, 2, 3, 4].map((step) => (
+                    <React.Fragment key={step}>
+                      <div className={`flex items-center justify-center w-10 h-10 rounded-full ${
+                        editStep === step ? 'bg-blue-600 text-white' : 
+                        editStep > step ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-600'
+                      }`}>
+                        {step}
+                      </div>
+                      {step < 4 && (
+                        <div className={`w-16 h-1 ${
+                          editStep > step ? 'bg-green-500' : 'bg-gray-300'
+                        }`} />
+                      )}
+                    </React.Fragment>
+                  ))}
+                </div>
+              </div>
+
               <form onSubmit={handleUpdateUser} className="space-y-6">
-                <div className="border-b pb-4">
-                  <h4 className="text-lg font-semibold text-gray-700 mb-4">계정 정보</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Input
-                      label="사용자명"
-                      value={editingUser.username}
-                      disabled
-                    />
-                    <Input
-                      label="이메일"
-                      type="email"
-                      value={editingUser.email}
-                      onChange={(e) => setEditingUser({...editingUser, email: e.target.value})}
-                    />
-                    <Input
-                      label="이름"
-                      value={editingUser.full_name}
-                      onChange={(e) => setEditingUser({...editingUser, full_name: e.target.value})}
-                    />
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        권한
-                      </label>
-                      <select
-                        value={editingUser.role}
-                        onChange={(e) => setEditingUser({...editingUser, role: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="VIEWER">운전직</option>
-                        <option value="ADMIN">관리자</option>
-                        <option value="OPERATOR">운영</option>
-                        <option value="VEHICLE_MANAGER">차량관리</option>
-                      </select>
+                {/* Step 1: 계정 정보 */}
+                {editStep === 1 && (
+                  <div className="space-y-4">
+                    <h4 className="text-lg font-semibold text-gray-700 mb-4">1. 계정 정보</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <Input
+                        label="사용자명 *"
+                        value={editingUser.username}
+                        disabled
+                      />
+                      <Input
+                        label="이메일"
+                        type="email"
+                        value={editingUser.email || ''}
+                        onChange={(e) => setEditingUser({...editingUser, email: e.target.value})}
+                      />
+                      <Input
+                        label="이름 *"
+                        value={editingUser.full_name}
+                        onChange={(e) => setEditingUser({...editingUser, full_name: e.target.value})}
+                        required
+                      />
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          시스템 권한 *
+                        </label>
+                        <select
+                          value={editingUser.role}
+                          onChange={(e) => setEditingUser({...editingUser, role: e.target.value})}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                          required
+                        >
+                          <option value="DRIVER">운전직</option>
+                          <option value="ADMIN">관리자</option>
+                          <option value="OPERATOR">운영</option>
+                          <option value="VEHICLE_MANAGER">차량관리</option>
+                        </select>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
 
-                <div className="flex justify-end gap-3 pt-4 border-t">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() => {
-                      setShowEditModal(false);
-                      setEditingUser(null);
-                    }}
-                  >
-                    취소
-                  </Button>
-                  <Button type="submit" loading={loading}>
-                    저장
-                  </Button>
+                {/* Step 2: 기본 인적사항 */}
+                {editStep === 2 && (
+                  <div className="space-y-4">
+                    <h4 className="text-lg font-semibold text-gray-700 mb-4">2. 기본 인적사항</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <Input
+                        label="이름 (한글) *"
+                        value={editingUser.full_name}
+                        onChange={(e) => setEditingUser({...editingUser, full_name: e.target.value})}
+                        required
+                      />
+                      <Input
+                        label="영문명"
+                        value={editingUser.name_en || ''}
+                        onChange={(e) => setEditingUser({...editingUser, name_en: e.target.value})}
+                      />
+                      <Input
+                        label="전화번호 *"
+                        value={editingUser.phone || ''}
+                        onChange={(e) => setEditingUser({...editingUser, phone: e.target.value})}
+                        placeholder="010-0000-0000"
+                        required
+                      />
+                      <Input
+                        label="비상연락처"
+                        value={editingUser.emergency_contact || ''}
+                        onChange={(e) => setEditingUser({...editingUser, emergency_contact: e.target.value})}
+                        placeholder="010-0000-0000"
+                      />
+                      <div className="md:col-span-2">
+                        <Input
+                          label="주소"
+                          value={editingUser.address || ''}
+                          onChange={(e) => setEditingUser({...editingUser, address: e.target.value})}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 3: 조직 및 근무 정보 */}
+                {editStep === 3 && (
+                  <div className="space-y-4">
+                    <h4 className="text-lg font-semibold text-gray-700 mb-4">3. 조직 및 근무 정보</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          고용 형태 *
+                        </label>
+                        <select
+                          value={editingUser.employment_type || 'FULL_TIME'}
+                          onChange={(e) => setEditingUser({...editingUser, employment_type: e.target.value})}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                          required
+                        >
+                          <option value="FULL_TIME">정규직</option>
+                          <option value="CONTRACT">계약직</option>
+                          <option value="PART_TIME">파트타임</option>
+                        </select>
+                      </div>
+                      <Input
+                        label="입사일 *"
+                        type="date"
+                        value={editingUser.hire_date || ''}
+                        onChange={(e) => setEditingUser({...editingUser, hire_date: e.target.value})}
+                        required
+                      />
+                      <Input
+                        label="부서"
+                        value={editingUser.department || ''}
+                        onChange={(e) => setEditingUser({...editingUser, department: e.target.value})}
+                      />
+                      <Input
+                        label="직책"
+                        value={editingUser.position || ''}
+                        onChange={(e) => setEditingUser({...editingUser, position: e.target.value})}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 4: 자격증 정보 */}
+                {editStep === 4 && (
+                  <div className="space-y-6">
+                    <h4 className="text-lg font-semibold text-gray-700 mb-4">4. 자격증 정보</h4>
+                    
+                    {/* 운전면허 */}
+                    <div className="border-b pb-4">
+                      <h5 className="font-medium text-gray-700 mb-3">운전면허</h5>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <Input
+                          label="면허 종류"
+                          value={editingUser.license_type || ''}
+                          onChange={(e) => setEditingUser({...editingUser, license_type: e.target.value})}
+                          placeholder="1종 보통"
+                        />
+                        <Input
+                          label="면허 번호"
+                          value={editingUser.license_number || ''}
+                          onChange={(e) => setEditingUser({...editingUser, license_number: e.target.value})}
+                        />
+                        <Input
+                          label="발급일"
+                          type="date"
+                          value={editingUser.license_issue_date || ''}
+                          onChange={(e) => setEditingUser({...editingUser, license_issue_date: e.target.value})}
+                        />
+                      </div>
+                    </div>
+
+                    {/* 화물운송자격증 */}
+                    <div className="border-b pb-4">
+                      <h5 className="font-medium text-gray-700 mb-3">화물운송자격증</h5>
+                      <div className="mb-3">
+                        <label className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={editingUser.has_cargo_license || false}
+                            onChange={(e) => setEditingUser({...editingUser, has_cargo_license: e.target.checked})}
+                            className="mr-2"
+                          />
+                          <span className="text-sm text-gray-700">화물운송자격증 보유</span>
+                        </label>
+                      </div>
+                      {editingUser.has_cargo_license && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <Input
+                            label="자격증 번호"
+                            value={editingUser.cargo_license_number || ''}
+                            onChange={(e) => setEditingUser({...editingUser, cargo_license_number: e.target.value})}
+                          />
+                          <Input
+                            label="발급일"
+                            type="date"
+                            value={editingUser.cargo_license_issue_date || ''}
+                            onChange={(e) => setEditingUser({...editingUser, cargo_license_issue_date: e.target.value})}
+                          />
+                          <Input
+                            label="만료일"
+                            type="date"
+                            value={editingUser.cargo_license_expiry_date || ''}
+                            onChange={(e) => setEditingUser({...editingUser, cargo_license_expiry_date: e.target.value})}
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 지게차 자격 */}
+                    <div>
+                      <h5 className="font-medium text-gray-700 mb-3">지게차 자격</h5>
+                      <div className="space-y-3 mb-3">
+                        <label className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={editingUser.can_drive_forklift || false}
+                            onChange={(e) => setEditingUser({...editingUser, can_drive_forklift: e.target.checked})}
+                            className="mr-2"
+                          />
+                          <span className="text-sm text-gray-700">지게차 운전 가능</span>
+                        </label>
+                        <label className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={editingUser.has_forklift_certificate || false}
+                            onChange={(e) => setEditingUser({...editingUser, has_forklift_certificate: e.target.checked})}
+                            className="mr-2"
+                          />
+                          <span className="text-sm text-gray-700">지게차 자격증 보유</span>
+                        </label>
+                      </div>
+                      {editingUser.has_forklift_certificate && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <Input
+                            label="자격증 번호"
+                            value={editingUser.forklift_certificate_number || ''}
+                            onChange={(e) => setEditingUser({...editingUser, forklift_certificate_number: e.target.value})}
+                          />
+                          <Input
+                            label="발급일"
+                            type="date"
+                            value={editingUser.forklift_certificate_issue_date || ''}
+                            onChange={(e) => setEditingUser({...editingUser, forklift_certificate_issue_date: e.target.value})}
+                          />
+                          <Input
+                            label="만료일"
+                            type="date"
+                            value={editingUser.forklift_certificate_expiry_date || ''}
+                            onChange={(e) => setEditingUser({...editingUser, forklift_certificate_expiry_date: e.target.value})}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Navigation Buttons */}
+                <div className="flex justify-between items-center pt-6 border-t">
+                  <div>
+                    {editStep > 1 && (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => setEditStep(editStep - 1)}
+                      >
+                        이전
+                      </Button>
+                    )}
+                  </div>
+                  
+                  <div className="flex gap-3">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => {
+                        setShowEditModal(false);
+                        setEditingUser(null);
+                        setEditStep(1);
+                      }}
+                    >
+                      취소
+                    </Button>
+                    
+                    {editStep < 4 ? (
+                      <Button
+                        type="button"
+                        onClick={() => setEditStep(editStep + 1)}
+                      >
+                        다음
+                      </Button>
+                    ) : (
+                      <Button type="submit" loading={loading}>
+                        저장
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </form>
             </div>

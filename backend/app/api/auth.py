@@ -354,8 +354,32 @@ async def update_user(
     
     update_data = user_update.model_dump(exclude_unset=True)
     
-    for field, value in update_data.items():
-        setattr(user, field, value)
+    # User 테이블 업데이트 (기본 필드만)
+    user_fields = ['email', 'full_name', 'phone', 'role']
+    for field in user_fields:
+        if field in update_data:
+            setattr(user, field, update_data[field])
+    
+    # PendingEmployee 테이블 업데이트 (추가 필드들)
+    pending_employee = db.query(PendingEmployee).filter(PendingEmployee.user_id == user_id).first()
+    if pending_employee:
+        pending_fields = [
+            'name_en', 'address', 'emergency_contact', 'employment_type',
+            'department', 'position', 'hire_date', 'license_type', 'license_number',
+            'license_issue_date', 'has_cargo_license', 'cargo_license_number',
+            'cargo_license_issue_date', 'cargo_license_expiry_date',
+            'can_drive_forklift', 'has_forklift_certificate',
+            'forklift_certificate_number', 'forklift_certificate_issue_date',
+            'forklift_certificate_expiry_date'
+        ]
+        
+        for field in pending_fields:
+            if field in update_data:
+                setattr(pending_employee, field, update_data[field])
+        
+        # phone도 pending_employee에 업데이트
+        if 'phone' in update_data:
+            pending_employee.phone = update_data['phone']
     
     db.commit()
     db.refresh(user)

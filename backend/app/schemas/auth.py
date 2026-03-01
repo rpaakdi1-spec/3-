@@ -29,7 +29,35 @@ class UserUpdate(BaseModel):
     """사용자 수정 스키마"""
     email: Optional[str] = None
     full_name: Optional[str] = None
+    phone: Optional[str] = None
     role: Optional[UserRole] = None
+    
+    # Pending Employee 정보 수정 (승인 전 사용자)
+    name_en: Optional[str] = None
+    address: Optional[str] = None
+    emergency_contact: Optional[str] = None
+    employment_type: Optional[str] = None
+    department: Optional[str] = None
+    position: Optional[str] = None
+    hire_date: Optional[date] = None
+    
+    # 운전면허
+    license_type: Optional[str] = None
+    license_number: Optional[str] = None
+    license_issue_date: Optional[date] = None
+    
+    # 화물운송자격증
+    has_cargo_license: Optional[bool] = None
+    cargo_license_number: Optional[str] = None
+    cargo_license_issue_date: Optional[date] = None
+    cargo_license_expiry_date: Optional[date] = None
+    
+    # 지게차
+    can_drive_forklift: Optional[bool] = None
+    has_forklift_certificate: Optional[bool] = None
+    forklift_certificate_number: Optional[str] = None
+    forklift_certificate_issue_date: Optional[date] = None
+    forklift_certificate_expiry_date: Optional[date] = None
 
 
 class UserResponse(UserBase):
