@@ -338,7 +338,15 @@ const SignupPage: React.FC = () => {
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit}>
+        <form 
+          onSubmit={handleSubmit}
+          onKeyDown={(e) => {
+            // Enter 키로 폼 제출 방지 (마지막 단계의 제출 버튼만 허용)
+            if (e.key === 'Enter' && e.target instanceof HTMLInputElement) {
+              e.preventDefault();
+            }
+          }}
+        >
           {/* Step 1: 계정 정보 */}
           {currentStep === 1 && (
             <div className="space-y-4">
