@@ -73,6 +73,23 @@ Or follow: [`QUICKSTART_FIX_500.md`](QUICKSTART_FIX_500.md)
 - `CRITICAL_FIX_EMAIL_NULLABLE.md`
 - `QUICKSTART_FIX_500.md`
 
+### Issue #6: User Deletion Not Working ✅ FIXED
+**Problem**: Delete button doesn't remove users from list (no error message)  
+**Root Cause**: Backend only set `is_active=false`, frontend showed all users  
+**Solution**:
+- Added `permanent` parameter for actual DB deletion
+- Added `show_inactive` filter (default: false)
+- Delete PendingEmployee records on permanent delete
+
+**Commits**:
+- `c13c420` - Implement proper deletion
+- `94ee1d4` - Deployment script
+- `58ca22d` - Documentation
+
+**Documentation**:
+- `USER_DELETE_FIX.md`
+- `QUICKSTART_USER_DELETE.md`
+
 ---
 
 ## System Architecture Changes
