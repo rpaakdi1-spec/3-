@@ -56,11 +56,13 @@ const VehicleDriverManagementPage: React.FC = () => {
       // 🆕 Fetch drivers from Employee API
       const driversFromAPI = await employeeAPI.getDriverPool({ only_available: false });
       
-      // Match drivers with vehicles based on driver_name or driver_phone
+      // Match drivers with vehicles based on driver_phone (unique) first, then fallback to driver_name
       const vehiclesWithDrivers = vehiclesList.map((vehicle: Vehicle) => {
         const assignedDriver = driversFromAPI.find(d => 
-          d.name === vehicle.driver_name || 
-          d.phone === vehicle.driver_phone
+          // 전화번호로 우선 매칭 (고유 식별)
+          (vehicle.driver_phone && d.phone === vehicle.driver_phone) ||
+          // 전화번호가 없으면 이름으로 매칭 (중복 가능성 있음)
+          (!vehicle.driver_phone && vehicle.driver_name && d.name === vehicle.driver_name)
         );
         return {
           ...vehicle,
