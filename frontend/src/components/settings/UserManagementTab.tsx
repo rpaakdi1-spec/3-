@@ -118,6 +118,8 @@ interface NewUserForm {
 
 const UserManagementTab: React.FC = () => {
   const [users, setUsers] = useState<UserAccount[]>([]);
+  const [pendingUsers, setPendingUsers] = useState<UserAccount[]>([]);
+  const [activeTab, setActiveTab] = useState<'users' | 'pending'>('users');
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [showNewUserModal, setShowNewUserModal] = useState(false);
@@ -149,17 +151,46 @@ const UserManagementTab: React.FC = () => {
 
   useEffect(() => {
     loadUsers();
+    loadPendingUsers();
   }, []);
 
   const loadUsers = async () => {
     try {
       setLoading(true);
-      // show_inactive=true로 모든 사용자 조회 (활성 + 비활성 + pending)
-      const response = await api.get('/auth/users?show_inactive=true');
+      // 활성 사용자만 조회 (approval_status='approved')
+      const response = await api.get('/auth/users?show_inactive=false');
       setUsers(response.data.items || response.data);
     } catch (error) {
       console.error('Failed to load users:', error);
       toast.error('사용자 목록 조회에 실패했습니다');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadPendingUsers = async () => {
+    try {
+      const response = await api.get('/auth/users/pending');
+      setPendingUsers(response.data.items || response.data);
+    } catch (error) {
+      console.error('Failed to load pending users:', error);
+    }
+  };
+
+  const handleApproveUser = async (userId: number, username: string) => {
+    if (!confirm(`${username}님을 승인하시겠습니까?`)) return;
+    
+    try {
+      setLoading(true);
+      await api.post(`/auth/users/${userId}/approve`, {
+        employee_code: `EMP${Date.now().toString().slice(-6)}`
+      });
+      toast.success(`${username}님이 승인되었습니다`);
+      loadUsers();
+      loadPendingUsers();
+    } catch (error: any) {
+      console.error('Failed to approve user:', error);
+      toast.error(error.response?.data?.detail || '승인에 실패했습니다');
     } finally {
       setLoading(false);
     }
@@ -427,6 +458,30 @@ const UserManagementTab: React.FC = () => {
           </Button>
         </div>
 
+        {/* Tabs */}
+        <div className="flex border-b mb-4">
+          <button
+            onClick={() => setActiveTab('users')}
+            className={`px-4 py-2 font-medium ${
+              activeTab === 'users'
+                ? 'border-b-2 border-blue-500 text-blue-600'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            활성 사용자 ({users.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('pending')}
+            className={`px-4 py-2 font-medium ${
+              activeTab === 'pending'
+                ? 'border-b-2 border-orange-500 text-orange-600'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            승인 대기 ({pendingUsers.length})
+          </button>
+        </div>
+
         {/* Search */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
@@ -440,31 +495,32 @@ const UserManagementTab: React.FC = () => {
         </div>
       </Card>
 
-      {/* Users Table */}
-      <Card>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b">
-                <th className="text-left py-3 px-4 font-medium text-gray-700">사용자명</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-700">이메일</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-700">이름</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-700">직원정보</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-700">권한</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-700">상태</th>
-                <th className="text-center py-3 px-4 font-medium text-gray-700">작업</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredUsers.map((user) => (
-                <tr key={user.id} className="border-b hover:bg-gray-50">
-                  <td className="py-3 px-4">{user.username}</td>
-                  <td className="py-3 px-4">{user.email}</td>
-                  <td className="py-3 px-4">{user.full_name}</td>
-                  <td className="py-3 px-4">
-                    {user.employee ? (
-                      <div className="text-sm">
-                        <div className="font-medium">{user.employee.employee_code}</div>
+      {/* Active Users Table */}
+      {activeTab === 'users' && (
+        <Card>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left py-3 px-4 font-medium text-gray-700">사용자명</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-700">이메일</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-700">이름</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-700">직원정보</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-700">권한</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-700">상태</th>
+                  <th className="text-center py-3 px-4 font-medium text-gray-700">작업</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredUsers.map((user) => (
+                  <tr key={user.id} className="border-b hover:bg-gray-50">
+                    <td className="py-3 px-4">{user.username}</td>
+                    <td className="py-3 px-4">{user.email}</td>
+                    <td className="py-3 px-4">{user.full_name}</td>
+                    <td className="py-3 px-4">
+                      {user.employee ? (
+                        <div className="text-sm">
+                          <div className="font-medium">{user.employee.employee_code}</div>
                         <div className="text-gray-600">{user.employee.name}</div>
                         {user.employee.department && (
                           <div className="text-gray-500">{user.employee.department}</div>
@@ -525,6 +581,88 @@ const UserManagementTab: React.FC = () => {
           )}
         </div>
       </Card>
+      )}
+
+      {/* Pending Users Table */}
+      {activeTab === 'pending' && (
+        <Card>
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold text-gray-800">승인 대기 중인 사용자</h3>
+            <p className="text-sm text-gray-500 mt-1">회원가입 후 승인을 기다리는 사용자 목록입니다</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left py-3 px-4 font-medium text-gray-700">사용자명</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-700">이름</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-700">전화번호</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-700">사원번호</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-700">가입일시</th>
+                  <th className="text-center py-3 px-4 font-medium text-gray-700">작업</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pendingUsers.filter(user => 
+                  user.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                  user.full_name?.toLowerCase().includes(searchTerm.toLowerCase())
+                ).map((user) => (
+                  <tr key={user.id} className="border-b hover:bg-gray-50">
+                    <td className="py-3 px-4">
+                      <div className="font-medium">{user.username}</div>
+                      {user.email && <div className="text-sm text-gray-500">{user.email}</div>}
+                    </td>
+                    <td className="py-3 px-4">{user.full_name}</td>
+                    <td className="py-3 px-4">{user.phone || '-'}</td>
+                    <td className="py-3 px-4">
+                      {user.pending_employee ? (
+                        <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs font-medium">
+                          {user.pending_employee.employee_code}
+                        </span>
+                      ) : '-'}
+                    </td>
+                    <td className="py-3 px-4 text-sm text-gray-600">
+                      {new Date(user.created_at).toLocaleString('ko-KR')}
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="flex gap-2 justify-center">
+                        <Button
+                          size="sm"
+                          onClick={() => handleApproveUser(user.id, user.username)}
+                          className="bg-green-600 hover:bg-green-700"
+                        >
+                          승인
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleEditUser(user.id)}
+                        >
+                          <Edit2 size={16} />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleDeleteUser(user.id)}
+                          className="text-red-600 hover:bg-red-50"
+                        >
+                          <Trash2 size={16} />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {pendingUsers.length === 0 && (
+              <div className="text-center py-8 text-gray-500">
+                승인 대기 중인 사용자가 없습니다
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
 
       {/* New User Modal */}
       {showNewUserModal && (
