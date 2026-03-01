@@ -154,6 +154,7 @@ def get_approved_users(
         Employee, User.employee_id == Employee.id
     ).filter(User.employee_id.isnot(None)).all()
     registered_ids = [uid[0] for uid in registered_user_ids]
+    logger.info(f"[Approved Users] Registered user IDs (already employees): {registered_ids}")
     
     # 승인됐지만 Employee로 등록 안 된 사용자
     approved_users = db.query(User).filter(
@@ -163,12 +164,15 @@ def get_approved_users(
             User.id.notin_(registered_ids) if registered_ids else True
         )
     ).all()
+    logger.info(f"[Approved Users] Found {len(approved_users)} approved users: {[(u.id, u.username, u.employee_id) for u in approved_users]}")
     
     result = []
     for user in approved_users:
         pending_emp = db.query(PendingEmployee).filter(
             PendingEmployee.user_id == user.id
         ).first()
+        
+        logger.info(f"[Approved Users] User {user.id} ({user.username}) - has pending_emp: {pending_emp is not None}")
         
         if pending_emp:
             result.append({
@@ -207,6 +211,7 @@ def get_approved_users(
                 }
             })
     
+    logger.info(f"[Approved Users] Returning {len(result)} users with pending_employee data")
     return result
 
 
