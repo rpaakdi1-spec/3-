@@ -93,7 +93,8 @@ const UserManagementTab: React.FC = () => {
   const loadUsers = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/auth/users');
+      // show_inactive=false로 활성 사용자만 조회 (기본값)
+      const response = await api.get('/auth/users?show_inactive=false');
       setUsers(response.data.items || response.data);
     } catch (error) {
       console.error('Failed to load users:', error);
@@ -214,15 +215,17 @@ const UserManagementTab: React.FC = () => {
   };
 
   const handleDeleteUser = async (userId: number) => {
-    if (!window.confirm('정말 이 사용자를 삭제하시겠습니까?')) {
+    if (!window.confirm('정말 이 사용자를 삭제하시겠습니까?\n\n⚠️ 이 작업은 되돌릴 수 없습니다.')) {
       return;
     }
 
     try {
-      await api.delete(`/auth/users/${userId}`);
+      // permanent=true로 완전 삭제
+      await api.delete(`/auth/users/${userId}?permanent=true`);
       toast.success('사용자가 삭제되었습니다');
       loadUsers();
     } catch (error) {
+      console.error('Delete error:', error);
       toast.error('사용자 삭제에 실패했습니다');
     }
   };

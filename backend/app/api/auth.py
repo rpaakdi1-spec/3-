@@ -269,12 +269,19 @@ async def change_password(
 async def get_users(
     skip: int = 0,
     limit: int = 100,
+    show_inactive: bool = False,  # 비활성 사용자 포함 여부
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.ADMIN))  # Admin only
 ):
     """사용자 목록 조회 (Admin만 가능)"""
-    total = db.query(User).count()
-    users = db.query(User).offset(skip).limit(limit).all()
+    query = db.query(User)
+    
+    # 기본적으로 활성 사용자만 표시
+    if not show_inactive:
+        query = query.filter(User.is_active == True)
+    
+    total = query.count()
+    users = query.offset(skip).limit(limit).all()
     
     return UserListResponse(total=total, items=users)
 
@@ -359,6 +366,7 @@ async def update_user_status(
 @router.delete("/users/{user_id}")
 async def delete_user(
     user_id: int,
+    permanent: bool = False,  # True면 완전 삭제, False면 비활성화
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.ADMIN))  # Admin only
 ):
@@ -378,11 +386,25 @@ async def delete_user(
             detail="자기 자신을 삭제할 수 없습니다"
         )
     
-    user.is_active = False
-    db.commit()
-    
-    logger.info(f"User deleted: {user.username}")
-    return {"message": "사용자가 삭제되었습니다"}
+    if permanent:
+        # 완전 삭제: 관련 데이터 먼저 삭제
+        # PendingEmployee 삭제
+        db.query(PendingEmployee).filter(PendingEmployee.user_id == user_id).delete()
+        
+        # TODO: 다른 관련 데이터도 삭제 필요 (Dispatch, Orders 등)
+        # 외래키 제약조건 확인 필요
+        
+        # 사용자 삭제
+        db.delete(user)
+        db.commit()
+        logger.info(f"User permanently deleted: {user.username}")
+        return {"message": "사용자가 완전히 삭제되었습니다"}
+    else:
+        # 소프트 삭제: 비활성화만
+        user.is_active = False
+        db.commit()
+        logger.info(f"User deactivated: {user.username}")
+        return {"message": "사용자가 비활성화되었습니다"}
 
 
 @router.get("/users/pending")
