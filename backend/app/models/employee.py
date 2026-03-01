@@ -98,6 +98,7 @@ class Employee(Base):
         comment="화물운송자격증 보유 여부"
     )
     cargo_license_number = Column(String(50), nullable=True, comment="화물운송자격증 번호")
+    cargo_license_issue_date = Column(Date, nullable=True, comment="화물운송자격증 발급일")
     cargo_license_expiry_date = Column(Date, nullable=True, comment="화물운송자격증 만료일")
     
     # ==================== 🆕 지게차 운전능력 (핵심 신규 필드) ====================
