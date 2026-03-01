@@ -111,6 +111,42 @@ export interface EmployeeStatistics {
   drivers_needing_training: number;
 }
 
+export interface ApprovedUser {
+  user_id: number;
+  username: string;
+  full_name: string;
+  email?: string;
+  phone?: string;
+  role: string;
+  approved_at?: string;
+  pending_employee: {
+    employee_code: string;
+    name: string;
+    name_en?: string;
+    phone: string;
+    email?: string;
+    address?: string;
+    emergency_contact?: string;
+    role: string;
+    employment_type: string;
+    department?: string;
+    position?: string;
+    hire_date?: string;
+    license_type?: string;
+    license_number?: string;
+    license_issue_date?: string;
+    has_cargo_license: boolean;
+    cargo_license_number?: string;
+    cargo_license_issue_date?: string;
+    cargo_license_expiry_date?: string;
+    can_drive_forklift: boolean;
+    has_forklift_certificate: boolean;
+    forklift_certificate_number?: string;
+    forklift_certificate_issue_date?: string;
+    forklift_certificate_expiry_date?: string;
+  };
+}
+
 export interface EmployeeFilterParams {
   role?: string;
   employment_type?: string;
@@ -195,6 +231,22 @@ class EmployeeAPI {
    */
   async getStatistics(): Promise<EmployeeStatistics> {
     const response = await apiClient.get<EmployeeStatistics>(`${this.baseURL}/statistics/overview`);
+    return response.data;
+  }
+
+  /**
+   * 승인된 사용자 목록 조회 (인사카드 등록 대상)
+   */
+  async getApprovedUsers(): Promise<ApprovedUser[]> {
+    const response = await apiClient.get<ApprovedUser[]>(`${this.baseURL}/approved-users`);
+    return response.data;
+  }
+
+  /**
+   * 승인된 사용자를 Employee로 등록
+   */
+  async createFromUser(userId: number): Promise<Employee> {
+    const response = await apiClient.post<Employee>(`${this.baseURL}/from-user/${userId}`);
     return response.data;
   }
 }

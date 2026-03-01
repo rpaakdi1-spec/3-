@@ -3,13 +3,13 @@
  * 인사관리 페이지 (전체 기능 + 휴지통)
  */
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, RefreshCw, Edit, Trash2, Users, Upload, Download, AlertTriangle, X, RotateCcw, Archive } from 'lucide-react';
+import { Plus, Search, RefreshCw, Edit, Trash2, Users, Upload, Download, AlertTriangle, X, RotateCcw, Archive, UserCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
 import Card from '../components/common/Card';
 import Loading from '../components/common/Loading';
-import employeeAPI, { Employee, EmployeeCreate, EmployeeUpdate, EmployeeFilterParams, EmployeeStatistics } from '../api/employees';
+import employeeAPI, { Employee, EmployeeCreate, EmployeeUpdate, EmployeeFilterParams, EmployeeStatistics, ApprovedUser } from '../api/employees';
 
 // Modal Tab Type
 type ModalTab = 'basic' | 'work' | 'qualifications' | 'salary';
@@ -29,8 +29,10 @@ const EmployeeManagementPage: React.FC = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showTrashModal, setShowTrashModal] = useState(false);
+  const [showApprovedUsersModal, setShowApprovedUsersModal] = useState(false);
   const [currentEmployee, setCurrentEmployee] = useState<Employee | null>(null);
   const [currentTab, setCurrentTab] = useState<ModalTab>('basic');
+  const [approvedUsers, setApprovedUsers] = useState<ApprovedUser[]>([]);
 
   // Form State
   const [formData, setFormData] = useState<Partial<EmployeeCreate>>({
@@ -167,6 +169,43 @@ const EmployeeManagementPage: React.FC = () => {
   // Open trash modal
   const openTrashModal = () => {
     setShowTrashModal(true);
+  };
+
+  // Open approved users modal
+  const openApprovedUsersModal = async () => {
+    try {
+      setLoading(true);
+      const users = await employeeAPI.getApprovedUsers();
+      setApprovedUsers(users);
+      setShowApprovedUsersModal(true);
+    } catch (error) {
+      console.error('Failed to fetch approved users:', error);
+      toast.error('승인된 사용자 조회 실패');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Import user as employee
+  const handleImportUser = async (user: ApprovedUser) => {
+    if (!confirm(`${user.full_name}(${user.username})님을 인사카드로 등록하시겠습니까?`)) return;
+    
+    try {
+      setLoading(true);
+      await employeeAPI.createFromUser(user.user_id);
+      toast.success(`${user.full_name}님이 인사카드에 등록되었습니다`);
+      
+      // Refresh lists
+      const users = await employeeAPI.getApprovedUsers();
+      setApprovedUsers(users);
+      fetchEmployees();
+      fetchStatistics();
+    } catch (error: any) {
+      console.error('Failed to import user:', error);
+      toast.error(error.response?.data?.detail || '등록 실패');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Open create modal
@@ -833,6 +872,10 @@ const EmployeeManagementPage: React.FC = () => {
             <Download size={20} />
             템플릿
           </Button>
+          <Button onClick={openApprovedUsersModal} variant="outline" className="flex items-center gap-2 bg-green-50 text-green-700 hover:bg-green-100">
+            <UserCheck size={20} />
+            승인된 사용자 불러오기
+          </Button>
           <Button onClick={openCreateModal} className="flex items-center gap-2">
             <Plus size={20} />
             신규 등록
@@ -1267,6 +1310,134 @@ const EmployeeManagementPage: React.FC = () => {
             {/* Modal Actions */}
             <div className="p-6 border-t flex justify-end gap-2">
               <Button variant="outline" onClick={() => setShowTrashModal(false)}>
+                닫기
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Approved Users Modal */}
+      {showApprovedUsersModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            {/* Modal Header */}
+            <div className="p-6 border-b flex items-center justify-between bg-gradient-to-r from-green-500 to-green-600 text-white">
+              <div className="flex items-center gap-3">
+                <UserCheck size={28} />
+                <div>
+                  <h2 className="text-2xl font-bold">승인된 사용자 불러오기</h2>
+                  <p className="text-sm text-green-100 mt-1">회원가입 후 승인된 사용자를 인사카드로 등록합니다</p>
+                </div>
+              </div>
+              <button onClick={() => setShowApprovedUsersModal(false)} className="text-white hover:bg-white/20 p-2 rounded">
+                <X size={24} />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {approvedUsers.length === 0 ? (
+                <div className="text-center py-12">
+                  <Users size={64} className="mx-auto text-gray-300 mb-4" />
+                  <p className="text-gray-500 text-lg">등록 대상 사용자가 없습니다</p>
+                  <p className="text-sm text-gray-400 mt-2">승인 완료되었지만 인사카드에 아직 등록되지 않은 사용자가 표시됩니다</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-4">
+                  {approvedUsers.map((user) => (
+                    <Card key={user.user_id} className="p-6 hover:shadow-lg transition-shadow">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-3">
+                            <div className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm font-semibold">
+                              {user.pending_employee.employee_code}
+                            </div>
+                            <h3 className="text-xl font-bold text-gray-800">{user.full_name}</h3>
+                            <span className="text-sm text-gray-500">({user.username})</span>
+                            {user.pending_employee.role === 'DRIVER' && (
+                              <span className="px-2 py-1 rounded text-xs bg-blue-100 text-blue-800">운전직</span>
+                            )}
+                          </div>
+
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
+                            <div>
+                              <p className="text-xs text-gray-500">전화번호</p>
+                              <p className="text-sm font-medium">{user.pending_employee.phone}</p>
+                            </div>
+                            {user.pending_employee.email && (
+                              <div>
+                                <p className="text-xs text-gray-500">이메일</p>
+                                <p className="text-sm font-medium">{user.pending_employee.email}</p>
+                              </div>
+                            )}
+                            <div>
+                              <p className="text-xs text-gray-500">고용형태</p>
+                              <p className="text-sm font-medium">
+                                {user.pending_employee.employment_type === 'FULL_TIME' && '정규직'}
+                                {user.pending_employee.employment_type === 'CONTRACT' && '계약직'}
+                                {user.pending_employee.employment_type === 'PART_TIME' && '파트타임'}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-500">입사일</p>
+                              <p className="text-sm font-medium">{user.pending_employee.hire_date}</p>
+                            </div>
+                            {user.pending_employee.department && (
+                              <div>
+                                <p className="text-xs text-gray-500">부서</p>
+                                <p className="text-sm font-medium">{user.pending_employee.department}</p>
+                              </div>
+                            )}
+                            {user.pending_employee.position && (
+                              <div>
+                                <p className="text-xs text-gray-500">직책</p>
+                                <p className="text-sm font-medium">{user.pending_employee.position}</p>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* 자격증 정보 */}
+                          <div className="flex gap-2 flex-wrap">
+                            {user.pending_employee.license_type && (
+                              <span className="px-2 py-1 rounded text-xs bg-purple-100 text-purple-800">
+                                면허: {user.pending_employee.license_type}
+                              </span>
+                            )}
+                            {user.pending_employee.has_cargo_license && (
+                              <span className="px-2 py-1 rounded text-xs bg-blue-100 text-blue-800">화물자격증 ✓</span>
+                            )}
+                            {user.pending_employee.can_drive_forklift && (
+                              <span className={`px-2 py-1 rounded text-xs ${user.pending_employee.has_forklift_certificate ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'}`}>
+                                🔧 지게차 {user.pending_employee.has_forklift_certificate ? '✅' : '⚠️'}
+                              </span>
+                            )}
+                          </div>
+
+                          {user.approved_at && (
+                            <p className="text-xs text-gray-400 mt-3">
+                              승인일시: {new Date(user.approved_at).toLocaleString('ko-KR')}
+                            </p>
+                          )}
+                        </div>
+
+                        <Button 
+                          onClick={() => handleImportUser(user)}
+                          className="ml-4 flex items-center gap-2 bg-green-600 hover:bg-green-700"
+                        >
+                          <UserCheck size={18} />
+                          인사카드 등록
+                        </Button>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Actions */}
+            <div className="p-6 border-t flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowApprovedUsersModal(false)}>
                 닫기
               </Button>
             </div>
