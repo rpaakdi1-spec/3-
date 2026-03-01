@@ -21,7 +21,6 @@ interface SignupFormData {
   emergency_contact: string;
   
   // 조직 정보
-  employee_role: string;
   employment_type: string;
   department: string;
   position: string;
@@ -68,7 +67,6 @@ const SignupPage: React.FC = () => {
     emergency_contact: '',
     
     // 조직 정보
-    employee_role: 'DRIVER',
     employment_type: 'FULL_TIME',
     department: '',
     position: '',
@@ -448,23 +446,6 @@ const SignupPage: React.FC = () => {
               <h3 className="text-lg font-semibold mb-4">조직 및 근무 정보</h3>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    직급 *
-                  </label>
-                  <select
-                    value={formData.employee_role}
-                    onChange={(e) => handleChange('employee_role', e.target.value)}
-                    disabled={isLoading}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="DRIVER">운전직</option>
-                    <option value="MANAGER">현장관리자</option>
-                    <option value="ADMIN">관리자</option>
-                    <option value="MASTER">총괄</option>
-                  </select>
-                </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     고용 형태 *

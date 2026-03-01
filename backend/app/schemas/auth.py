@@ -120,7 +120,6 @@ class SignupRequest(BaseModel):
     emergency_contact: Optional[str] = Field(None, max_length=13, description="비상연락처")
     
     # 조직 정보
-    employee_role: EmployeeRole = Field(default=EmployeeRole.DRIVER, description="직급")
     employment_type: EmploymentType = Field(default=EmploymentType.FULL_TIME, description="고용 형태")
     department: Optional[str] = Field(None, max_length=100, description="부서")
     position: Optional[str] = Field(None, max_length=100, description="직책")

@@ -160,7 +160,7 @@ async def signup(
         email=signup_data.email or new_user.email,
         address=signup_data.address,
         emergency_contact=signup_data.emergency_contact,
-        role=signup_data.employee_role.value,
+        role=signup_data.role.value,
         employment_type=signup_data.employment_type.value,
         department=signup_data.department,
         position=signup_data.position,
