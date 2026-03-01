@@ -253,31 +253,55 @@ const UserManagementTab: React.FC = () => {
       
       // pending_employee 정보가 있으면 메인 필드로 병합
       if (userData.pending_employee) {
+        const pe = userData.pending_employee;
         const merged = {
           ...userData,
-          name_en: userData.pending_employee.name_en,
-          address: userData.pending_employee.address,
-          emergency_contact: userData.pending_employee.emergency_contact,
-          employment_type: userData.pending_employee.employment_type,
-          department: userData.pending_employee.department,
-          position: userData.pending_employee.position,
-          hire_date: userData.pending_employee.hire_date,
-          license_type: userData.pending_employee.license_type,
-          license_number: userData.pending_employee.license_number,
-          license_issue_date: userData.pending_employee.license_issue_date,
-          has_cargo_license: userData.pending_employee.has_cargo_license,
-          cargo_license_number: userData.pending_employee.cargo_license_number,
-          cargo_license_issue_date: userData.pending_employee.cargo_license_issue_date,
-          cargo_license_expiry_date: userData.pending_employee.cargo_license_expiry_date,
-          can_drive_forklift: userData.pending_employee.can_drive_forklift,
-          has_forklift_certificate: userData.pending_employee.has_forklift_certificate,
-          forklift_certificate_number: userData.pending_employee.forklift_certificate_number,
-          forklift_certificate_issue_date: userData.pending_employee.forklift_certificate_issue_date,
-          forklift_certificate_expiry_date: userData.pending_employee.forklift_certificate_expiry_date,
+          name_en: pe.name_en || '',
+          address: pe.address || '',
+          emergency_contact: pe.emergency_contact || '',
+          employment_type: pe.employment_type || 'FULL_TIME',
+          department: pe.department || '',
+          position: pe.position || '',
+          hire_date: pe.hire_date || '',
+          license_type: pe.license_type || '',
+          license_number: pe.license_number || '',
+          license_issue_date: pe.license_issue_date || '',
+          has_cargo_license: pe.has_cargo_license || false,
+          cargo_license_number: pe.cargo_license_number || '',
+          cargo_license_issue_date: pe.cargo_license_issue_date || '',
+          cargo_license_expiry_date: pe.cargo_license_expiry_date || '',
+          can_drive_forklift: pe.can_drive_forklift || false,
+          has_forklift_certificate: pe.has_forklift_certificate || false,
+          forklift_certificate_number: pe.forklift_certificate_number || '',
+          forklift_certificate_issue_date: pe.forklift_certificate_issue_date || '',
+          forklift_certificate_expiry_date: pe.forklift_certificate_expiry_date || '',
         };
         setEditingUser(merged);
       } else {
-        setEditingUser(userData);
+        // pending_employee가 없으면 기본값 설정
+        const withDefaults = {
+          ...userData,
+          name_en: userData.name_en || '',
+          address: userData.address || '',
+          emergency_contact: userData.emergency_contact || '',
+          employment_type: userData.employment_type || 'FULL_TIME',
+          department: userData.department || '',
+          position: userData.position || '',
+          hire_date: userData.hire_date || '',
+          license_type: userData.license_type || '',
+          license_number: userData.license_number || '',
+          license_issue_date: userData.license_issue_date || '',
+          has_cargo_license: userData.has_cargo_license || false,
+          cargo_license_number: userData.cargo_license_number || '',
+          cargo_license_issue_date: userData.cargo_license_issue_date || '',
+          cargo_license_expiry_date: userData.cargo_license_expiry_date || '',
+          can_drive_forklift: userData.can_drive_forklift || false,
+          has_forklift_certificate: userData.has_forklift_certificate || false,
+          forklift_certificate_number: userData.forklift_certificate_number || '',
+          forklift_certificate_issue_date: userData.forklift_certificate_issue_date || '',
+          forklift_certificate_expiry_date: userData.forklift_certificate_expiry_date || '',
+        };
+        setEditingUser(withDefaults);
       }
       
       setEditStep(1);
