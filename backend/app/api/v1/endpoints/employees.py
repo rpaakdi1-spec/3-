@@ -136,6 +136,159 @@ def list_employees(
     )
 
 
+# ==================== 회원관리 연동 ====================
+
+@router.get("/approved-users", response_model=List[dict])
+def get_approved_users(
+    db: Session = Depends(get_db)
+):
+    """
+    승인된 사용자 목록 조회 (인사관리 등록용)
+    
+    - 승인 완료된 사용자(approval_status='approved')
+    - Employee 테이블에 아직 등록되지 않은 사용자만 조회
+    - PendingEmployee 정보 포함
+    """
+    # 이미 Employee로 등록된 user_id 조회
+    registered_user_ids = db.query(User.id).join(
+        Employee, User.employee_id == Employee.id
+    ).filter(User.employee_id.isnot(None)).all()
+    registered_ids = [uid[0] for uid in registered_user_ids]
+    
+    # 승인됐지만 Employee로 등록 안 된 사용자
+    approved_users = db.query(User).filter(
+        and_(
+            User.approval_status == 'approved',
+            User.is_active == True,
+            User.id.notin_(registered_ids) if registered_ids else True
+        )
+    ).all()
+    
+    result = []
+    for user in approved_users:
+        pending_emp = db.query(PendingEmployee).filter(
+            PendingEmployee.user_id == user.id
+        ).first()
+        
+        if pending_emp:
+            result.append({
+                'user_id': user.id,
+                'username': user.username,
+                'full_name': user.full_name,
+                'email': user.email,
+                'phone': user.phone,
+                'role': user.role,
+                'approved_at': user.approved_at.isoformat() if user.approved_at else None,
+                'pending_employee': {
+                    'employee_code': pending_emp.employee_code,
+                    'name': pending_emp.name,
+                    'name_en': pending_emp.name_en,
+                    'phone': pending_emp.phone,
+                    'email': pending_emp.email,
+                    'address': pending_emp.address,
+                    'emergency_contact': pending_emp.emergency_contact,
+                    'role': pending_emp.role,
+                    'employment_type': pending_emp.employment_type,
+                    'department': pending_emp.department,
+                    'position': pending_emp.position,
+                    'hire_date': pending_emp.hire_date.isoformat() if pending_emp.hire_date else None,
+                    'license_type': pending_emp.license_type,
+                    'license_number': pending_emp.license_number,
+                    'license_issue_date': pending_emp.license_issue_date.isoformat() if pending_emp.license_issue_date else None,
+                    'has_cargo_license': pending_emp.has_cargo_license,
+                    'cargo_license_number': pending_emp.cargo_license_number,
+                    'cargo_license_issue_date': pending_emp.cargo_license_issue_date.isoformat() if pending_emp.cargo_license_issue_date else None,
+                    'cargo_license_expiry_date': pending_emp.cargo_license_expiry_date.isoformat() if pending_emp.cargo_license_expiry_date else None,
+                    'can_drive_forklift': pending_emp.can_drive_forklift,
+                    'has_forklift_certificate': pending_emp.has_forklift_certificate,
+                    'forklift_certificate_number': pending_emp.forklift_certificate_number,
+                    'forklift_certificate_issue_date': pending_emp.forklift_certificate_issue_date.isoformat() if pending_emp.forklift_certificate_issue_date else None,
+                    'forklift_certificate_expiry_date': pending_emp.forklift_certificate_expiry_date.isoformat() if pending_emp.forklift_certificate_expiry_date else None,
+                }
+            })
+    
+    return result
+
+
+@router.post("/from-user/{user_id}", response_model=EmployeeResponse, status_code=201)
+def create_employee_from_user(
+    user_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    승인된 사용자를 Employee로 등록
+    
+    - PendingEmployee 정보를 Employee로 변환
+    - User의 employee_id 업데이트
+    """
+    # 사용자 조회
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다")
+    
+    if user.approval_status != 'approved':
+        raise HTTPException(status_code=400, detail="승인되지 않은 사용자입니다")
+    
+    if user.employee_id:
+        raise HTTPException(status_code=400, detail="이미 인사카드가 등록된 사용자입니다")
+    
+    # PendingEmployee 조회
+    pending_emp = db.query(PendingEmployee).filter(
+        PendingEmployee.user_id == user_id
+    ).first()
+    
+    if not pending_emp:
+        raise HTTPException(status_code=404, detail="대기 중인 인사 정보를 찾을 수 없습니다")
+    
+    # Employee 중복 체크
+    existing = db.query(Employee).filter(
+        Employee.employee_code == pending_emp.employee_code
+    ).first()
+    if existing:
+        raise HTTPException(status_code=400, detail=f"사원번호 '{pending_emp.employee_code}'는 이미 사용 중입니다")
+    
+    # Employee 생성
+    employee = Employee(
+        employee_code=pending_emp.employee_code,
+        name=pending_emp.name,
+        name_en=pending_emp.name_en,
+        phone=pending_emp.phone,
+        email=pending_emp.email,
+        address=pending_emp.address,
+        emergency_contact=pending_emp.emergency_contact,
+        role=pending_emp.role,
+        employment_type=pending_emp.employment_type,
+        department=pending_emp.department,
+        position=pending_emp.position,
+        hire_date=pending_emp.hire_date,
+        license_type=pending_emp.license_type,
+        license_number=pending_emp.license_number,
+        license_issue_date=pending_emp.license_issue_date,
+        has_cargo_license=pending_emp.has_cargo_license,
+        cargo_license_number=pending_emp.cargo_license_number,
+        cargo_license_issue_date=pending_emp.cargo_license_issue_date,
+        cargo_license_expiry_date=pending_emp.cargo_license_expiry_date,
+        can_drive_forklift=pending_emp.can_drive_forklift,
+        has_forklift_certificate=pending_emp.has_forklift_certificate,
+        forklift_certificate_number=pending_emp.forklift_certificate_number,
+        forklift_certificate_issue_date=pending_emp.forklift_certificate_issue_date,
+        forklift_certificate_expiry_date=pending_emp.forklift_certificate_expiry_date,
+        is_active=True
+    )
+    
+    db.add(employee)
+    db.flush()  # employee.id 생성
+    
+    # User의 employee_id 업데이트
+    user.employee_id = employee.id
+    
+    db.commit()
+    db.refresh(employee)
+    
+    logger.info(f"Created employee from user: {employee.employee_code} - {employee.name} (user_id={user_id})")
+    return employee_to_response(employee)
+
+
 @router.get("/{employee_id}", response_model=EmployeeResponse)
 def get_employee(employee_id: int, db: Session = Depends(get_db)):
     """직원 상세 조회"""
@@ -367,156 +520,3 @@ def get_employee_statistics(db: Session = Depends(get_db)):
         drivers_with_forklift_certificate=drivers_with_forklift_cert,
         drivers_needing_training=drivers_needing_training
     )
-
-
-# ==================== 회원관리 연동 ====================
-
-@router.get("/approved-users", response_model=List[dict])
-def get_approved_users(
-    db: Session = Depends(get_db)
-):
-    """
-    승인된 사용자 목록 조회 (인사관리 등록용)
-    
-    - 승인 완료된 사용자(approval_status='approved')
-    - Employee 테이블에 아직 등록되지 않은 사용자만 조회
-    - PendingEmployee 정보 포함
-    """
-    # 이미 Employee로 등록된 user_id 조회
-    registered_user_ids = db.query(User.id).join(
-        Employee, User.employee_id == Employee.id
-    ).filter(User.employee_id.isnot(None)).all()
-    registered_ids = [uid[0] for uid in registered_user_ids]
-    
-    # 승인됐지만 Employee로 등록 안 된 사용자
-    approved_users = db.query(User).filter(
-        and_(
-            User.approval_status == 'approved',
-            User.is_active == True,
-            User.id.notin_(registered_ids) if registered_ids else True
-        )
-    ).all()
-    
-    result = []
-    for user in approved_users:
-        pending_emp = db.query(PendingEmployee).filter(
-            PendingEmployee.user_id == user.id
-        ).first()
-        
-        if pending_emp:
-            result.append({
-                'user_id': user.id,
-                'username': user.username,
-                'full_name': user.full_name,
-                'email': user.email,
-                'phone': user.phone,
-                'role': user.role,
-                'approved_at': user.approved_at.isoformat() if user.approved_at else None,
-                'pending_employee': {
-                    'employee_code': pending_emp.employee_code,
-                    'name': pending_emp.name,
-                    'name_en': pending_emp.name_en,
-                    'phone': pending_emp.phone,
-                    'email': pending_emp.email,
-                    'address': pending_emp.address,
-                    'emergency_contact': pending_emp.emergency_contact,
-                    'role': pending_emp.role,
-                    'employment_type': pending_emp.employment_type,
-                    'department': pending_emp.department,
-                    'position': pending_emp.position,
-                    'hire_date': pending_emp.hire_date.isoformat() if pending_emp.hire_date else None,
-                    'license_type': pending_emp.license_type,
-                    'license_number': pending_emp.license_number,
-                    'license_issue_date': pending_emp.license_issue_date.isoformat() if pending_emp.license_issue_date else None,
-                    'has_cargo_license': pending_emp.has_cargo_license,
-                    'cargo_license_number': pending_emp.cargo_license_number,
-                    'cargo_license_issue_date': pending_emp.cargo_license_issue_date.isoformat() if pending_emp.cargo_license_issue_date else None,
-                    'cargo_license_expiry_date': pending_emp.cargo_license_expiry_date.isoformat() if pending_emp.cargo_license_expiry_date else None,
-                    'can_drive_forklift': pending_emp.can_drive_forklift,
-                    'has_forklift_certificate': pending_emp.has_forklift_certificate,
-                    'forklift_certificate_number': pending_emp.forklift_certificate_number,
-                    'forklift_certificate_issue_date': pending_emp.forklift_certificate_issue_date.isoformat() if pending_emp.forklift_certificate_issue_date else None,
-                    'forklift_certificate_expiry_date': pending_emp.forklift_certificate_expiry_date.isoformat() if pending_emp.forklift_certificate_expiry_date else None,
-                }
-            })
-    
-    return result
-
-
-@router.post("/from-user/{user_id}", response_model=EmployeeResponse, status_code=201)
-def create_employee_from_user(
-    user_id: int,
-    db: Session = Depends(get_db)
-):
-    """
-    승인된 사용자를 Employee로 등록
-    
-    - PendingEmployee 정보를 Employee로 변환
-    - User의 employee_id 업데이트
-    """
-    # 사용자 조회
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다")
-    
-    if user.approval_status != 'approved':
-        raise HTTPException(status_code=400, detail="승인되지 않은 사용자입니다")
-    
-    if user.employee_id:
-        raise HTTPException(status_code=400, detail="이미 인사카드가 등록된 사용자입니다")
-    
-    # PendingEmployee 조회
-    pending_emp = db.query(PendingEmployee).filter(
-        PendingEmployee.user_id == user_id
-    ).first()
-    
-    if not pending_emp:
-        raise HTTPException(status_code=404, detail="대기 중인 인사 정보를 찾을 수 없습니다")
-    
-    # Employee 중복 체크
-    existing = db.query(Employee).filter(
-        Employee.employee_code == pending_emp.employee_code
-    ).first()
-    if existing:
-        raise HTTPException(status_code=400, detail=f"사원번호 '{pending_emp.employee_code}'는 이미 사용 중입니다")
-    
-    # Employee 생성
-    employee = Employee(
-        employee_code=pending_emp.employee_code,
-        name=pending_emp.name,
-        name_en=pending_emp.name_en,
-        phone=pending_emp.phone,
-        email=pending_emp.email,
-        address=pending_emp.address,
-        emergency_contact=pending_emp.emergency_contact,
-        role=pending_emp.role,
-        employment_type=pending_emp.employment_type,
-        department=pending_emp.department,
-        position=pending_emp.position,
-        hire_date=pending_emp.hire_date,
-        license_type=pending_emp.license_type,
-        license_number=pending_emp.license_number,
-        license_issue_date=pending_emp.license_issue_date,
-        has_cargo_license=pending_emp.has_cargo_license,
-        cargo_license_number=pending_emp.cargo_license_number,
-        cargo_license_issue_date=pending_emp.cargo_license_issue_date,
-        cargo_license_expiry_date=pending_emp.cargo_license_expiry_date,
-        can_drive_forklift=pending_emp.can_drive_forklift,
-        has_forklift_certificate=pending_emp.has_forklift_certificate,
-        forklift_certificate_number=pending_emp.forklift_certificate_number,
-        forklift_certificate_issue_date=pending_emp.forklift_certificate_issue_date,
-        forklift_certificate_expiry_date=pending_emp.forklift_certificate_expiry_date,
-        is_active=True
-    )
-    
-    db.add(employee)
-    db.flush()  # employee.id 생성
-    
-    # User의 employee_id 업데이트
-    user.employee_id = employee.id
-    
-    db.commit()
-    db.refresh(employee)
-    
-    logger.info(f"Created employee from user: {employee.employee_code} - {employee.name} (user_id={user_id})")
-    return employee_to_response(employee)
