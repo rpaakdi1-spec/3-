@@ -223,7 +223,26 @@ const SignupPage: React.FC = () => {
     try {
       const { confirmPassword, ...signupData } = formData;
       
-      await api.post('/auth/signup', signupData);
+      // 빈 문자열을 null로 변환 (선택적 날짜 필드들)
+      const cleanedData = {
+        ...signupData,
+        name_en: signupData.name_en || undefined,
+        address: signupData.address || undefined,
+        emergency_contact: signupData.emergency_contact || undefined,
+        department: signupData.department || undefined,
+        position: signupData.position || undefined,
+        license_type: signupData.license_type || undefined,
+        license_number: signupData.license_number || undefined,
+        license_issue_date: signupData.license_issue_date || undefined,
+        cargo_license_number: signupData.cargo_license_number || undefined,
+        cargo_license_issue_date: signupData.cargo_license_issue_date || undefined,
+        cargo_license_expiry_date: signupData.cargo_license_expiry_date || undefined,
+        forklift_certificate_number: signupData.forklift_certificate_number || undefined,
+        forklift_certificate_issue_date: signupData.forklift_certificate_issue_date || undefined,
+        forklift_certificate_expiry_date: signupData.forklift_certificate_expiry_date || undefined,
+      };
+      
+      await api.post('/auth/signup', cleanedData);
       
       toast.success('회원가입이 완료되었습니다. 관리자 승인 후 로그인할 수 있습니다.');
       
