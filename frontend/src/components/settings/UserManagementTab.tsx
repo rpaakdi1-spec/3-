@@ -879,7 +879,15 @@ const UserManagementTab: React.FC = () => {
                 </div>
               </div>
 
-              <form onSubmit={handleUpdateUser} className="space-y-6">
+              <form 
+                onSubmit={handleUpdateUser} 
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && e.target instanceof HTMLInputElement) {
+                    e.preventDefault();
+                  }
+                }}
+                className="space-y-6"
+              >
                 {/* Step 1: 계정 정보 */}
                 {editStep === 1 && (
                   <div className="space-y-4">
