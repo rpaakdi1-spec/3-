@@ -93,8 +93,8 @@ const UserManagementTab: React.FC = () => {
   const loadUsers = async () => {
     try {
       setLoading(true);
-      // show_inactive=false로 활성 사용자만 조회 (기본값)
-      const response = await api.get('/auth/users?show_inactive=false');
+      // show_inactive=true로 모든 사용자 조회 (활성 + 비활성 + pending)
+      const response = await api.get('/auth/users?show_inactive=true');
       setUsers(response.data.items || response.data);
     } catch (error) {
       console.error('Failed to load users:', error);
