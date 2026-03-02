@@ -344,21 +344,32 @@ const UserManagementTab: React.FC = () => {
   };
 
   const handleUpdateUser = async (e: React.FormEvent) => {
+    console.log('🔵 handleUpdateUser called at editStep:', editStep);
+    console.trace('🔍 Call stack trace:');
+    
     e.preventDefault();
     e.stopPropagation();
     
     // 🚫 Step 4가 아니면 제출 차단
     if (editStep !== 4) {
-      console.log('Form submission blocked - current editStep:', editStep);
+      console.warn('🚫 Form submission BLOCKED - current editStep:', editStep, '(expected: 4)');
       return;
     }
     
-    if (!editingUser) return;
+    if (!editingUser) {
+      console.warn('⚠️ No editingUser, aborting update');
+      return;
+    }
 
     try {
       setLoading(true);
       
-      console.log('✅ Updating user at editStep 4:', editingUser);
+      console.log('✅ Starting user update at editStep 4');
+      console.log('📋 Editing user:', {
+        id: editingUser.id,
+        username: editingUser.username,
+        full_name: editingUser.full_name
+      });
       
       // 전체 필드를 전송 (빈 문자열 날짜 필드는 undefined로 변환)
       const updateData: any = {
@@ -399,8 +410,13 @@ const UserManagementTab: React.FC = () => {
         forklift_certificate_expiry_date: editingUser.forklift_certificate_expiry_date || undefined,
       };
       
+      console.log('📤 Sending PUT request to /auth/users/' + editingUser.id);
       await api.put(`/auth/users/${editingUser.id}`, updateData);
+      
+      console.log('✅ API request successful - showing success toast');
       toast.success('사용자 정보가 수정되었습니다');
+      
+      console.log('🔄 Closing modal and resetting state');
       setShowEditModal(false);
       setEditingUser(null);
       setEditStep(1);
@@ -1031,16 +1047,20 @@ const UserManagementTab: React.FC = () => {
 
               <form 
                 onSubmit={(e) => {
+                  console.log('📝 FORM onSubmit triggered at editStep:', editStep);
+                  console.trace('🔍 Form submit call stack:');
+                  
                   e.preventDefault();
                   e.stopPropagation();
                   
                   // 🔥 추가 보호: editStep이 4가 아니면 아무것도 하지 않음
                   if (editStep !== 4) {
-                    console.warn('⚠️ Form submit attempted at editStep:', editStep, '- BLOCKED');
+                    console.warn('⚠️ Form submit attempted at editStep:', editStep, '- BLOCKED (expected editStep: 4)');
+                    console.warn('❌ This should NOT happen! Check what triggered the form submission.');
                     return false;
                   }
                   
-                  console.log('✅ Form submit allowed at editStep 4');
+                  console.log('✅ Form submit allowed at editStep 4 - calling handleUpdateUser');
                   handleUpdateUser(e);
                 }} 
                 onKeyDown={(e) => {
@@ -1328,10 +1348,15 @@ const UserManagementTab: React.FC = () => {
                       <Button
                         type="button"
                         onClick={(e) => {
+                          console.log(`🔵 "다음" button clicked at editStep ${editStep}`);
+                          console.log(`   - Button type: button (should NOT trigger form submit)`);
+                          console.log(`   - Target step: ${editStep + 1}`);
+                          
                           e.preventDefault();
                           e.stopPropagation();
-                          console.log(`📍 "다음" button clicked at editStep ${editStep} → moving to ${editStep + 1}`);
+                          
                           setEditStep(editStep + 1);
+                          console.log(`✅ editStep updated: ${editStep} → ${editStep + 1}`);
                         }}
                       >
                         다음
@@ -1340,8 +1365,11 @@ const UserManagementTab: React.FC = () => {
                       <Button 
                         type="submit" 
                         loading={loading}
-                        onClick={() => {
-                          console.log('💾 "저장" button clicked at editStep 4 - submitting form');
+                        onClick={(e) => {
+                          console.log('🔵 "저장" button clicked at editStep 4');
+                          console.log('   - Button type: submit (WILL trigger form submit)');
+                          console.log('   - This is expected to call handleUpdateUser');
+                          // Note: Don't preventDefault here, we want form submit
                         }}
                       >
                         저장
