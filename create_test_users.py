@@ -131,13 +131,14 @@ def create_test_users():
             
             # Create User
             user = User(
+                username=user_data["email"].split("@")[0],  # Use email prefix as username
                 email=user_data["email"],
                 full_name=user_data["full_name"],
                 hashed_password=hash_password(user_data["password"]),
                 role=user_data["role"],
                 phone=user_data["phone"],
                 is_active=True,
-                is_approved=True
+                approval_status="approved"  # Changed from is_approved=True
             )
             db.add(user)
             db.flush()  # Get user.id
