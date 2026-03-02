@@ -405,6 +405,7 @@ const UserManagementTab: React.FC = () => {
       
       // 전체 필드를 전송 (빈 문자열 날짜 필드는 undefined로 변환)
       const updateData: any = {
+        username: editingUser.username, // username 추가
         email: editingUser.email || undefined,
         full_name: editingUser.full_name,
         phone: editingUser.phone || undefined,
@@ -443,9 +444,13 @@ const UserManagementTab: React.FC = () => {
       };
       
       console.log('📤 Sending PUT request to /auth/users/' + editingUser.id);
-      await api.put(`/auth/users/${editingUser.id}`, updateData);
+      console.log('📦 Update data:', updateData);
+      console.log('📊 Fields to update:', Object.keys(updateData));
+      
+      const response = await api.put(`/auth/users/${editingUser.id}`, updateData);
       
       console.log('✅ API request successful - showing success toast');
+      console.log('📥 Response:', response.data);
       toast.success('사용자 정보가 수정되었습니다');
       
       console.log('🔄 Closing modal and resetting state');
