@@ -55,7 +55,7 @@ def create_test_users():
             "email": "manager1@test.com",
             "full_name": "최관리",
             "password": "test1234",
-            "role": "MANAGER",
+            "role": "ADMIN",  # Changed from MANAGER to ADMIN
             "phone": "010-4444-4444",
             "employee_role": EmployeeRole.MANAGER,
             "employee_code": "M101"
@@ -73,7 +73,7 @@ def create_test_users():
             "email": "manager3@test.com",
             "full_name": "강운영",
             "password": "test1234",
-            "role": "MANAGER",
+            "role": "ADMIN",  # Changed from MANAGER to ADMIN
             "phone": "010-6666-6666",
             "employee_role": EmployeeRole.MANAGER,
             "employee_code": "M103"
@@ -82,7 +82,7 @@ def create_test_users():
             "email": "manager4@test.com",
             "full_name": "신작업",
             "password": "test1234",
-            "role": "MANAGER",
+            "role": "ADMIN",  # Changed from MANAGER to ADMIN
             "phone": "010-7777-7777",
             "employee_role": EmployeeRole.MANAGER,
             "employee_code": "M104"
