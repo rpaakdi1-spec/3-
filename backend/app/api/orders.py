@@ -551,3 +551,104 @@ def download_order_template():
         filename="orders_template.xlsx",
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
+
+@router.post("/geocode-missing")
+async def geocode_missing_coordinates(db: Session = Depends(get_db)):
+    """
+    좌표가 없는 주문들의 주소를 좌표로 일괄 변환
+    
+    Returns:
+        {
+            "success": true,
+            "total_orders": 100,
+            "geocoded_pickup": 50,
+            "geocoded_delivery": 45,
+            "failed_pickup": 5,
+            "failed_delivery": 10
+        }
+    """
+    from app.services.naver_map_service import NaverMapService
+    
+    naver_service = NaverMapService()
+    
+    # 픽업 좌표가 없는 주문들
+    orders_without_pickup = db.query(Order).filter(
+        (Order.pickup_latitude.is_(None)) | (Order.pickup_longitude.is_(None)),
+        Order.pickup_address.isnot(None)
+    ).all()
+    
+    # 배송 좌표가 없는 주문들
+    orders_without_delivery = db.query(Order).filter(
+        (Order.delivery_latitude.is_(None)) | (Order.delivery_longitude.is_(None)),
+        Order.delivery_address.isnot(None)
+    ).all()
+    
+    geocoded_pickup = 0
+    failed_pickup = 0
+    geocoded_delivery = 0
+    failed_delivery = 0
+    
+    # 픽업 좌표 변환
+    logger.info(f"📍 픽업 좌표 변환 시작: {len(orders_without_pickup)}건")
+    for order in orders_without_pickup:
+        try:
+            full_address = f"{order.pickup_address} {order.pickup_address_detail or ''}".strip()
+            result = await naver_service.geocode_address(full_address)
+            
+            if result and len(result) >= 2:
+                latitude, longitude = result[0], result[1]
+                if latitude and longitude:
+                    order.pickup_latitude = latitude
+                    order.pickup_longitude = longitude
+                    geocoded_pickup += 1
+                    logger.info(f"✅ 주문 {order.order_number} 픽업 좌표: {full_address} -> ({latitude}, {longitude})")
+                else:
+                    failed_pickup += 1
+                    logger.warning(f"❌ 주문 {order.order_number} 픽업 좌표 변환 실패: {full_address}")
+            else:
+                failed_pickup += 1
+                logger.warning(f"❌ 주문 {order.order_number} 픽업 좌표 없음: {full_address}")
+        except Exception as e:
+            failed_pickup += 1
+            logger.error(f"❌ 주문 {order.order_number} 픽업 좌표 변환 오류: {e}")
+    
+    # 배송 좌표 변환
+    logger.info(f"📍 배송 좌표 변환 시작: {len(orders_without_delivery)}건")
+    for order in orders_without_delivery:
+        try:
+            full_address = f"{order.delivery_address} {order.delivery_address_detail or ''}".strip()
+            result = await naver_service.geocode_address(full_address)
+            
+            if result and len(result) >= 2:
+                latitude, longitude = result[0], result[1]
+                if latitude and longitude:
+                    order.delivery_latitude = latitude
+                    order.delivery_longitude = longitude
+                    geocoded_delivery += 1
+                    logger.info(f"✅ 주문 {order.order_number} 배송 좌표: {full_address} -> ({latitude}, {longitude})")
+                else:
+                    failed_delivery += 1
+                    logger.warning(f"❌ 주문 {order.order_number} 배송 좌표 변환 실패: {full_address}")
+            else:
+                failed_delivery += 1
+                logger.warning(f"❌ 주문 {order.order_number} 배송 좌표 없음: {full_address}")
+        except Exception as e:
+            failed_delivery += 1
+            logger.error(f"❌ 주문 {order.order_number} 배송 좌표 변환 오류: {e}")
+    
+    # 변경사항 저장
+    db.commit()
+    
+    total_orders = len(set([o.id for o in orders_without_pickup] + [o.id for o in orders_without_delivery]))
+    
+    logger.info(f"✅ 좌표 일괄 변환 완료: 총 {total_orders}건, 픽업 {geocoded_pickup}건, 배송 {geocoded_delivery}건")
+    
+    return {
+        "success": True,
+        "total_orders": total_orders,
+        "geocoded_pickup": geocoded_pickup,
+        "geocoded_delivery": geocoded_delivery,
+        "failed_pickup": failed_pickup,
+        "failed_delivery": failed_delivery
+    }
