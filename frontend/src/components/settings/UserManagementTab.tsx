@@ -400,8 +400,10 @@ const UserManagementTab: React.FC = () => {
       console.log('📋 Editing user:', {
         id: editingUser.id,
         username: editingUser.username,
-        full_name: editingUser.full_name
+        full_name: editingUser.full_name,
+        approval_status: editingUser.approval_status
       });
+      console.log('🔍 All editingUser data:', editingUser);
       
       // 전체 필드를 전송 (빈 문자열 날짜 필드는 undefined로 변환)
       const updateData: any = {
@@ -460,6 +462,7 @@ const UserManagementTab: React.FC = () => {
       setNewPassword('');
       setConfirmPassword('');
       loadUsers();
+      loadPendingUsers(); // 미승인 사용자 목록도 새로고침
     } catch (error) {
       console.error('❌ Update error:', error);
       toast.error('수정에 실패했습니다');
