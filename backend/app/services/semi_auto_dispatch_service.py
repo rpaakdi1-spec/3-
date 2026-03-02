@@ -102,7 +102,8 @@ class SemiAutoDispatchService:
                 "success": True,
                 "order": {
                     "id": order.id,
-                    "client_name": order.client.name if order.client else None,
+                    "order_number": order.order_number,
+                    "client_name": order.client_name,
                     "pickup_address": order.pickup_address,
                     "delivery_address": order.delivery_address,
                     "pickup_time": order.pickup_start_time.isoformat() if order.pickup_start_time else None,
@@ -134,12 +135,13 @@ class SemiAutoDispatchService:
     ) -> Optional[Dict]:
         """개별 차량 분석"""
         
-        # 운전자 확인
-        driver = self.db.query(Employee).filter(
-            Employee.id == vehicle.assigned_driver_id
-        ).first()
+        # 운전자 정보 (Vehicle 모델에 직접 저장됨)
+        driver_info = {
+            "name": vehicle.driver_name,
+            "phone": vehicle.driver_phone
+        } if vehicle.driver_name else None
         
-        if not driver:
+        if not driver_info:
             return None  # 배정된 운전자 없음
         
         # 현재 배차 상태 확인
@@ -219,47 +221,58 @@ class SemiAutoDispatchService:
             return None  # 로딩 중 등 다른 상태는 제외
         
         # 3. 차량 용량 체크
-        if order.cargo_weight_kg and vehicle.max_load_weight:
-            if order.cargo_weight_kg <= vehicle.max_load_weight:
+        if order.cargo_weight_kg and vehicle.max_weight_kg:
+            if order.cargo_weight_kg <= vehicle.max_weight_kg:
                 score += 10
-                reasons.append(f"✅ 적재 가능 (차량: {vehicle.max_load_weight}kg, 화물: {order.cargo_weight_kg}kg)")
+                reasons.append(f"✅ 적재 가능 (차량: {vehicle.max_weight_kg}kg, 화물: {order.cargo_weight_kg}kg)")
             else:
                 score -= 30
-                warnings.append(f"❌ 중량 초과 (차량: {vehicle.max_load_weight}kg, 화물: {order.cargo_weight_kg}kg)")
+                warnings.append(f"❌ 중량 초과 (차량: {vehicle.max_weight_kg}kg, 화물: {order.cargo_weight_kg}kg)")
         
         # 4. 지게차 필요 여부
         if order.requires_forklift:
-            if driver.can_drive_forklift:
+            if vehicle.forklift_operator_available:
                 score += 10
                 reasons.append("✅ 지게차 운전 가능")
             else:
                 score -= 20
                 warnings.append("⚠️ 지게차 운전 불가 (필요함)")
         
-        # 5. 냉장 기능 필요 여부
-        if order.requires_refrigeration:
-            if vehicle.has_refrigeration:
-                score += 10
-                reasons.append("✅ 냉장 기능 보유")
-            else:
-                score -= 30
-                warnings.append("❌ 냉장 기능 없음 (필요함)")
-                return None  # 냉장 필수인 경우 제외
+        # 5. 온도 범위 확인
+        # Vehicle 모델의 vehicle_type: FROZEN, REFRIGERATED, DUAL, AMBIENT
+        if hasattr(order, 'temperature_min') and hasattr(order, 'temperature_max'):
+            if order.temperature_min is not None or order.temperature_max is not None:
+                # 냉동 필요
+                if order.temperature_min and order.temperature_min < -10:
+                    if vehicle.vehicle_type in ['냉동', '겸용']:
+                        score += 10
+                        reasons.append("✅ 냉동 기능 보유")
+                    else:
+                        score -= 30
+                        warnings.append("❌ 냉동 기능 없음 (필요함)")
+                        return None
+                # 냉장 필요
+                elif order.temperature_max and order.temperature_max <= 10:
+                    if vehicle.vehicle_type in ['냉장', '겸용', '냉동']:
+                        score += 10
+                        reasons.append("✅ 냉장 기능 보유")
+                    else:
+                        score -= 30
+                        warnings.append("❌ 냉장 기능 없음 (필요함)")
+                        return None
         
         # 6. 운전자 경력/평가
         # TODO: 운전자 평점 시스템 추가
         
         return {
             "vehicle_id": vehicle.id,
-            "vehicle_number": vehicle.vehicle_number,
-            "vehicle_type": vehicle.vehicle_type,
-            "vehicle_model": vehicle.model,
+            "vehicle_number": vehicle.plate_number,
+            "vehicle_type": vehicle.vehicle_type.value if hasattr(vehicle.vehicle_type, 'value') else str(vehicle.vehicle_type),
+            "vehicle_code": vehicle.code,
             "driver": {
-                "id": driver.id,
-                "name": driver.name,
-                "phone": driver.phone,
-                "employee_code": driver.employee_code,
-            } if driver else None,
+                "name": driver_info["name"],
+                "phone": driver_info["phone"],
+            } if driver_info else None,
             "status": status,
             "status_label": {
                 "waiting": "대기 중",
@@ -273,8 +286,9 @@ class SemiAutoDispatchService:
             "reasons": reasons,
             "warnings": warnings,
             "vehicle_info": {
-                "max_load_weight": vehicle.max_load_weight,
-                "has_refrigeration": vehicle.has_refrigeration,
-                "has_lift_gate": vehicle.has_lift_gate,
+                "max_weight_kg": vehicle.max_weight_kg,
+                "max_pallets": vehicle.max_pallets,
+                "vehicle_type": vehicle.vehicle_type.value if hasattr(vehicle.vehicle_type, 'value') else str(vehicle.vehicle_type),
+                "forklift_available": vehicle.forklift_operator_available,
             }
         }
