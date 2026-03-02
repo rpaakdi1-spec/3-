@@ -25,15 +25,21 @@ class ExcelUploadService:
         """Parse client data from Excel file"""
         try:
             df = pd.read_excel(BytesIO(file_content))
+            logger.info(f"📊 Excel loaded with {len(df)} total rows and columns: {list(df.columns)}")
             
             # Use centralized column mapping from template service
             column_mapping = ExcelTemplateService.get_korean_to_field_mapping("clients")
+            logger.info(f"📋 Column mapping: {column_mapping}")
             
             df = df.rename(columns=column_mapping)
+            logger.info(f"📝 Columns after rename: {list(df.columns)}")
             
             # Filter out example rows and empty rows
             df = df[df['code'].notna()]  # Remove rows with empty code
+            logger.info(f"✅ After removing empty codes: {len(df)} rows")
+            
             df = df[~df['code'].astype(str).str.startswith('예시-')]  # Remove example rows
+            logger.info(f"✅ After removing example rows: {len(df)} rows")
             
             # Convert client_type
             df['client_type'] = df['client_type'].replace({
@@ -41,6 +47,7 @@ class ExcelUploadService:
                 '하차': ClientType.DELIVERY,
                 '양쪽': ClientType.BOTH
             })
+            logger.info(f"🔄 Client types: {df['client_type'].value_counts().to_dict()}")
             
             # Convert forklift_operator_available
             df['forklift_operator_available'] = df['forklift_operator_available'].fillna('N').str.upper() == 'Y'
@@ -51,11 +58,13 @@ class ExcelUploadService:
             # Convert to list of dicts
             records = df.to_dict(orient='records')
             
-            logger.info(f"Parsed {len(records)} client records from Excel")
+            logger.info(f"✅ Parsed {len(records)} client records from Excel")
+            if len(records) > 0:
+                logger.info(f"📄 Sample record: {records[0]}")
             return records
             
         except Exception as e:
-            logger.error(f"Error parsing client Excel: {e}")
+            logger.error(f"❌ Error parsing client Excel: {e}", exc_info=True)
             raise ValueError(f"엑셀 파일 파싱 오류: {str(e)}")
     
     @staticmethod
@@ -102,10 +111,12 @@ class ExcelUploadService:
                 created.append(client.code)
                 
             except Exception as e:
+                error_msg = str(e)
+                logger.error(f"❌ Client upload error at row {idx + 2}: {error_msg} | Record: {record}")
                 errors.append({
                     "row": idx + 2,
                     "code": record.get('code', 'Unknown'),
-                    "error": str(e)
+                    "error": error_msg
                 })
         
         db.commit()
