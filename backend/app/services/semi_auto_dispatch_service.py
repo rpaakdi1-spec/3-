@@ -217,7 +217,7 @@ class SemiAutoDispatchService:
                     vehicle_lat, vehicle_lng = vehicle_location
                     
                     # 네이버 맵 API로 차량 위치에서 픽업지까지 거리 계산
-                    distance_data = await self.map_service.get_distance_and_duration(
+                    distance_data = await self.map_service.calculate_distance_and_duration(
                         (vehicle_lat, vehicle_lng),
                         (order.pickup_latitude, order.pickup_longitude)
                     )
@@ -261,7 +261,7 @@ class SemiAutoDispatchService:
                     if current_dispatch.delivery_latitude and current_dispatch.delivery_longitude:
                         if order.pickup_latitude and order.pickup_longitude:
                             # 네이버 맵 API로 거리 계산
-                            distance_data = await self.map_service.get_distance_and_duration(
+                            distance_data = await self.map_service.calculate_distance_and_duration(
                                 (current_dispatch.delivery_latitude, current_dispatch.delivery_longitude),
                                 (order.pickup_latitude, order.pickup_longitude)
                             )
