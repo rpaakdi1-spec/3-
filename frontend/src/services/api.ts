@@ -1,6 +1,9 @@
 import axios from 'axios'
 import { API_CONFIG } from '../config/api'
 
+// Re-export employeeAPI from api folder
+export { employeeAPI } from '../api/employees'
+
 export const api = axios.create({
   baseURL: API_CONFIG.BASE_URL,
   timeout: API_CONFIG.TIMEOUT,
