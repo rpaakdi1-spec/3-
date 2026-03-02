@@ -55,8 +55,15 @@ class VehicleUpdate(BaseModel):
     max_volume_cbm: Optional[float] = Field(None, gt=0)
     forklift_operator_available: Optional[bool] = None
     tonnage: Optional[float] = Field(None, gt=0)
+    length_m: Optional[float] = Field(None, gt=0, description="적재함 길이(m)")
+    width_m: Optional[float] = Field(None, gt=0, description="적재함 너비(m)")
+    height_m: Optional[float] = Field(None, gt=0, description="적재함 높이(m)")
     driver_name: Optional[str] = Field(None, max_length=100)
     driver_phone: Optional[str] = Field(None, max_length=20)
+    min_temp_celsius: Optional[float] = None
+    max_temp_celsius: Optional[float] = None
+    fuel_efficiency_km_per_liter: Optional[float] = Field(None, gt=0)
+    fuel_cost_per_liter: Optional[float] = Field(None, gt=0)
     status: Optional[VehicleStatus] = None
     garage_address: Optional[str] = Field(None, max_length=500)
     garage_latitude: Optional[float] = None
