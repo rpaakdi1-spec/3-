@@ -165,18 +165,17 @@ class SemiAutoDispatchService:
             reasons.append("✅ 현재 대기 중 (즉시 배차 가능)")
             
             # 차량 위치: 차고지 또는 마지막 알려진 위치
-            # 여기서는 간단히 차고지 주소 사용
+            # 기본값 설정 (위치 정보가 없어도 차량 표시)
+            distance_km = 0.0
+            estimated_arrival_min = 30
+            
+            # 픽업 위치가 있으면 거리 계산 (향후 차량 GPS 위치 활용)
             if order.pickup_latitude and order.pickup_longitude:
                 # 실제로는 차량의 GPS 위치를 가져와야 함
-                # 임시로 거리 0으로 설정 (개선 필요)
-                distance_km = 0
-                estimated_arrival_min = 30  # 기본 30분
-                
-                if distance_km <= max_distance_km:
-                    reasons.append(f"📍 픽업지에서 {distance_km:.1f}km (범위 내)")
-                else:
-                    warnings.append(f"⚠️ 픽업지에서 {distance_km:.1f}km (범위 초과)")
-                    return None  # 너무 멀면 제외
+                # 현재는 기본값 사용
+                reasons.append(f"📍 상차지 주소: {order.pickup_address or '위치 정보 없음'}")
+            else:
+                warnings.append("⚠️ 상차지 위치 정보 없음 (거리 계산 불가)")
         
         # 2. 근처에서 하차 예정인 차량
         elif current_dispatch and current_dispatch.status == '진행중':

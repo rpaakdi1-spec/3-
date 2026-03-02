@@ -228,9 +228,9 @@ const SemiAutoDispatchModal: React.FC<SemiAutoDispatchModalProps> = ({
                       {getStatusBadge(suggestion.status)}
                     </div>
                     <div className="flex items-center gap-2">
-                      <Star className={`w-5 h-5 ${getScoreColor(suggestion.score)}`} />
-                      <span className={`text-2xl font-bold ${getScoreColor(suggestion.score)}`}>
-                        {suggestion.score.toFixed(0)}
+                      <Star className={`w-5 h-5 ${getScoreColor(suggestion.score ?? 0)}`} />
+                      <span className={`text-2xl font-bold ${getScoreColor(suggestion.score ?? 0)}`}>
+                        {(suggestion.score ?? 0).toFixed(0)}
                       </span>
                     </div>
                   </div>
@@ -245,13 +245,13 @@ const SemiAutoDispatchModal: React.FC<SemiAutoDispatchModalProps> = ({
                     <div className="flex items-center gap-2">
                       <MapPin className="w-4 h-4 text-blue-600" />
                       <span className="text-gray-700">
-                        <strong>거리:</strong> {suggestion.distance_km.toFixed(1)} km
+                        <strong>거리:</strong> {suggestion.distance_km != null ? suggestion.distance_km.toFixed(1) : '계산중'} km
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Clock className="w-4 h-4 text-green-600" />
                       <span className="text-gray-700">
-                        <strong>도착:</strong> 약 {suggestion.estimated_arrival_min}분
+                        <strong>도착:</strong> 약 {suggestion.estimated_arrival_min ?? '-'}분
                       </span>
                     </div>
                   </div>

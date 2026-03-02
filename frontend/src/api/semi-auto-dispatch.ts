@@ -14,9 +14,9 @@ export interface VehicleSuggestion {
     longitude: number;
     address?: string;
   } | null;
-  distance_km: number;
-  estimated_arrival_min: number;
-  score: number; // 0-100
+  distance_km: number | null;
+  estimated_arrival_min: number | null;
+  score: number | null; // 0-100
   reasons: string[];
   warnings: string[];
 }
