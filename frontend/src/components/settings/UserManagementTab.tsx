@@ -157,8 +157,8 @@ const UserManagementTab: React.FC = () => {
   const loadUsers = async () => {
     try {
       setLoading(true);
-      // 활성 사용자만 조회 (approval_status='approved')
-      const response = await api.get('/auth/users?show_inactive=false');
+      // 모든 승인된 사용자 조회 (활성 + 비활성 모두)
+      const response = await api.get('/auth/users?show_inactive=true');
       setUsers(response.data.items || response.data);
     } catch (error) {
       console.error('Failed to load users:', error);
@@ -541,8 +541,22 @@ const UserManagementTab: React.FC = () => {
               </thead>
               <tbody>
                 {filteredUsers.map((user) => (
-                  <tr key={user.id} className="border-b hover:bg-gray-50">
-                    <td className="py-3 px-4">{user.username}</td>
+                  <tr 
+                    key={user.id} 
+                    className={`border-b hover:bg-gray-50 ${
+                      !user.is_active ? 'bg-gray-100 opacity-60' : ''
+                    }`}
+                  >
+                    <td className="py-3 px-4">
+                      <div className="flex items-center gap-2">
+                        {user.username}
+                        {!user.is_active && (
+                          <span className="px-2 py-0.5 text-xs bg-red-100 text-red-600 rounded">
+                            비활성
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="py-3 px-4">{user.email}</td>
                     <td className="py-3 px-4">{user.full_name}</td>
                     <td className="py-3 px-4">
