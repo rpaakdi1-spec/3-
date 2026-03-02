@@ -64,8 +64,21 @@ const VehicleDriverManagementPage: React.FC = () => {
           // 전화번호가 없으면 이름으로 매칭 (중복 가능성 있음)
           (!vehicle.driver_phone && vehicle.driver_name && d.name === vehicle.driver_name)
         );
+        
+        // 운전자가 배정되지 않은 차량은 "운행불가"로 상태 변경
+        // 운전자가 배정된 차량은 원래 상태 유지 (단, "운행불가"였다면 "운행가능"으로 변경)
+        let adjustedStatus = vehicle.status;
+        if (!assignedDriver) {
+          // 운전자 없음 → 운행불가
+          adjustedStatus = "운행불가";
+        } else if (vehicle.status === "운행불가") {
+          // 운전자 있음 + 기존 상태가 운행불가 → 운행가능
+          adjustedStatus = "운행가능";
+        }
+        
         return {
           ...vehicle,
+          status: adjustedStatus,
           assigned_driver: assignedDriver
         };
       });
@@ -94,7 +107,8 @@ const VehicleDriverManagementPage: React.FC = () => {
         if (currentVehicle) {
           await vehiclesAPI.update(currentVehicle.id, {
             driver_name: null,
-            driver_phone: null
+            driver_phone: null,
+            status: "운행불가" // 운전자 해제 시 운행불가로 변경
           });
           toast.success(`${driver.name}님의 배정이 해제되었습니다`);
         }
@@ -103,14 +117,18 @@ const VehicleDriverManagementPage: React.FC = () => {
         if (sourceVehicleId) {
           await vehiclesAPI.update(sourceVehicleId, {
             driver_name: null,
-            driver_phone: null
+            driver_phone: null,
+            status: "운행불가" // 운전자 해제 시 운행불가로 변경
           });
         }
         
         // Then assign to new vehicle
+        const targetVehicle = vehicles.find(v => v.id === vehicleId);
         await vehiclesAPI.update(vehicleId, {
           driver_name: driver.name,
-          driver_phone: driver.phone
+          driver_phone: driver.phone,
+          // 운전자 배정 시 기존 상태가 운행불가였다면 운행가능으로 변경, 그 외는 유지
+          status: targetVehicle?.status === "운행불가" ? "운행가능" : targetVehicle?.status
         });
         
         if (sourceVehicleId) {
