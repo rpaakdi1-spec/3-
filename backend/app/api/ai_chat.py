@@ -71,6 +71,43 @@ async def process_chat_message(
                         order = await _create_order_from_parsed_data(db, order_data)
                         created_orders.append(order)
                     
+                    # 주문 정보 요약
+                    if created_orders:
+                        first_order = created_orders[0]
+                        order_date = first_order.order_date
+                        client_name = ""
+                        
+                        # 고객명 추출 (pickup_client 또는 delivery_client)
+                        if first_order.pickup_client_id:
+                            pickup_client = db.query(Client).filter(Client.id == first_order.pickup_client_id).first()
+                            if pickup_client:
+                                client_name = pickup_client.name
+                        
+                        # 날짜 포맷 (MM/DD)
+                        date_str = f"{order_date.month}/{order_date.day}일" if order_date else ""
+                        
+                        # 주문 라인별 정보
+                        order_lines = []
+                        for order in created_orders:
+                            time_str = order.pickup_time if order.pickup_time else "시간미정"
+                            product_name = order.product_name if order.product_name else "상품미정"
+                            pallet_count = order.pallet_count if order.pallet_count else 0
+                            
+                            order_lines.append(f"{time_str} {product_name} {pallet_count}p")
+                        
+                        message = f"✅ {len(created_orders)}건의 주문이 접수되었습니다.\n\n"
+                        message += f"{date_str} {client_name}\n"
+                        message += "\n".join(order_lines)
+                        
+                        return {
+                            "intent": "orders_created",
+                            "message": message,
+                            "parsed_order": None,
+                            "action": None,
+                            "orders_created": [{"order_number": o.order_number, "id": o.id} for o in created_orders]
+                        }
+                    
+                    # 기본 메시지 (주문이 없을 때)
                     order_numbers = [o.order_number for o in created_orders]
                     return {
                         "intent": "orders_created",

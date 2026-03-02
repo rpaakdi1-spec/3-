@@ -344,6 +344,16 @@ class AIChatService:
         accumulated_context = self._accumulate_context(message, recent_messages)
         accumulated_lower = accumulated_context.lower()
         
+        # 배차 일괄 등록 형식 체크 (예: **3/5목우촌 오후배차** 형식)
+        batch_dispatch_orders = self._extract_batch_dispatch_orders(accumulated_context, db)
+        if batch_dispatch_orders:
+            return {
+                "intent": "create_multiple_orders",
+                "message": self._format_batch_dispatch_confirmation(batch_dispatch_orders),
+                "parsed_orders": batch_dispatch_orders,
+                "parsed_order": None
+            }
+        
         # 주문 생성 패턴 (누적 컨텍스트에서 키워드 검색)
         # 팔레트 정보가 있거나, 배송 관련 키워드가 있으면 주문 생성 시도
         has_order_keywords = any(keyword in accumulated_lower for keyword in ['보내', '배송', '주문', '등록', '출발'])
@@ -958,6 +968,121 @@ class AIChatService:
             prompt_parts.append(f"\n**현재 확인 대기 중인 주문이 있습니다.**")
         
         return "\n".join(prompt_parts)
+    
+    def _extract_batch_dispatch_orders(self, message: str, db: Session) -> List[Dict[str, Any]]:
+        """
+        배차 일괄 등록 형식 파싱
+        
+        형식 예시:
+        **3/5목우촌 오후배차**
+        13:00 / 식육11톤(냉동)
+        13:30 / 육가공11톤
+        14:30 / 육가공5톤
+        15:00 / 식육11톤
+        15:30 / 육가공5톤
+        """
+        
+        # 헤더 패턴: **날짜 고객명 ...** 또는 날짜(요일)고객명 형식
+        header_pattern = r'(?:\*\*)?(\d{1,2}/\d{1,2})\s*(?:\([^)]+\))?\s*([가-힣a-zA-Z0-9]+)'
+        header_match = re.search(header_pattern, message)
+        
+        if not header_match:
+            return []
+        
+        month_day = header_match.group(1)  # "3/5"
+        client_name = header_match.group(2)  # "목우촌"
+        
+        # 날짜 파싱 (현재 연도 기준)
+        month, day = map(int, month_day.split('/'))
+        current_year = date.today().year
+        
+        # 월이 현재 월보다 작으면 내년으로 처리
+        if month < date.today().month:
+            order_date = date(current_year + 1, month, day)
+        else:
+            order_date = date(current_year, month, day)
+        
+        # 주문 라인 패턴: 시간 / 품목 톤수(온도)
+        # 예: "13:00 / 식육11톤(냉동)" 또는 "13:30 / 육가공11톤"
+        line_pattern = r'(\d{1,2}:\d{2})\s*/\s*([가-힣a-zA-Z0-9]+?)\s*(\d+(?:\.\d+)?)\s*톤\s*(?:\(([^)]+)\))?'
+        
+        orders = []
+        for match in re.finditer(line_pattern, message):
+            pickup_time = match.group(1)  # "13:00"
+            product_name = match.group(2)  # "식육", "육가공"
+            tonnage = float(match.group(3))  # 11, 5, etc.
+            temp_tag = match.group(4)  # "냉동" or None
+            
+            # 온도대 결정 (냉동 표시 없으면 냉장)
+            if temp_tag and '냉동' in temp_tag:
+                temperature_zone = "냉동"
+            else:
+                temperature_zone = "냉장"
+            
+            # 톤수 → 팔레트 변환
+            if tonnage >= 18:
+                pallet_count = 18
+            elif tonnage >= 11:
+                pallet_count = 16
+            elif tonnage >= 5:
+                pallet_count = 10
+            else:
+                pallet_count = int(tonnage * 2)  # 5톤 미만: 톤당 2팔레트
+            
+            # 톤수 → kg 변환
+            weight_kg = tonnage * 1000
+            
+            orders.append({
+                "order_date": order_date.isoformat(),
+                "requested_delivery_date": order_date.isoformat(),
+                "pickup_time": pickup_time,
+                "product_name": product_name,
+                "temperature_zone": temperature_zone,
+                "pallet_count": pallet_count,
+                "weight_kg": weight_kg,
+                "_client_name": client_name,  # 메시지 포맷용
+                "_date_str": month_day,  # 메시지 포맷용
+            })
+        
+        logger.info(f"✅ 배차 일괄 형식 감지: {len(orders)}건, 날짜={month_day}, 고객={client_name}")
+        return orders
+    
+    def _format_batch_dispatch_confirmation(self, orders: List[Dict[str, Any]]) -> str:
+        """
+        배차 일괄 주문 확인 메시지 포맷
+        
+        예시:
+        ✅ 5건의 주문이 접수되었습니다.
+        
+        3/5일 목우촌
+        13:00 식육 16p
+        13:30 육가공 16p
+        14:30 육가공 10p
+        15:00 식육 16p
+        15:30 육가공 10p
+        """
+        
+        if not orders:
+            return "주문 정보를 찾을 수 없습니다."
+        
+        # 첫 주문에서 날짜와 고객명 추출
+        first_order = orders[0]
+        date_str = first_order.get("_date_str", "")
+        client_name = first_order.get("_client_name", "")
+        
+        # 헤더
+        lines = [f"✅ {len(orders)}건의 주문이 접수되었습니다.\n"]
+        lines.append(f"{date_str}일 {client_name}")
+        
+        # 각 주문 라인
+        for order in orders:
+            time_str = order.get("pickup_time", "시간미정")
+            product = order.get("product_name", "상품미정")
+            pallets = order.get("pallet_count", 0)
+            
+            lines.append(f"{time_str} {product} {pallets}p")
+        
+        return "\n".join(lines)
         
         if context.get("recent_messages"):
             messages_str = "\n".join([f"- {m['role']}: {m['content']}" for m in context['recent_messages'][-3:]])
