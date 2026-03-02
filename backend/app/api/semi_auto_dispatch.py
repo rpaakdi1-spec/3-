@@ -7,7 +7,7 @@ from typing import Optional
 import logging
 
 from app.core.database import get_db
-from app.core.auth import get_current_user
+from app.api.auth import get_current_user
 from app.models.user import User
 from app.services.semi_auto_dispatch_service import SemiAutoDispatchService
 
