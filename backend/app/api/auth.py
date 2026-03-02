@@ -470,79 +470,104 @@ async def approve_user(
     current_user: User = Depends(get_current_user)
 ):
     """사용자 승인 및 인사카드 생성 (MASTER, ADMIN만 가능)"""
-    # Only MASTER and ADMIN can approve users
-    if current_user.role not in [UserRole.MASTER, UserRole.ADMIN]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="권한이 부족합니다"
+    try:
+        logger.info(f"🔄 Approval request for user_id={user_id} by {current_user.username}")
+        
+        # Only MASTER and ADMIN can approve users
+        if current_user.role not in [UserRole.MASTER, UserRole.ADMIN]:
+            logger.warning(f"❌ Insufficient permission: {current_user.role}")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="권한이 부족합니다"
+            )
+        
+        user = db.query(User).filter(User.id == user_id).first()
+        
+        if not user:
+            logger.error(f"❌ User not found: user_id={user_id}")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="사용자를 찾을 수 없습니다"
+            )
+        
+        logger.info(f"📋 User found: {user.username}, status={user.approval_status}")
+        
+        if user.approval_status != "pending":
+            logger.warning(f"❌ User not pending: status={user.approval_status}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="대기 중인 사용자만 승인할 수 있습니다"
+            )
+        
+        # Get pending employee data
+        pending_emp = db.query(PendingEmployee).filter(PendingEmployee.user_id == user_id).first()
+        
+        if not pending_emp:
+            logger.error(f"❌ PendingEmployee not found for user_id={user_id}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="인사카드 정보를 찾을 수 없습니다"
+            )
+        
+        logger.info(f"📄 PendingEmployee found: {pending_emp.name}, code={pending_emp.employee_code}")
+        
+        # Create Employee record from pending data
+        new_employee = Employee(
+            employee_code=pending_emp.employee_code,
+            name=pending_emp.name,
+            name_en=pending_emp.name_en,
+            phone=pending_emp.phone,
+            email=pending_emp.email,
+            address=pending_emp.address,
+            emergency_contact=pending_emp.emergency_contact,
+            role=EmployeeRole(pending_emp.role),
+            employment_type=EmploymentType(pending_emp.employment_type),
+            department=pending_emp.department,
+            position=pending_emp.position,
+            hire_date=pending_emp.hire_date,
+            license_type=pending_emp.license_type,
+            license_number=pending_emp.license_number,
+            license_issue_date=pending_emp.license_issue_date,
+            has_cargo_license=pending_emp.has_cargo_license,
+            cargo_license_number=pending_emp.cargo_license_number,
+            cargo_license_issue_date=pending_emp.cargo_license_issue_date,
+            cargo_license_expiry_date=pending_emp.cargo_license_expiry_date,
+            can_drive_forklift=pending_emp.can_drive_forklift,
+            has_forklift_certificate=pending_emp.has_forklift_certificate,
+            forklift_certificate_number=pending_emp.forklift_certificate_number,
+            forklift_certificate_issue_date=pending_emp.forklift_certificate_issue_date,
+            forklift_certificate_expiry_date=pending_emp.forklift_certificate_expiry_date
         )
-    
-    user = db.query(User).filter(User.id == user_id).first()
-    
-    if not user:
+        
+        logger.info(f"✅ Creating Employee record...")
+        db.add(new_employee)
+        db.flush()  # Get employee.id
+        logger.info(f"✅ Employee created with id={new_employee.id}")
+        
+        # Update user
+        user.employee_id = new_employee.id
+        user.approval_status = "approved"
+        user.approved_by = current_user.id
+        user.approved_at = datetime.utcnow()
+        user.is_active = True
+        
+        # Delete pending employee data (no longer needed)
+        db.delete(pending_emp)
+        
+        db.commit()
+        db.refresh(user)
+        
+        logger.info(f"✅ User approved successfully: {user.username}, employee_id={new_employee.id}")
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Approval failed for user_id={user_id}: {str(e)}", exc_info=True)
+        db.rollback()
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="사용자를 찾을 수 없습니다"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"승인 처리 중 오류가 발생했습니다: {str(e)}"
         )
-    
-    if user.approval_status != "pending":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="대기 중인 사용자만 승인할 수 있습니다"
-        )
-    
-    # Get pending employee data
-    pending_emp = db.query(PendingEmployee).filter(PendingEmployee.user_id == user_id).first()
-    
-    if not pending_emp:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="인사카드 정보를 찾을 수 없습니다"
-        )
-    
-    # Create Employee record from pending data
-    new_employee = Employee(
-        employee_code=pending_emp.employee_code,
-        name=pending_emp.name,
-        name_en=pending_emp.name_en,
-        phone=pending_emp.phone,
-        email=pending_emp.email,
-        address=pending_emp.address,
-        emergency_contact=pending_emp.emergency_contact,
-        role=EmployeeRole(pending_emp.role),
-        employment_type=EmploymentType(pending_emp.employment_type),
-        department=pending_emp.department,
-        position=pending_emp.position,
-        hire_date=pending_emp.hire_date,
-        license_type=pending_emp.license_type,
-        license_number=pending_emp.license_number,
-        license_issue_date=pending_emp.license_issue_date,
-        has_cargo_license=pending_emp.has_cargo_license,
-        cargo_license_number=pending_emp.cargo_license_number,
-        cargo_license_issue_date=pending_emp.cargo_license_issue_date,
-        cargo_license_expiry_date=pending_emp.cargo_license_expiry_date,
-        can_drive_forklift=pending_emp.can_drive_forklift,
-        has_forklift_certificate=pending_emp.has_forklift_certificate,
-        forklift_certificate_number=pending_emp.forklift_certificate_number,
-        forklift_certificate_issue_date=pending_emp.forklift_certificate_issue_date,
-        forklift_certificate_expiry_date=pending_emp.forklift_certificate_expiry_date
-    )
-    
-    db.add(new_employee)
-    db.flush()  # Get employee.id
-    
-    # Update user
-    user.employee_id = new_employee.id
-    user.approval_status = "approved"
-    user.approved_by = current_user.id
-    user.approved_at = datetime.utcnow()
-    user.is_active = True
-    
-    # Delete pending employee data (no longer needed)
-    db.delete(pending_emp)
-    
-    db.commit()
-    db.refresh(user)
     db.refresh(new_employee)
     
     logger.info(f"User approved & Employee created: {user.username} ({new_employee.employee_code}) by {current_user.username}")
