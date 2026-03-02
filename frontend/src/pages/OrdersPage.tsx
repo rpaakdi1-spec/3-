@@ -6,6 +6,7 @@ import Loading from '../components/common/Loading';
 import OrderModal from '../components/orders/OrderModal';
 import BatchDispatchModal from '../components/orders/BatchDispatchModal';
 import SemiAutoDispatchModal from '../components/orders/SemiAutoDispatchModal';
+import BatchAIDispatchModal from '../components/orders/BatchAIDispatchModal';
 import apiClient from '../api/client';
 import { Order } from '../types';
 import { Package, Plus, Search, Filter, Upload, Download, Trash2, Edit2, FileSpreadsheet, Zap, Calendar, Clock, MessageSquare, Mic, Send, Bot, User, Loader2, CheckCircle, XCircle, History, MicOff, Navigation } from 'lucide-react';
@@ -637,6 +638,7 @@ const OrdersPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [modalOpen, setModalOpen] = useState(false);
   const [batchDispatchModalOpen, setBatchDispatchModalOpen] = useState(false);
+  const [batchAIDispatchModalOpen, setBatchAIDispatchModalOpen] = useState(false);
   const [semiAutoDispatchModalOpen, setSemiAutoDispatchModalOpen] = useState(false);
   const [semiAutoDispatchOrder, setSemiAutoDispatchOrder] = useState<Order | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -1342,14 +1344,24 @@ const OrdersPage: React.FC = () => {
               <span className="text-sm text-gray-600">
                 {selectedIds.length}개 항목 선택됨
               </span>
-              <Button 
-                variant="danger"
-                size="sm"
-                onClick={handleBulkDelete}
-              >
-                <Trash2 size={16} className="mr-2" />
-                선택 항목 삭제
-              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  variant="primary"
+                  size="sm"
+                  onClick={() => setBatchAIDispatchModalOpen(true)}
+                >
+                  <Navigation size={16} className="mr-2" />
+                  일괄 AI 배차
+                </Button>
+                <Button 
+                  variant="danger"
+                  size="sm"
+                  onClick={handleBulkDelete}
+                >
+                  <Trash2 size={16} className="mr-2" />
+                  선택 항목 삭제
+                </Button>
+              </div>
             </div>
           </Card>
         )}
@@ -1615,6 +1627,20 @@ const OrdersPage: React.FC = () => {
           onDispatchComplete={handleSemiAutoDispatchComplete}
         />
       )}
+
+      {/* Batch AI Dispatch Modal */}
+      <BatchAIDispatchModal
+        isOpen={batchAIDispatchModalOpen}
+        onClose={() => {
+          setBatchAIDispatchModalOpen(false);
+          setSelectedIds([]);
+        }}
+        orderIds={selectedIds}
+        onDispatchComplete={() => {
+          fetchOrders();
+          setSelectedIds([]);
+        }}
+      />
     </>
   );
 };
