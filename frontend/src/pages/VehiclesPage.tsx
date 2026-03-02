@@ -5,7 +5,7 @@ import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
 import Loading from '../components/common/Loading';
-import { vehiclesAPI } from '../services/api';
+import { vehiclesAPI, employeeAPI } from '../services/api';
 import { useResponsive } from '../hooks/useResponsive';
 import { MobileVehicleCard } from '../components/mobile/MobileVehicleCard';
 import NaverMap from '../components/map/NaverMap';
@@ -78,10 +78,37 @@ const VehiclesPage: React.FC = () => {
 
   const fetchVehicles = async () => {
     try {
-      // Include GPS data in the request
+      // Fetch vehicles
       const response = await vehiclesAPI.list();
-      // Backend returns { total, items } structure
-      setVehicles(response.data.items || []);
+      const vehiclesList = response.data.items || [];
+      
+      // Fetch drivers from Employee API to check assignment status
+      const driversFromAPI = await employeeAPI.getDriverPool({ only_available: false });
+      
+      // Update vehicle status based on driver assignment
+      const vehiclesWithStatus = vehiclesList.map((vehicle: Vehicle) => {
+        const assignedDriver = driversFromAPI.find(d => 
+          (vehicle.driver_phone && d.phone === vehicle.driver_phone) ||
+          (!vehicle.driver_phone && vehicle.driver_name && d.name === vehicle.driver_name)
+        );
+        
+        // Adjust status based on driver assignment
+        let adjustedStatus = vehicle.status;
+        if (!assignedDriver) {
+          // No driver assigned → 운행불가
+          adjustedStatus = "운행불가";
+        } else if (vehicle.status === "운행불가") {
+          // Driver assigned + status was 운행불가 → 운행가능
+          adjustedStatus = "운행가능";
+        }
+        
+        return {
+          ...vehicle,
+          status: adjustedStatus
+        };
+      });
+      
+      setVehicles(vehiclesWithStatus);
       setSelectedIds([]);
     } catch (error) {
       console.error('Failed to fetch vehicles:', error);
@@ -231,8 +258,22 @@ const VehiclesPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      // Determine status based on driver assignment
+      let vehicleStatus = formData.status;
+      const hasDriver = formData.driver_name && formData.driver_phone;
+      
+      // Auto-adjust status based on driver assignment
+      if (!hasDriver) {
+        // No driver → 운행불가
+        vehicleStatus = "운행불가";
+      } else if (vehicleStatus === "운행불가") {
+        // Driver assigned + status was 운행불가 → 운행가능
+        vehicleStatus = "운행가능";
+      }
+      
       const payload = {
         ...formData,
+        status: vehicleStatus,
         max_pallets: parseInt(formData.max_pallets),
         max_weight_kg: parseFloat(formData.max_weight_kg),
         tonnage: parseFloat(formData.tonnage),
