@@ -339,10 +339,16 @@ const SignupPage: React.FC = () => {
 
         {/* Form */}
         <form 
-          onSubmit={handleSubmit}
+          onSubmit={(e) => {
+            e.preventDefault();
+            // currentStep이 4일 때만 실제 제출 허용
+            if (currentStep === 4) {
+              handleSubmit(e);
+            }
+          }}
           onKeyDown={(e) => {
             // Enter 키로 폼 제출 방지 (마지막 단계의 제출 버튼만 허용)
-            if (e.key === 'Enter' && e.target instanceof HTMLInputElement) {
+            if (e.key === 'Enter' && currentStep < 4) {
               e.preventDefault();
             }
           }}
