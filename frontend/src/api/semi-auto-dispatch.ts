@@ -49,9 +49,8 @@ export const semiAutoDispatchAPI = {
     maxDistanceKm: number = 150,
     timeWindowHours: number = 2
   ): Promise<SuggestVehiclesResponse> => {
-    const response = await api.post(
+    const response = await api.get(
       `/semi-auto-dispatch/orders/${orderId}/suggest-vehicles`,
-      null,
       {
         params: {
           max_distance_km: maxDistanceKm,

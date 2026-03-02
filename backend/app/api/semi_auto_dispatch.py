@@ -15,7 +15,7 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
-@router.post("/orders/{order_id}/suggest-vehicles")
+@router.get("/orders/{order_id}/suggest-vehicles")
 async def suggest_vehicles_for_order(
     order_id: int,
     max_distance_km: int = 150,
