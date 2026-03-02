@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).parent / "backend"))
 
 from app.core.database import SessionLocal
 from app.models.user import User
-from app.models.employee import Employee, EmployeeRole
+from app.models.employee import Employee, EmployeeRole, EmploymentType
 from passlib.context import CryptContext
 from datetime import datetime, date
 
@@ -151,7 +151,7 @@ def create_test_users():
                 email=user_data["email"],
                 phone=user_data["phone"],
                 hire_date=date.today(),
-                employment_type="정규직",
+                employment_type=EmploymentType.FULL_TIME,  # Use enum instead of string
                 department="운송팀",
                 is_active=True
             )
