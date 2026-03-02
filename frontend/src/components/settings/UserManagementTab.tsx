@@ -182,15 +182,16 @@ const UserManagementTab: React.FC = () => {
     
     try {
       setLoading(true);
-      await api.post(`/auth/users/${userId}/approve`, {
-        employee_code: `EMP${Date.now().toString().slice(-6)}`
-      });
+      // Backend doesn't need employee_code in request body - it gets it from PendingEmployee
+      await api.post(`/auth/users/${userId}/approve`);
       toast.success(`${username}님이 승인되었습니다`);
       loadUsers();
       loadPendingUsers();
     } catch (error: any) {
       console.error('Failed to approve user:', error);
-      toast.error(error.response?.data?.detail || '승인에 실패했습니다');
+      const errorMsg = error.response?.data?.detail || '승인에 실패했습니다';
+      console.error('Approval error details:', errorMsg);
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }
