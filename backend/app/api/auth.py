@@ -511,9 +511,40 @@ async def approve_user(
         
         logger.info(f"📄 PendingEmployee found: {pending_emp.name}, code={pending_emp.employee_code}")
         
+        # Generate unique employee code based on role
+        # Format: D001 (Driver), M001 (Manager), A001 (Admin), S001 (Staff)
+        role_prefix_map = {
+            'DRIVER': 'D',
+            'MANAGER': 'M',
+            'ADMIN': 'A',
+            'MASTER': 'M'
+        }
+        role_prefix = role_prefix_map.get(pending_emp.role, 'S')  # Default: S (Staff)
+        
+        # Find the next available employee code
+        existing_codes = db.query(Employee.employee_code).filter(
+            Employee.employee_code.like(f"{role_prefix}%")
+        ).all()
+        
+        if existing_codes:
+            # Extract numbers and find max
+            code_numbers = []
+            for (code,) in existing_codes:
+                try:
+                    num = int(code[1:])  # Remove prefix letter
+                    code_numbers.append(num)
+                except ValueError:
+                    continue
+            next_number = max(code_numbers) + 1 if code_numbers else 1
+        else:
+            next_number = 1
+        
+        final_employee_code = f"{role_prefix}{str(next_number).zfill(3)}"
+        logger.info(f"🔢 Generated new employee code: {final_employee_code} (role: {pending_emp.role})")
+        
         # Create Employee record from pending data
         new_employee = Employee(
-            employee_code=pending_emp.employee_code,
+            employee_code=final_employee_code,  # Use generated code instead of pending code
             name=pending_emp.name,
             name_en=pending_emp.name_en,
             phone=pending_emp.phone,
