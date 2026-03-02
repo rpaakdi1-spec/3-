@@ -486,11 +486,17 @@ def parse_batch_dispatch(
             else:
                 temperature_zone = TemperatureZone.REFRIGERATED
             
-            # 톤수에 따른 팔레트 수
-            if tonnage >= 10:
+            # 톤수에 따른 팔레트 수 매핑
+            # 18톤 = 18팔레트, 11톤 = 16팔레트, 5톤 = 10팔레트
+            if tonnage >= 18:
+                pallet_count = 18
+            elif tonnage >= 11:
                 pallet_count = 16
-            else:
+            elif tonnage >= 5:
                 pallet_count = 10
+            else:
+                # 5톤 미만은 비율로 계산 (톤당 2팔레트)
+                pallet_count = max(1, int(tonnage * 2))
             
             # 중량 (톤 → kg)
             weight_kg = tonnage * 1000

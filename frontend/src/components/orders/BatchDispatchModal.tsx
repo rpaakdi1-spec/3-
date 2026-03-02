@@ -101,11 +101,13 @@ const BatchDispatchModal: React.FC<BatchDispatchModalProps> = ({
   };
 
   const exampleText = `**2/23(월)목우촌 오후배차**
-13:00 / 식육11톤(냉동)
-13:30 / 식육5톤
+13:00 / 식육18톤(냉동)
+13:30 / 식육11톤
 14:30 / 육가공11톤
 15:00 / 식육5톤
-16:30 / 육가공11톤`;
+16:30 / 육가공5톤
+
+※ 팔레트 자동 계산: 18톤=18p, 11톤=16p, 5톤=10p`;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
