@@ -19,6 +19,7 @@ from app.models.employee import Employee
 from app.models.dispatch import Dispatch
 from app.models.uvis_gps import VehicleGPSLog
 from app.services.naver_map_service import NaverMapService
+from app.services.uvis_gps_service import UvisGPSService
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,7 @@ class SemiAutoDispatchService:
     def __init__(self, db: Session):
         self.db = db
         self.map_service = NaverMapService()
+        self.uvis_gps_service = UvisGPSService(db)
     
     async def suggest_vehicles(
         self,
@@ -75,14 +77,23 @@ class SemiAutoDispatchService:
             
             logger.info(f"🔍 배차 가능 차량 조회 시작: 주문 #{order_id}")
             
-            # 2. 모든 활성 차량 조회
+            # 2. 실시간 GPS 데이터 수집 (AI 배차 시점에 최신 데이터 가져오기)
+            try:
+                logger.info("📡 UVIS API에서 실시간 GPS 데이터 수집 중...")
+                gps_data = await self.uvis_gps_service.get_vehicle_gps_data()
+                logger.info(f"✅ GPS 데이터 {len(gps_data)}건 수집 완료")
+            except Exception as gps_error:
+                logger.warning(f"⚠️ GPS 데이터 수집 실패 (기존 데이터 사용): {gps_error}")
+            
+            # 3. 모든 활성 차량 조회
+            # 3. 모든 활성 차량 조회
             vehicles = self.db.query(Vehicle).filter(
                 Vehicle.is_active == True
             ).all()
             
             suggestions = []
             
-            # 3. 각 차량 분석
+            # 4. 각 차량 분석
             for vehicle in vehicles:
                 try:
                     suggestion = await self._analyze_vehicle(
@@ -94,7 +105,7 @@ class SemiAutoDispatchService:
                     logger.error(f"차량 {vehicle.id} 분석 실패: {e}")
                     continue
             
-            # 4. 점수순 정렬
+            # 5. 점수순 정렬
             suggestions.sort(key=lambda x: x["score"], reverse=True)
             
             logger.info(f"✅ {len(suggestions)}개 차량 제안 완료")
@@ -132,16 +143,17 @@ class SemiAutoDispatchService:
         차량의 현재 위치 가져오기 (우선순위: GPS > 차고지)
         Returns: (latitude, longitude) or None
         """
-        # 1순위: 최신 GPS 위치 (최근 30분 이내)
+        # 1순위: 최신 GPS 위치 (최근 6시간 이내) - 실시간 수집 후 최신 데이터 사용
         latest_gps = self.db.query(VehicleGPSLog).filter(
             VehicleGPSLog.vehicle_id == vehicle.id,
             VehicleGPSLog.latitude.isnot(None),
             VehicleGPSLog.longitude.isnot(None),
-            VehicleGPSLog.created_at >= datetime.now() - timedelta(minutes=30)
+            VehicleGPSLog.created_at >= datetime.now() - timedelta(hours=6)
         ).order_by(desc(VehicleGPSLog.created_at)).first()
         
         if latest_gps and latest_gps.latitude and latest_gps.longitude:
-            logger.info(f"차량 {vehicle.plate_number} GPS 위치 사용: ({latest_gps.latitude}, {latest_gps.longitude})")
+            age_minutes = int((datetime.now() - latest_gps.created_at).total_seconds() / 60)
+            logger.info(f"차량 {vehicle.plate_number} GPS 위치 사용: ({latest_gps.latitude}, {latest_gps.longitude}) - {age_minutes}분 전")
             return (latest_gps.latitude, latest_gps.longitude)
         
         # 2순위: 차고지 위치
