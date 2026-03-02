@@ -344,6 +344,8 @@ async def update_user(
     current_user: User = Depends(require_role(UserRole.ADMIN))  # Admin only
 ):
     """사용자 정보 수정 (Admin만 가능)"""
+    logger.info(f"🔄 User update request for user_id={user_id} by {current_user.username}")
+    
     user = db.query(User).filter(User.id == user_id).first()
     
     if not user:
@@ -353,16 +355,27 @@ async def update_user(
         )
     
     update_data = user_update.model_dump(exclude_unset=True)
+    logger.info(f"📋 Update data received: {len(update_data)} fields")
+    logger.info(f"📝 Fields to update: {list(update_data.keys())}")
     
     # User 테이블 업데이트 (기본 필드만)
     user_fields = ['email', 'full_name', 'phone', 'role']
+    updated_user_fields = []
     for field in user_fields:
         if field in update_data:
-            setattr(user, field, update_data[field])
+            old_value = getattr(user, field)
+            new_value = update_data[field]
+            setattr(user, field, new_value)
+            updated_user_fields.append(f"{field}: {old_value} → {new_value}")
+    
+    if updated_user_fields:
+        logger.info(f"✅ User table updated: {', '.join(updated_user_fields)}")
     
     # PendingEmployee 테이블 업데이트 (추가 필드들)
     pending_employee = db.query(PendingEmployee).filter(PendingEmployee.user_id == user_id).first()
     if pending_employee:
+        logger.info(f"📄 PendingEmployee found for user_id={user_id}")
+        
         pending_fields = [
             'name_en', 'address', 'emergency_contact', 'employment_type',
             'department', 'position', 'hire_date', 'license_type', 'license_number',
@@ -373,18 +386,31 @@ async def update_user(
             'forklift_certificate_expiry_date'
         ]
         
+        updated_pending_fields = []
         for field in pending_fields:
             if field in update_data:
-                setattr(pending_employee, field, update_data[field])
+                old_value = getattr(pending_employee, field)
+                new_value = update_data[field]
+                setattr(pending_employee, field, new_value)
+                updated_pending_fields.append(f"{field}: {old_value} → {new_value}")
         
         # phone도 pending_employee에 업데이트
         if 'phone' in update_data:
+            old_phone = pending_employee.phone
             pending_employee.phone = update_data['phone']
+            updated_pending_fields.append(f"phone: {old_phone} → {update_data['phone']}")
+        
+        if updated_pending_fields:
+            logger.info(f"✅ PendingEmployee table updated ({len(updated_pending_fields)} fields):")
+            for field_update in updated_pending_fields:
+                logger.info(f"   - {field_update}")
+    else:
+        logger.warning(f"⚠️ No PendingEmployee found for user_id={user_id}")
     
     db.commit()
     db.refresh(user)
     
-    logger.info(f"User updated by admin: {user.username}")
+    logger.info(f"✅ User update completed successfully: {user.username}")
     return user
 
 
