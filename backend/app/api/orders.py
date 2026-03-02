@@ -405,6 +405,133 @@ def parse_order_nlp(
     return result
 
 
+@router.post("/parse-batch-dispatch")
+def parse_batch_dispatch(
+    request: dict,
+    db: Session = Depends(get_db)
+):
+    """
+    배치 배차 텍스트 파싱 (목우촌 형식)
+    
+    입력 형식:
+    **2/23(월)목우촌 오후배차**
+    13:00 / 식육11톤(냉동)
+    13:30 / 식육5톤
+    14:30 / 육가공11톤
+    15:00 / 식육5톤
+    16:30 / 육가공11톤
+    
+    상차지:전북 김제시 금산면 용산리 9-13
+    하차지:경기도 안성시 양성면 양성로376-106
+    
+    Returns:
+        {
+            "success": true,
+            "orders": [...],
+            "count": 5
+        }
+    """
+    import re
+    from datetime import datetime, time as datetime_time
+    from app.models.order import TemperatureZone
+    
+    text = request.get('text', '')
+    pickup_address = request.get('pickup_address', '')
+    delivery_address = request.get('delivery_address', '')
+    
+    if not text:
+        raise HTTPException(status_code=400, detail="배차 텍스트가 필요합니다")
+    
+    logger.info(f"📝 배치 배차 파싱 시작...")
+    
+    orders = []
+    order_number_prefix = f"ORD-{datetime.now().strftime('%Y%m%d')}"
+    
+    # 1. 날짜 추출 (예: 2/23(월))
+    date_match = re.search(r'(\d{1,2})/(\d{1,2})', text)
+    if date_match:
+        month = int(date_match.group(1))
+        day = int(date_match.group(2))
+        current_year = datetime.now().year
+        order_date = date(current_year, month, day)
+    else:
+        order_date = date.today()
+    
+    # 2. 고객사명 추출 (예: 목우촌)
+    client_match = re.search(r'[)\]]([가-힣]+)\s*(?:오전|오후)?배차', text)
+    client_name = client_match.group(1) if client_match else "고객사"
+    
+    # 3. 각 배차 라인 파싱
+    lines = text.split('\n')
+    order_count = 0
+    
+    for line in lines:
+        # 시간 / 품목톤수(온도) 형식 파싱
+        # 예: 13:00 / 식육11톤(냉동)
+        match = re.search(r'(\d{1,2}):(\d{2})\s*/\s*([가-힣]+)(\d+(?:\.\d+)?)톤(?:\(([^)]+)\))?', line)
+        
+        if match:
+            hour = int(match.group(1))
+            minute = int(match.group(2))
+            product_name = match.group(3)  # 식육, 육가공 등
+            tonnage = float(match.group(4))  # 11, 5 등
+            temp_indicator = match.group(5)  # 냉동, None
+            
+            # 시간
+            pickup_time = datetime_time(hour, minute)
+            
+            # 온도대 결정
+            if temp_indicator and '냉동' in temp_indicator:
+                temperature_zone = TemperatureZone.FROZEN
+            else:
+                temperature_zone = TemperatureZone.REFRIGERATED
+            
+            # 톤수에 따른 팔레트 수
+            if tonnage >= 10:
+                pallet_count = 16
+            else:
+                pallet_count = 10
+            
+            # 중량 (톤 → kg)
+            weight_kg = tonnage * 1000
+            
+            order_count += 1
+            order_number = f"{order_number_prefix}-{order_count:03d}"
+            
+            order = {
+                'order_number': order_number,
+                'order_date': order_date.isoformat(),
+                'temperature_zone': temperature_zone.value,
+                'pickup_address': pickup_address or f"{client_name} 본사",
+                'delivery_address': delivery_address,
+                'pallet_count': pallet_count,
+                'weight_kg': weight_kg,
+                'product_name': f"{product_name} {int(tonnage)}톤",
+                'pickup_start_time': pickup_time.isoformat(),
+                'pickup_end_time': datetime_time(hour + 1, minute).isoformat(),
+                'delivery_start_time': '16:00:00',
+                'delivery_end_time': '18:00:00',
+                'requested_delivery_date': order_date.isoformat(),
+                'priority': 5,
+                'requires_forklift': True,
+                'is_stackable': True,
+                'notes': f"{client_name} {product_name} ({temperature_zone.value})"
+            }
+            
+            orders.append(order)
+            logger.info(f"✅ 배차 {order_count}: {pickup_time.strftime('%H:%M')} - {product_name} {tonnage}톤 ({temperature_zone.value})")
+    
+    logger.info(f"✅ 총 {len(orders)}건의 배차 파싱 완료")
+    
+    return {
+        'success': True,
+        'orders': orders,
+        'count': len(orders),
+        'client_name': client_name,
+        'order_date': order_date.isoformat()
+    }
+
+
 @router.get("/template/download")
 def download_order_template():
     """주문 Excel 템플릿 다운로드"""

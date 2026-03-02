@@ -4,6 +4,7 @@ import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Loading from '../components/common/Loading';
 import OrderModal from '../components/orders/OrderModal';
+import BatchDispatchModal from '../components/orders/BatchDispatchModal';
 import apiClient from '../api/client';
 import { Order } from '../types';
 import { Package, Plus, Search, Filter, Upload, Download, Trash2, Edit2, FileSpreadsheet, Zap, Calendar, Clock, MessageSquare, Mic, Send, Bot, User, Loader2, CheckCircle, XCircle, History, MicOff } from 'lucide-react';
@@ -634,6 +635,7 @@ const OrdersPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [modalOpen, setModalOpen] = useState(false);
+  const [batchDispatchModalOpen, setBatchDispatchModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -1214,6 +1216,14 @@ const OrdersPage: React.FC = () => {
               전체 다운로드
             </Button>
             <Button 
+              variant="secondary"
+              onClick={() => setBatchDispatchModalOpen(true)}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              <FileSpreadsheet size={20} className="mr-2" />
+              배차 일괄등록
+            </Button>
+            <Button 
               variant="primary"
               onClick={() => {
                 setSelectedOrder(null);
@@ -1551,6 +1561,16 @@ const OrdersPage: React.FC = () => {
           toast.success(selectedOrder ? '주문이 수정되었습니다' : '주문이 등록되었습니다');
         }}
         order={selectedOrder}
+      />
+      
+      {/* Batch Dispatch Modal */}
+      <BatchDispatchModal
+        isOpen={batchDispatchModalOpen}
+        onClose={() => setBatchDispatchModalOpen(false)}
+        onSuccess={() => {
+          fetchOrders();
+          toast.success('배차가 일괄 등록되었습니다');
+        }}
       />
     </>
   );
