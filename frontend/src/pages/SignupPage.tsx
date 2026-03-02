@@ -179,7 +179,13 @@ const SignupPage: React.FC = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleNext = () => {
+  const handleNext = (e?: React.MouseEvent) => {
+    // 이벤트가 있으면 기본 동작 방지
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
     let isValid = false;
     
     switch (currentStep) {
@@ -193,14 +199,18 @@ const SignupPage: React.FC = () => {
         isValid = validateStep3();
         break;
       case 4:
-        isValid = true;
-        break;
+        // Step 4에서는 handleNext가 호출되지 않아야 함
+        console.warn('handleNext called on step 4 - this should not happen');
+        return;
       default:
         isValid = true;
     }
     
     if (isValid && currentStep < 4) {
+      console.log('Moving to step:', currentStep + 1);
       setCurrentStep(currentStep + 1);
+    } else if (!isValid) {
+      console.log('Validation failed for step:', currentStep);
     }
   };
 
@@ -341,15 +351,20 @@ const SignupPage: React.FC = () => {
         <form 
           onSubmit={(e) => {
             e.preventDefault();
+            e.stopPropagation();
             // currentStep이 4일 때만 실제 제출 허용
             if (currentStep === 4) {
               handleSubmit(e);
+            } else {
+              // Step 1-3에서는 절대 제출되지 않도록 명시적으로 차단
+              console.log('Form submission blocked - current step:', currentStep);
             }
           }}
           onKeyDown={(e) => {
             // Enter 키로 폼 제출 방지 (마지막 단계의 제출 버튼만 허용)
             if (e.key === 'Enter' && currentStep < 4) {
               e.preventDefault();
+              e.stopPropagation();
             }
           }}
         >
