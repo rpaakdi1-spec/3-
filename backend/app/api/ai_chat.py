@@ -89,7 +89,12 @@ async def process_chat_message(
                         # 주문 라인별 정보
                         order_lines = []
                         for order in created_orders:
-                            time_str = order.pickup_time if order.pickup_time else "시간미정"
+                            # pickup_start_time 사용 (time 객체를 문자열로 변환)
+                            if order.pickup_start_time:
+                                time_str = order.pickup_start_time.strftime("%H:%M")
+                            else:
+                                time_str = "시간미정"
+                            
                             product_name = order.product_name if order.product_name else "상품미정"
                             pallet_count = order.pallet_count if order.pallet_count else 0
                             

@@ -1008,10 +1008,18 @@ class AIChatService:
         
         orders = []
         for match in re.finditer(line_pattern, message):
-            pickup_time = match.group(1)  # "13:00"
+            pickup_time_str = match.group(1)  # "13:00"
             product_name = match.group(2)  # "식육", "육가공"
             tonnage = float(match.group(3))  # 11, 5, etc.
             temp_tag = match.group(4)  # "냉동" or None
+            
+            # 시간 문자열을 time 객체로 변환
+            try:
+                from datetime import time as dt_time
+                hour, minute = map(int, pickup_time_str.split(':'))
+                pickup_start_time = dt_time(hour, minute)
+            except:
+                pickup_start_time = None
             
             # 온도대 결정 (냉동 표시 없으면 냉장)
             if temp_tag and '냉동' in temp_tag:
@@ -1032,17 +1040,23 @@ class AIChatService:
             # 톤수 → kg 변환
             weight_kg = tonnage * 1000
             
-            orders.append({
+            order_dict = {
                 "order_date": order_date.isoformat(),
                 "requested_delivery_date": order_date.isoformat(),
-                "pickup_time": pickup_time,
                 "product_name": product_name,
                 "temperature_zone": temperature_zone,
                 "pallet_count": pallet_count,
                 "weight_kg": weight_kg,
                 "_client_name": client_name,  # 메시지 포맷용
                 "_date_str": month_day,  # 메시지 포맷용
-            })
+                "_pickup_time_str": pickup_time_str,  # 메시지 포맷용 (문자열)
+            }
+            
+            # pickup_start_time은 time 객체로 저장 (주문 생성용)
+            if pickup_start_time:
+                order_dict["pickup_start_time"] = pickup_start_time
+            
+            orders.append(order_dict)
         
         logger.info(f"✅ 배차 일괄 형식 감지: {len(orders)}건, 날짜={month_day}, 고객={client_name}")
         return orders
@@ -1076,7 +1090,7 @@ class AIChatService:
         
         # 각 주문 라인
         for order in orders:
-            time_str = order.get("pickup_time", "시간미정")
+            time_str = order.get("_pickup_time_str", "시간미정")
             product = order.get("product_name", "상품미정")
             pallets = order.get("pallet_count", 0)
             
