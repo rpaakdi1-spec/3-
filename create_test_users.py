@@ -70,22 +70,22 @@ def create_test_users():
             "employee_code": "M102"
         },
         {
-            "email": "operator1@test.com",
+            "email": "manager3@test.com",
             "full_name": "강운영",
             "password": "test1234",
-            "role": "OPERATOR",
+            "role": "MANAGER",
             "phone": "010-6666-6666",
-            "employee_role": EmployeeRole.OPERATOR,
-            "employee_code": "O101"
+            "employee_role": EmployeeRole.MANAGER,
+            "employee_code": "M103"
         },
         {
-            "email": "operator2@test.com",
+            "email": "manager4@test.com",
             "full_name": "신작업",
             "password": "test1234",
-            "role": "OPERATOR",
+            "role": "MANAGER",
             "phone": "010-7777-7777",
-            "employee_role": EmployeeRole.OPERATOR,
-            "employee_code": "O102"
+            "employee_role": EmployeeRole.MANAGER,
+            "employee_code": "M104"
         },
         {
             "email": "admin1@test.com",
@@ -170,8 +170,7 @@ def create_test_users():
         print(f"\n🔑 로그인 정보")
         print(f"="*60)
         print(f"이메일: driver1@test.com ~ driver5@test.com")
-        print(f"이메일: manager1@test.com, manager2@test.com")
-        print(f"이메일: operator1@test.com, operator2@test.com")
+        print(f"이메일: manager1@test.com ~ manager4@test.com")
         print(f"이메일: admin1@test.com")
         print(f"비밀번호: test1234 (모든 계정 공통)")
         print(f"="*60)
