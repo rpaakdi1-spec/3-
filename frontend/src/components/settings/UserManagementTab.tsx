@@ -1030,10 +1030,32 @@ const UserManagementTab: React.FC = () => {
               </div>
 
               <form 
-                onSubmit={handleUpdateUser} 
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  
+                  // 🔥 추가 보호: editStep이 4가 아니면 아무것도 하지 않음
+                  if (editStep !== 4) {
+                    console.warn('⚠️ Form submit attempted at editStep:', editStep, '- BLOCKED');
+                    return false;
+                  }
+                  
+                  console.log('✅ Form submit allowed at editStep 4');
+                  handleUpdateUser(e);
+                }} 
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && e.target instanceof HTMLInputElement) {
+                  if (e.key === 'Enter') {
                     e.preventDefault();
+                    
+                    // Enter 키로 제출 시도 감지
+                    if (editStep !== 4) {
+                      console.warn('⚠️ Enter key pressed at editStep:', editStep, '- Moving to next step instead');
+                      // Step 4가 아니면 다음 단계로 이동
+                      if (editStep < 4) {
+                        setEditStep(editStep + 1);
+                      }
+                      return false;
+                    }
                   }
                 }}
                 className="space-y-6"
@@ -1305,12 +1327,23 @@ const UserManagementTab: React.FC = () => {
                     {editStep < 4 ? (
                       <Button
                         type="button"
-                        onClick={() => setEditStep(editStep + 1)}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          console.log(`📍 "다음" button clicked at editStep ${editStep} → moving to ${editStep + 1}`);
+                          setEditStep(editStep + 1);
+                        }}
                       >
                         다음
                       </Button>
                     ) : (
-                      <Button type="submit" loading={loading}>
+                      <Button 
+                        type="submit" 
+                        loading={loading}
+                        onClick={() => {
+                          console.log('💾 "저장" button clicked at editStep 4 - submitting form');
+                        }}
+                      >
                         저장
                       </Button>
                     )}
