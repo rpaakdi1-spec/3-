@@ -345,10 +345,20 @@ const UserManagementTab: React.FC = () => {
 
   const handleUpdateUser = async (e: React.FormEvent) => {
     e.preventDefault();
+    e.stopPropagation();
+    
+    // 🚫 Step 4가 아니면 제출 차단
+    if (editStep !== 4) {
+      console.log('Form submission blocked - current editStep:', editStep);
+      return;
+    }
+    
     if (!editingUser) return;
 
     try {
       setLoading(true);
+      
+      console.log('✅ Updating user at editStep 4:', editingUser);
       
       // 전체 필드를 전송 (빈 문자열 날짜 필드는 undefined로 변환)
       const updateData: any = {
@@ -396,6 +406,7 @@ const UserManagementTab: React.FC = () => {
       setEditStep(1);
       loadUsers();
     } catch (error) {
+      console.error('❌ Update error:', error);
       toast.error('수정에 실패했습니다');
     } finally {
       setLoading(false);
