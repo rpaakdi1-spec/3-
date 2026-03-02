@@ -127,6 +127,8 @@ const UserManagementTab: React.FC = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editStep, setEditStep] = useState(1);
   const [editingUser, setEditingUser] = useState<UserAccount | null>(null);
+  const [newPassword, setNewPassword] = useState<string>(''); // 비밀번호 변경용
+  const [confirmPassword, setConfirmPassword] = useState<string>(''); // 비밀번호 확인용
 
   const [newUser, setNewUser] = useState<NewUserForm>({
     username: '',
@@ -343,6 +345,36 @@ const UserManagementTab: React.FC = () => {
     }
   };
 
+  const handlePasswordReset = async (userId: number, username: string) => {
+    if (!newPassword) {
+      toast.error('새 비밀번호를 입력해주세요');
+      return;
+    }
+
+    if (newPassword.length < 4) {
+      toast.error('비밀번호는 최소 4자 이상이어야 합니다');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast.error('비밀번호가 일치하지 않습니다');
+      return;
+    }
+
+    if (!confirm(`${username}님의 비밀번호를 재설정하시겠습니까?`)) return;
+
+    try {
+      await api.put(`/auth/users/${userId}/password`, { new_password: newPassword });
+      toast.success('비밀번호가 재설정되었습니다');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (error: any) {
+      console.error('Password reset error:', error);
+      const message = error.response?.data?.detail || '비밀번호 재설정에 실패했습니다';
+      toast.error(message);
+    }
+  };
+
   const handleUpdateUser = async (e: React.FormEvent) => {
     console.log('🔵 handleUpdateUser called at editStep:', editStep);
     console.trace('🔍 Call stack trace:');
@@ -420,6 +452,8 @@ const UserManagementTab: React.FC = () => {
       setShowEditModal(false);
       setEditingUser(null);
       setEditStep(1);
+      setNewPassword('');
+      setConfirmPassword('');
       loadUsers();
     } catch (error) {
       console.error('❌ Update error:', error);
@@ -515,7 +549,7 @@ const UserManagementTab: React.FC = () => {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
           <input
             type="text"
-            placeholder="사용자명, 이메일, 이름으로 검색..."
+            placeholder="ID, 이메일, 이름으로 검색..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -530,7 +564,7 @@ const UserManagementTab: React.FC = () => {
             <table className="w-full">
               <thead>
                 <tr className="border-b">
-                  <th className="text-left py-3 px-4 font-medium text-gray-700">사용자명</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-700">ID</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-700">이메일</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-700">이름</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-700">직원정보</th>
@@ -636,7 +670,7 @@ const UserManagementTab: React.FC = () => {
             <table className="w-full">
               <thead>
                 <tr className="border-b">
-                  <th className="text-left py-3 px-4 font-medium text-gray-700">사용자명</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-700">ID</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-700">이름</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-700">전화번호</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-700">사원번호</th>
@@ -719,7 +753,7 @@ const UserManagementTab: React.FC = () => {
                   <h4 className="text-lg font-semibold text-gray-700 mb-4">계정 정보</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <Input
-                      label="사용자명 *"
+                      label="ID *"
                       value={newUser.username}
                       onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
                       required
@@ -1100,7 +1134,7 @@ const UserManagementTab: React.FC = () => {
                     <h4 className="text-lg font-semibold text-gray-700 mb-4">1. 계정 정보</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <Input
-                        label="사용자명 *"
+                        label="ID *"
                         value={editingUser.username}
                         onChange={(e) => setEditingUser({...editingUser, username: e.target.value})}
                         required
@@ -1133,6 +1167,40 @@ const UserManagementTab: React.FC = () => {
                           <option value="VEHICLE_MANAGER">차량관리</option>
                         </select>
                       </div>
+                    </div>
+
+                    {/* 비밀번호 변경 섹션 */}
+                    <div className="mt-6 pt-6 border-t">
+                      <h5 className="text-md font-semibold text-gray-700 mb-3">🔒 비밀번호 변경 (선택사항)</h5>
+                      <p className="text-sm text-gray-500 mb-4">비밀번호를 변경하지 않으려면 비워두세요</p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <Input
+                          label="새 비밀번호"
+                          type="password"
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          placeholder="최소 4자 이상"
+                        />
+                        <Input
+                          label="비밀번호 확인"
+                          type="password"
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          placeholder="비밀번호 재입력"
+                        />
+                      </div>
+                      {newPassword && (
+                        <div className="mt-3">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handlePasswordReset(editingUser.id, editingUser.username)}
+                          >
+                            비밀번호 재설정
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -1354,6 +1422,8 @@ const UserManagementTab: React.FC = () => {
                         setShowEditModal(false);
                         setEditingUser(null);
                         setEditStep(1);
+                        setNewPassword('');
+                        setConfirmPassword('');
                       }}
                     >
                       취소

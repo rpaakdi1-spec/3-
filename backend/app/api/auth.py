@@ -466,6 +466,75 @@ async def update_user_status(
     return {"message": f"사용자가 {status_text}되었습니다", "is_active": status_data.is_active}
 
 
+@router.put("/users/{user_id}/password")
+async def reset_user_password(
+    user_id: int,
+    password_data: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.ADMIN))  # Admin only
+):
+    """
+    관리자가 사용자 비밀번호 재설정 (Admin만 가능)
+    
+    Request body:
+    {
+        "new_password": "새비밀번호"
+    }
+    """
+    logger.info(f"🔄 Password reset request for user_id={user_id} by admin {current_user.username}")
+    
+    user = db.query(User).filter(User.id == user_id).first()
+    
+    if not user:
+        logger.error(f"❌ User not found: user_id={user_id}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="사용자를 찾을 수 없습니다"
+        )
+    
+    new_password = password_data.get('new_password')
+    if not new_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="새 비밀번호를 입력해주세요"
+        )
+    
+    if len(new_password) < 4:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="비밀번호는 최소 4자 이상이어야 합니다"
+        )
+    
+    # Update password
+    user.hashed_password = AuthService.get_password_hash(new_password)
+    db.commit()
+    
+    logger.info(f"✅ Password reset completed for user: {user.username} by admin {current_user.username}")
+    return {"message": f"{user.username}님의 비밀번호가 재설정되었습니다"}
+    """사용자 활성화/비활성화 (Admin만 가능)"""
+    user = db.query(User).filter(User.id == user_id).first()
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="사용자를 찾을 수 없습니다"
+        )
+    
+    # Cannot deactivate self
+    if user.id == current_user.id and not status_data.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="자기 자신을 비활성화할 수 없습니다"
+        )
+    
+    user.is_active = status_data.is_active
+    db.commit()
+    
+    status_text = "활성화" if status_data.is_active else "비활성화"
+    logger.info(f"User {status_text}: {user.username}")
+    return {"message": f"사용자가 {status_text}되었습니다", "is_active": status_data.is_active}
+
+
 @router.delete("/users/{user_id}")
 async def delete_user(
     user_id: int,

@@ -138,7 +138,7 @@ const SignupPage: React.FC = () => {
     const newErrors: Partial<Record<keyof SignupFormData, string>> = {};
     
     if (!formData.username || formData.username.length < 3) {
-      newErrors.username = '사용자명은 최소 3자 이상이어야 합니다';
+      newErrors.username = 'ID는 최소 3자 이상이어야 합니다';
     }
     
     if (!formData.password || formData.password.length < 6) {
@@ -374,7 +374,7 @@ const SignupPage: React.FC = () => {
               <h3 className="text-lg font-semibold mb-4">계정 정보</h3>
               
               <Input
-                label="사용자명 *"
+                label="ID *"
                 type="text"
                 placeholder="로그인 시 사용할 아이디 (3자 이상)"
                 value={formData.username}
