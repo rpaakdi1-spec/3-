@@ -143,9 +143,8 @@ def create_test_users():
             db.add(user)
             db.flush()  # Get user.id
             
-            # Create Employee
+            # Create Employee (without user_id - field doesn't exist)
             employee = Employee(
-                user_id=user.id,
                 employee_code=user_data["employee_code"],
                 name=user_data["full_name"],
                 role=user_data["employee_role"],
@@ -157,6 +156,10 @@ def create_test_users():
                 is_active=True
             )
             db.add(employee)
+            db.flush()  # Get employee.id
+            
+            # Link User to Employee through employee_id
+            user.employee_id = employee.id
             
             db.commit()
             print(f"✅ 생성 완료: {user_data['email']} ({user_data['full_name']}) - {user_data['role']}")
