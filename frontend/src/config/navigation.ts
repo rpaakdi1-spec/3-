@@ -51,8 +51,8 @@ export const navigationConfig: MenuItem[] = [
     icon: Brain,
     roles: ['ADMIN', 'DISPATCHER'],
     children: [
-      { path: '/optimization', label: 'AI 배차 최적화', icon: Zap, roles: ['ADMIN', 'DISPATCHER'] },
-      { path: '/dispatch-optimization', label: '자동 배차 최적화', icon: Target, roles: ['ADMIN', 'DISPATCHER'] },
+      // { path: '/optimization', label: 'AI 배차 최적화', icon: Zap, roles: ['ADMIN', 'DISPATCHER'] },
+      // { path: '/dispatch-optimization', label: '자동 배차 최적화', icon: Target, roles: ['ADMIN', 'DISPATCHER'] },
       { path: '/ai-cost', label: 'AI 비용 모니터링', icon: DollarSign, roles: ['ADMIN'] },
       { path: '/ab-test', label: 'AB Test 모니터링', icon: Activity, roles: ['ADMIN'] },
       { path: '/ml-training', label: 'AI 학습', icon: Brain, roles: ['ADMIN', 'DISPATCHER'] }
