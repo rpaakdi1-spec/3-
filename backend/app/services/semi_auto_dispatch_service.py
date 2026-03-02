@@ -222,9 +222,9 @@ class SemiAutoDispatchService:
                         order.pickup_latitude, order.pickup_longitude
                     )
                     
-                    if distance_data["success"]:
+                    if distance_data and distance_data.get("distance_km") is not None:
                         distance_km = distance_data["distance_km"]
-                        estimated_arrival_min = distance_data["duration_min"]
+                        estimated_arrival_min = distance_data.get("duration_minutes", 30)
                         
                         if distance_km <= max_distance_km:
                             reasons.append(f"📍 현재 위치에서 상차지까지 {distance_km:.1f}km (약 {estimated_arrival_min}분)")
@@ -266,9 +266,9 @@ class SemiAutoDispatchService:
                                 order.pickup_latitude, order.pickup_longitude
                             )
                             
-                            if distance_data["success"]:
+                            if distance_data and distance_data.get("distance_km") is not None:
                                 distance_km = distance_data["distance_km"]
-                                estimated_arrival_min = distance_data["duration_min"]
+                                estimated_arrival_min = distance_data.get("duration_minutes", 30)
                                 
                                 if distance_km <= max_distance_km:
                                     score += 15
