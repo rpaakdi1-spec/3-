@@ -383,7 +383,7 @@ async def update_user(
             'cargo_license_issue_date', 'cargo_license_expiry_date',
             'can_drive_forklift', 'has_forklift_certificate',
             'forklift_certificate_number', 'forklift_certificate_issue_date',
-            'forklift_certificate_expiry_date'
+            'forklift_certificate_expiry_date', 'role'  # role 필드 추가
         ]
         
         updated_pending_fields = []
@@ -537,6 +537,21 @@ async def approve_user(
         
         logger.info(f"📄 PendingEmployee found: {pending_emp.name}, code={pending_emp.employee_code}")
         
+        # Role mapping: Map User roles to Employee roles
+        # UserRole: DRIVER, ADMIN, OPERATOR, VEHICLE_MANAGER
+        # EmployeeRole: DRIVER, ADMIN, MANAGER, MASTER
+        user_to_employee_role_map = {
+            'DRIVER': 'DRIVER',
+            'ADMIN': 'ADMIN',
+            'OPERATOR': 'ADMIN',  # OPERATOR → ADMIN
+            'VEHICLE_MANAGER': 'MANAGER',  # VEHICLE_MANAGER → MANAGER
+            'MANAGER': 'MANAGER',
+            'MASTER': 'MASTER'
+        }
+        
+        mapped_role = user_to_employee_role_map.get(pending_emp.role, 'DRIVER')  # Default: DRIVER
+        logger.info(f"🔄 Role mapping: {pending_emp.role} → {mapped_role}")
+        
         # Generate unique employee code based on role
         # Format: D001 (Driver), M001 (Manager), A001 (Admin), S001 (Staff)
         role_prefix_map = {
@@ -545,7 +560,7 @@ async def approve_user(
             'ADMIN': 'A',
             'MASTER': 'M'
         }
-        role_prefix = role_prefix_map.get(pending_emp.role, 'S')  # Default: S (Staff)
+        role_prefix = role_prefix_map.get(mapped_role, 'S')  # Default: S (Staff)
         
         # Find the next available employee code
         existing_codes = db.query(Employee.employee_code).filter(
@@ -566,7 +581,7 @@ async def approve_user(
             next_number = 1
         
         final_employee_code = f"{role_prefix}{str(next_number).zfill(3)}"
-        logger.info(f"🔢 Generated new employee code: {final_employee_code} (role: {pending_emp.role})")
+        logger.info(f"🔢 Generated new employee code: {final_employee_code} (original role: {pending_emp.role}, mapped role: {mapped_role})")
         
         # Create Employee record from pending data
         new_employee = Employee(
@@ -577,7 +592,7 @@ async def approve_user(
             email=pending_emp.email,
             address=pending_emp.address,
             emergency_contact=pending_emp.emergency_contact,
-            role=EmployeeRole(pending_emp.role),
+            role=EmployeeRole(mapped_role),  # Use mapped role instead of pending_emp.role
             employment_type=EmploymentType(pending_emp.employment_type),
             department=pending_emp.department,
             position=pending_emp.position,
