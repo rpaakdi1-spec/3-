@@ -9,7 +9,7 @@
 """
 import logging
 from typing import Dict, List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_, func, desc
 
@@ -144,15 +144,16 @@ class SemiAutoDispatchService:
         Returns: (latitude, longitude) or None
         """
         # 1순위: 최신 GPS 위치 (최근 6시간 이내) - 실시간 수집 후 최신 데이터 사용
+        now_utc = datetime.now(timezone.utc)
         latest_gps = self.db.query(VehicleGPSLog).filter(
             VehicleGPSLog.vehicle_id == vehicle.id,
             VehicleGPSLog.latitude.isnot(None),
             VehicleGPSLog.longitude.isnot(None),
-            VehicleGPSLog.created_at >= datetime.now() - timedelta(hours=6)
+            VehicleGPSLog.created_at >= now_utc - timedelta(hours=6)
         ).order_by(desc(VehicleGPSLog.created_at)).first()
         
         if latest_gps and latest_gps.latitude and latest_gps.longitude:
-            age_minutes = int((datetime.now() - latest_gps.created_at).total_seconds() / 60)
+            age_minutes = int((now_utc - latest_gps.created_at).total_seconds() / 60)
             logger.info(f"차량 {vehicle.plate_number} GPS 위치 사용: ({latest_gps.latitude}, {latest_gps.longitude}) - {age_minutes}분 전")
             return (latest_gps.latitude, latest_gps.longitude)
         
