@@ -156,7 +156,7 @@ async def internal_error_handler(request, exc):
 
 # Import and include routers
 # from app.api import auth, clients, vehicles, orders, dispatches, tracking, uvis, redispatch, notices, purchase_orders, band_messages, uvis_gps, analytics, delivery_tracking, traffic, monitoring, cache
-from app.api import auth, clients, vehicles, orders, dispatches, tracking, uvis, redispatch, notices, purchase_orders, band_messages, uvis_gps, delivery_tracking, traffic, monitoring, cache, emergency, ml_training, ai_chat, ai_usage, ml_dispatch, ab_test, recurring_orders, order_templates, driver_schedules, urgent_dispatches, notifications, temperature_monitoring, temperature_analytics, billing, vehicle_maintenance, ml_predictions, telemetry, dispatch_optimization, analytics, mobile, dispatch_monitoring, ml_autolearning, files, chat, chat_ws
+from app.api import auth, clients, vehicles, orders, dispatches, tracking, uvis, redispatch, notices, purchase_orders, band_messages, uvis_gps, delivery_tracking, traffic, monitoring, cache, emergency, ml_training, ai_chat, ai_usage, ml_dispatch, ab_test, recurring_orders, order_templates, driver_schedules, urgent_dispatches, notifications, temperature_monitoring, temperature_analytics, billing, vehicle_maintenance, ml_predictions, telemetry, dispatch_optimization, analytics, mobile, dispatch_monitoring, ml_autolearning, files, chat, chat_ws, semi_auto_dispatch
 from app.api.v1 import reports, realtime_monitoring, ml_models, fcm_notifications, performance, security, websocket, mobile_enhanced, billing_enhanced
 from app.api.v1.endpoints import dispatch_rules, employees
 app.include_router(auth.router, prefix=f"{settings.API_PREFIX}/auth", tags=["Authentication"])
@@ -212,6 +212,7 @@ app.include_router(dispatch_monitoring.router, prefix=f"{settings.API_PREFIX}/di
 app.include_router(files.router, prefix=f"{settings.API_PREFIX}/files", tags=["File Upload"])  # Phase 16.2: File Upload System
 app.include_router(chat.router, prefix=f"{settings.API_PREFIX}/chat", tags=["Chat"])  # Phase 16.3: Real-time Chat REST API
 app.include_router(chat_ws.router, prefix=f"{settings.API_PREFIX}/ws", tags=["Chat WebSocket"])  # Phase 16.3: Real-time Chat WebSocket
+app.include_router(semi_auto_dispatch.router, prefix=f"{settings.API_PREFIX}/semi-auto-dispatch", tags=["Semi-Auto Dispatch"])  # Semi-automatic dispatch with AI assistance
 
 # Mount static files for uploads
 import os

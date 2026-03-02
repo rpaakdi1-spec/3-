@@ -5,9 +5,10 @@ import Button from '../components/common/Button';
 import Loading from '../components/common/Loading';
 import OrderModal from '../components/orders/OrderModal';
 import BatchDispatchModal from '../components/orders/BatchDispatchModal';
+import SemiAutoDispatchModal from '../components/orders/SemiAutoDispatchModal';
 import apiClient from '../api/client';
 import { Order } from '../types';
-import { Package, Plus, Search, Filter, Upload, Download, Trash2, Edit2, FileSpreadsheet, Zap, Calendar, Clock, MessageSquare, Mic, Send, Bot, User, Loader2, CheckCircle, XCircle, History, MicOff } from 'lucide-react';
+import { Package, Plus, Search, Filter, Upload, Download, Trash2, Edit2, FileSpreadsheet, Zap, Calendar, Clock, MessageSquare, Mic, Send, Bot, User, Loader2, CheckCircle, XCircle, History, MicOff, Navigation } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useResponsive } from '../hooks/useResponsive';
 import { MobileOrderCard } from '../components/mobile/MobileOrderCard';
@@ -636,6 +637,8 @@ const OrdersPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [modalOpen, setModalOpen] = useState(false);
   const [batchDispatchModalOpen, setBatchDispatchModalOpen] = useState(false);
+  const [semiAutoDispatchModalOpen, setSemiAutoDispatchModalOpen] = useState(false);
+  const [semiAutoDispatchOrder, setSemiAutoDispatchOrder] = useState<Order | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -972,6 +975,16 @@ const OrdersPage: React.FC = () => {
     } catch (error) {
       toast.error('일괄 삭제에 실패했습니다');
     }
+  };
+
+  const handleOpenSemiAutoDispatch = (order: Order) => {
+    setSemiAutoDispatchOrder(order);
+    setSemiAutoDispatchModalOpen(true);
+  };
+
+  const handleSemiAutoDispatchComplete = () => {
+    fetchOrders();
+    toast.success('배차가 완료되었습니다');
   };
 
   const handleDownloadTemplate = async () => {
@@ -1447,6 +1460,17 @@ const OrdersPage: React.FC = () => {
                           <td className="py-3 px-4">{getStatusBadge(order.status)}</td>
                           <td className="py-3 px-4">
                             <div className="flex space-x-2">
+                              {order.status === 'PENDING' && (
+                                <Button 
+                                  size="sm" 
+                                  variant="primary"
+                                  onClick={() => handleOpenSemiAutoDispatch(order)}
+                                  title="AI 배차 추천"
+                                >
+                                  <Navigation size={14} className="mr-1" />
+                                  AI 배차
+                                </Button>
+                              )}
                               <Button 
                                 size="sm" 
                                 variant="secondary"
@@ -1572,6 +1596,25 @@ const OrdersPage: React.FC = () => {
           toast.success('배차가 일괄 등록되었습니다');
         }}
       />
+
+      {/* Semi-Auto Dispatch Modal */}
+      {semiAutoDispatchOrder && (
+        <SemiAutoDispatchModal
+          isOpen={semiAutoDispatchModalOpen}
+          onClose={() => {
+            setSemiAutoDispatchModalOpen(false);
+            setSemiAutoDispatchOrder(null);
+          }}
+          orderId={semiAutoDispatchOrder.id}
+          orderInfo={{
+            order_number: semiAutoDispatchOrder.order_number,
+            pickup_address: semiAutoDispatchOrder.pickup_address || '',
+            delivery_address: semiAutoDispatchOrder.delivery_address || '',
+            pickup_start_time: semiAutoDispatchOrder.pickup_start_time,
+          }}
+          onDispatchComplete={handleSemiAutoDispatchComplete}
+        />
+      )}
     </>
   );
 };
