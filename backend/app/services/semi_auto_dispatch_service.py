@@ -11,12 +11,13 @@ import logging
 from typing import Dict, List, Optional
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, or_, func
+from sqlalchemy import and_, or_, func, desc
 
 from app.models.order import Order
 from app.models.vehicle import Vehicle
 from app.models.employee import Employee
 from app.models.dispatch import Dispatch
+from app.models.uvis_gps import VehicleGPSLog
 from app.services.naver_map_service import NaverMapService
 
 logger = logging.getLogger(__name__)
@@ -126,6 +127,31 @@ class SemiAutoDispatchService:
                 "order_id": order_id
             }
     
+    def _get_vehicle_current_location(self, vehicle: Vehicle) -> Optional[tuple]:
+        """
+        차량의 현재 위치 가져오기 (우선순위: GPS > 차고지)
+        Returns: (latitude, longitude) or None
+        """
+        # 1순위: 최신 GPS 위치 (최근 30분 이내)
+        latest_gps = self.db.query(VehicleGPSLog).filter(
+            VehicleGPSLog.vehicle_id == vehicle.id,
+            VehicleGPSLog.latitude.isnot(None),
+            VehicleGPSLog.longitude.isnot(None),
+            VehicleGPSLog.created_at >= datetime.now() - timedelta(minutes=30)
+        ).order_by(desc(VehicleGPSLog.created_at)).first()
+        
+        if latest_gps and latest_gps.latitude and latest_gps.longitude:
+            logger.info(f"차량 {vehicle.plate_number} GPS 위치 사용: ({latest_gps.latitude}, {latest_gps.longitude})")
+            return (latest_gps.latitude, latest_gps.longitude)
+        
+        # 2순위: 차고지 위치
+        if vehicle.garage_latitude and vehicle.garage_longitude:
+            logger.info(f"차량 {vehicle.plate_number} 차고지 위치 사용: ({vehicle.garage_latitude}, {vehicle.garage_longitude})")
+            return (vehicle.garage_latitude, vehicle.garage_longitude)
+        
+        logger.warning(f"차량 {vehicle.plate_number} 위치 정보 없음")
+        return None
+    
     async def _analyze_vehicle(
         self,
         vehicle: Vehicle,
@@ -164,16 +190,42 @@ class SemiAutoDispatchService:
             score += 30
             reasons.append("✅ 현재 대기 중 (즉시 배차 가능)")
             
-            # 차량 위치: 차고지 또는 마지막 알려진 위치
-            # 기본값 설정 (위치 정보가 없어도 차량 표시)
+            # 차량 위치: GPS 실시간 위치 또는 차고지 위치 사용
+            # 기본값 설정
             distance_km = 0.0
             estimated_arrival_min = 30
             
-            # 픽업 위치가 있으면 거리 계산 (향후 차량 GPS 위치 활용)
+            # 주문 픽업 위치 확인
             if order.pickup_latitude and order.pickup_longitude:
-                # 실제로는 차량의 GPS 위치를 가져와야 함
-                # 현재는 기본값 사용
-                reasons.append(f"📍 상차지 주소: {order.pickup_address or '위치 정보 없음'}")
+                # 차량의 현재 위치 가져오기 (GPS 우선, 차고지 대체)
+                vehicle_location = self._get_vehicle_current_location(vehicle)
+                
+                if vehicle_location:
+                    vehicle_lat, vehicle_lng = vehicle_location
+                    
+                    # 네이버 맵 API로 차량 위치에서 픽업지까지 거리 계산
+                    distance_data = await self.map_service.get_distance_and_duration(
+                        (vehicle_lat, vehicle_lng),
+                        (order.pickup_latitude, order.pickup_longitude)
+                    )
+                    
+                    if distance_data["success"]:
+                        distance_km = distance_data["distance_km"]
+                        estimated_arrival_min = distance_data["duration_min"]
+                        
+                        if distance_km <= max_distance_km:
+                            reasons.append(f"📍 현재 위치에서 상차지까지 {distance_km:.1f}km (약 {estimated_arrival_min}분)")
+                        else:
+                            warnings.append(f"⚠️ 현재 위치에서 상차지까지 {distance_km:.1f}km (최대거리 {max_distance_km}km 초과)")
+                            return None  # 거리 범위 초과
+                    else:
+                        # 거리 계산 실패 시에도 기본값 유지
+                        warnings.append("⚠️ 거리 계산 실패 (기본값 사용)")
+                        reasons.append(f"📍 상차지: {order.pickup_address or '위치 정보 없음'}")
+                else:
+                    # 차량 위치 정보 없음 - 기본값 유지
+                    warnings.append("⚠️ 차량 위치 정보 없음 (기본값 사용)")
+                    reasons.append(f"📍 상차지: {order.pickup_address or '위치 정보 없음'}")
             else:
                 warnings.append("⚠️ 상차지 위치 정보 없음 (거리 계산 불가)")
         
