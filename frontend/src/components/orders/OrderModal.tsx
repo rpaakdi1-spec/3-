@@ -427,6 +427,11 @@ const OrderModal: React.FC<OrderModalProps> = ({ isOpen, onClose, onSuccess, ord
                       onChange={(e) => setFormData({ ...formData, pickup_address_detail: e.target.value })}
                       placeholder="1층"
                     />
+                    {order && (order.pickup_latitude || order.pickup_longitude) && (
+                      <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded">
+                        📍 좌표: {order.pickup_latitude?.toFixed(6)}, {order.pickup_longitude?.toFixed(6)}
+                      </div>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -443,6 +448,11 @@ const OrderModal: React.FC<OrderModalProps> = ({ isOpen, onClose, onSuccess, ord
                       onChange={(e) => setFormData({ ...formData, delivery_address_detail: e.target.value })}
                       placeholder="2층 창고"
                     />
+                    {order && (order.delivery_latitude || order.delivery_longitude) && (
+                      <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded">
+                        📍 좌표: {order.delivery_latitude?.toFixed(6)}, {order.delivery_longitude?.toFixed(6)}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

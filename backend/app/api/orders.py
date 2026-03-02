@@ -235,15 +235,17 @@ async def create_order(order_data: OrderCreate, db: Session = Depends(get_db)):
 
 
 @router.put("/{order_id}", response_model=OrderResponse)
-def update_order(
+async def update_order(
     order_id: int,
     order_data: OrderUpdate,
     db: Session = Depends(get_db)
 ):
-    """주문 수정"""
+    """주문 수정 (주소 변경 시 좌표 자동 재변환)"""
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="주문을 찾을 수 없습니다")
+    
+    from app.services.naver_map_service import NaverMapService
     
     # Update fields
     update_data = order_data.model_dump(exclude_unset=True)
@@ -254,8 +256,62 @@ def update_order(
         if field in update_data:
             logger.info(f"🕐 Updating {field}: {update_data[field]} (type: {type(update_data[field])})")
     
+    # 주소가 변경되었는지 확인
+    pickup_address_changed = (
+        'pickup_address' in update_data and update_data['pickup_address'] != order.pickup_address
+    ) or (
+        'pickup_address_detail' in update_data and update_data['pickup_address_detail'] != order.pickup_address_detail
+    )
+    
+    delivery_address_changed = (
+        'delivery_address' in update_data and update_data['delivery_address'] != order.delivery_address
+    ) or (
+        'delivery_address_detail' in update_data and update_data['delivery_address_detail'] != order.delivery_address_detail
+    )
+    
+    # 필드 업데이트
     for field, value in update_data.items():
         setattr(order, field, value)
+    
+    # 픽업 주소가 변경된 경우 좌표 재변환
+    if pickup_address_changed and order.pickup_address:
+        try:
+            naver_service = NaverMapService()
+            full_address = f"{order.pickup_address} {order.pickup_address_detail or ''}".strip()
+            result = await naver_service.geocode_address(full_address)
+            
+            if result and len(result) >= 2:
+                latitude, longitude = result[0], result[1]
+                if latitude and longitude:
+                    order.pickup_latitude = latitude
+                    order.pickup_longitude = longitude
+                    logger.info(f"✅ 픽업 주소 변경 → 좌표 재변환: {full_address} -> ({latitude}, {longitude})")
+                else:
+                    logger.warning(f"⚠️ 픽업 좌표 변환 실패: {full_address}")
+            else:
+                logger.warning(f"⚠️ 픽업 좌표 없음: {full_address}")
+        except Exception as e:
+            logger.error(f"❌ 픽업 좌표 변환 오류: {e}")
+    
+    # 배송 주소가 변경된 경우 좌표 재변환
+    if delivery_address_changed and order.delivery_address:
+        try:
+            naver_service = NaverMapService()
+            full_address = f"{order.delivery_address} {order.delivery_address_detail or ''}".strip()
+            result = await naver_service.geocode_address(full_address)
+            
+            if result and len(result) >= 2:
+                latitude, longitude = result[0], result[1]
+                if latitude and longitude:
+                    order.delivery_latitude = latitude
+                    order.delivery_longitude = longitude
+                    logger.info(f"✅ 배송 주소 변경 → 좌표 재변환: {full_address} -> ({latitude}, {longitude})")
+                else:
+                    logger.warning(f"⚠️ 배송 좌표 변환 실패: {full_address}")
+            else:
+                logger.warning(f"⚠️ 배송 좌표 없음: {full_address}")
+        except Exception as e:
+            logger.error(f"❌ 배송 좌표 변환 오류: {e}")
     
     db.commit()
     db.refresh(order)
