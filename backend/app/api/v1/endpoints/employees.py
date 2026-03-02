@@ -372,6 +372,37 @@ def restore_employee(employee_id: int, db: Session = Depends(get_db)):
     return employee_to_response(employee)
 
 
+@router.delete("/{employee_id}/permanent", status_code=204)
+def permanently_delete_employee(employee_id: int, db: Session = Depends(get_db)):
+    """
+    직원 영구 삭제 (완전 삭제)
+    
+    ⚠️ 이 작업은 되돌릴 수 없습니다!
+    - 데이터베이스에서 완전히 삭제됩니다
+    - 일반적으로 휴지통(is_active=False)에 있는 직원만 영구 삭제합니다
+    """
+    employee = db.query(Employee).filter(Employee.id == employee_id).first()
+    if not employee:
+        raise HTTPException(status_code=404, detail="직원을 찾을 수 없습니다.")
+    
+    # 안전을 위해 재직 중인 직원은 영구 삭제 불가
+    if employee.is_active:
+        raise HTTPException(
+            status_code=400, 
+            detail="재직 중인 직원은 영구 삭제할 수 없습니다. 먼저 퇴사 처리 후 휴지통에서 삭제해주세요."
+        )
+    
+    employee_code = employee.employee_code
+    employee_name = employee.name
+    
+    # 완전 삭제
+    db.delete(employee)
+    db.commit()
+    
+    logger.warning(f"PERMANENTLY DELETED employee: {employee_code} - {employee_name}")
+    return None
+
+
 # ==================== 운전자 특화 Endpoints ====================
 
 @router.get("/drivers/pool", response_model=List[DriverPoolItem])

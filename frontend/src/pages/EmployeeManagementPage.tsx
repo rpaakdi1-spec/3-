@@ -166,6 +166,25 @@ const EmployeeManagementPage: React.FC = () => {
     }
   };
 
+  // Handle permanent delete
+  const handlePermanentDelete = async (id: number, name: string, employeeCode: string) => {
+    // 2단계 확인 - 매우 신중하게
+    if (!confirm(`⚠️ 경고: ${name}님(${employeeCode})을 영구 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다!`)) return;
+    
+    if (!confirm(`⚠️ 최종 확인: 정말로 ${name}님을 데이터베이스에서 완전히 삭제하시겠습니까?\n\n삭제 후 복구가 불가능합니다!`)) return;
+    
+    try {
+      await employeeAPI.permanentDelete(id);
+      toast.success(`${name}님이 영구 삭제되었습니다`);
+      fetchEmployees();
+      fetchStatistics();
+    } catch (error: any) {
+      console.error('Failed to permanently delete employee:', error);
+      const message = error.response?.data?.detail || '영구 삭제 실패';
+      toast.error(message);
+    }
+  };
+
   // Open trash modal
   const openTrashModal = () => {
     setShowTrashModal(true);
@@ -1298,6 +1317,15 @@ const EmployeeManagementPage: React.FC = () => {
                           >
                             <Edit size={16} />
                             보기
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            onClick={() => handlePermanentDelete(emp.id, emp.name, emp.employee_code)}
+                            className="flex-1 flex items-center justify-center gap-1 border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400"
+                          >
+                            <Trash2 size={16} />
+                            영구삭제
                           </Button>
                         </div>
                       </div>

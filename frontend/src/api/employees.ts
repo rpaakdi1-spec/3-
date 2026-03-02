@@ -211,6 +211,14 @@ class EmployeeAPI {
   }
 
   /**
+   * 직원 영구 삭제 (완전 삭제 - 복구 불가)
+   * ⚠️ 이 작업은 되돌릴 수 없습니다!
+   */
+  async permanentDelete(id: number): Promise<void> {
+    await apiClient.delete(`${this.baseURL}/${id}/permanent`);
+  }
+
+  /**
    * 운전자 풀 조회
    */
   async getDriverPool(filters?: { only_available?: boolean; can_drive_forklift?: boolean }): Promise<DriverPoolItem[]> {
