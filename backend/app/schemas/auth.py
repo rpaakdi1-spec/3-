@@ -27,6 +27,7 @@ class UserCreate(UserBase):
 
 class UserUpdate(BaseModel):
     """사용자 수정 스키마"""
+    username: Optional[str] = None  # 사용자명 수정 가능
     email: Optional[str] = None
     full_name: Optional[str] = None
     phone: Optional[str] = None

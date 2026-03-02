@@ -1088,7 +1088,8 @@ const UserManagementTab: React.FC = () => {
                       <Input
                         label="사용자명 *"
                         value={editingUser.username}
-                        disabled
+                        onChange={(e) => setEditingUser({...editingUser, username: e.target.value})}
+                        required
                       />
                       <Input
                         label="이메일"

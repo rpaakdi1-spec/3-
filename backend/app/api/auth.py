@@ -358,8 +358,17 @@ async def update_user(
     logger.info(f"📋 Update data received: {len(update_data)} fields")
     logger.info(f"📝 Fields to update: {list(update_data.keys())}")
     
+    # username 중복 체크 (username 변경 시)
+    if 'username' in update_data and update_data['username'] != user.username:
+        existing_user = db.query(User).filter(User.username == update_data['username']).first()
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="이미 사용 중인 사용자명입니다"
+            )
+    
     # User 테이블 업데이트 (기본 필드만)
-    user_fields = ['email', 'full_name', 'phone', 'role']
+    user_fields = ['username', 'email', 'full_name', 'phone', 'role']  # username 추가
     updated_user_fields = []
     for field in user_fields:
         if field in update_data:
@@ -394,11 +403,23 @@ async def update_user(
                 setattr(pending_employee, field, new_value)
                 updated_pending_fields.append(f"{field}: {old_value} → {new_value}")
         
+        # full_name → PendingEmployee.name 매핑
+        if 'full_name' in update_data:
+            old_name = pending_employee.name
+            pending_employee.name = update_data['full_name']
+            updated_pending_fields.append(f"name: {old_name} → {update_data['full_name']}")
+        
         # phone도 pending_employee에 업데이트
         if 'phone' in update_data:
             old_phone = pending_employee.phone
             pending_employee.phone = update_data['phone']
             updated_pending_fields.append(f"phone: {old_phone} → {update_data['phone']}")
+        
+        # email도 pending_employee에 업데이트
+        if 'email' in update_data:
+            old_email = pending_employee.email
+            pending_employee.email = update_data['email']
+            updated_pending_fields.append(f"email: {old_email} → {update_data['email']}")
         
         if updated_pending_fields:
             logger.info(f"✅ PendingEmployee table updated ({len(updated_pending_fields)} fields):")
