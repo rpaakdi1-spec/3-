@@ -103,12 +103,12 @@ class SemiAutoDispatchService:
                 "order": {
                     "id": order.id,
                     "order_number": order.order_number,
-                    "client_name": order.client_name,
+                    "product_name": order.product_name,
                     "pickup_address": order.pickup_address,
                     "delivery_address": order.delivery_address,
                     "pickup_time": order.pickup_start_time.isoformat() if order.pickup_start_time else None,
-                    "cargo_weight": order.cargo_weight_kg,
-                    "cargo_volume": order.cargo_volume_cbm,
+                    "pallet_count": order.pallet_count,
+                    "temperature_zone": order.temperature_zone.value if hasattr(order.temperature_zone, 'value') else str(order.temperature_zone),
                 },
                 "suggestions": suggestions,
                 "total_count": len(suggestions),
@@ -144,10 +144,10 @@ class SemiAutoDispatchService:
         if not driver_info:
             return None  # 배정된 운전자 없음
         
-        # 현재 배차 상태 확인
+        # 현재 배차 상태 확인 (DispatchStatus enum: DRAFT, CONFIRMED, IN_PROGRESS, COMPLETED, CANCELLED)
         current_dispatch = self.db.query(Dispatch).filter(
             Dispatch.vehicle_id == vehicle.id,
-            Dispatch.status.in_(['pending', 'in_transit', 'loading'])
+            Dispatch.status.in_(['확정', '진행중'])  # CONFIRMED, IN_PROGRESS
         ).first()
         
         status = "waiting"  # 대기중
@@ -179,7 +179,7 @@ class SemiAutoDispatchService:
                     return None  # 너무 멀면 제외
         
         # 2. 근처에서 하차 예정인 차량
-        elif current_dispatch and current_dispatch.status == 'in_transit':
+        elif current_dispatch and current_dispatch.status == '진행중':
             # 현재 배송 중
             delivery_time = current_dispatch.scheduled_dropoff_time
             order_pickup_time = order.pickup_start_time
@@ -220,46 +220,42 @@ class SemiAutoDispatchService:
         else:
             return None  # 로딩 중 등 다른 상태는 제외
         
-        # 3. 차량 용량 체크
-        if order.cargo_weight_kg and vehicle.max_weight_kg:
-            if order.cargo_weight_kg <= vehicle.max_weight_kg:
+        # 3. 차량 용량 체크 (Order의 weight_kg 필드 사용)
+        if order.weight_kg and vehicle.max_weight_kg:
+            if order.weight_kg <= vehicle.max_weight_kg:
                 score += 10
-                reasons.append(f"✅ 적재 가능 (차량: {vehicle.max_weight_kg}kg, 화물: {order.cargo_weight_kg}kg)")
+                reasons.append(f"✅ 적재 가능 (차량: {vehicle.max_weight_kg}kg, 화물: {order.weight_kg}kg)")
             else:
                 score -= 30
-                warnings.append(f"❌ 중량 초과 (차량: {vehicle.max_weight_kg}kg, 화물: {order.cargo_weight_kg}kg)")
+                warnings.append(f"❌ 중량 초과 (차량: {vehicle.max_weight_kg}kg, 화물: {order.weight_kg}kg)")
         
-        # 4. 지게차 필요 여부
-        if order.requires_forklift:
-            if vehicle.forklift_operator_available:
+        # 4. 지게차 기능 (참고용)
+        if vehicle.forklift_operator_available:
+            score += 5
+            reasons.append("✅ 지게차 운전 가능")
+        
+        # 5. 온도 범위 확인 (Order의 temperature_zone 사용)
+        # TemperatureZone: FROZEN(냉동), REFRIGERATED(냉장), AMBIENT(상온)
+        # VehicleType: FROZEN(냉동), REFRIGERATED(냉장), DUAL(겸용), AMBIENT(상온)
+        order_temp_zone = order.temperature_zone.value if hasattr(order.temperature_zone, 'value') else str(order.temperature_zone)
+        vehicle_type = vehicle.vehicle_type.value if hasattr(vehicle.vehicle_type, 'value') else str(vehicle.vehicle_type)
+        
+        if order_temp_zone == "냉동":
+            if vehicle_type in ["냉동", "겸용"]:
                 score += 10
-                reasons.append("✅ 지게차 운전 가능")
+                reasons.append("✅ 냉동 기능 보유")
             else:
-                score -= 20
-                warnings.append("⚠️ 지게차 운전 불가 (필요함)")
-        
-        # 5. 온도 범위 확인
-        # Vehicle 모델의 vehicle_type: FROZEN, REFRIGERATED, DUAL, AMBIENT
-        if hasattr(order, 'temperature_min') and hasattr(order, 'temperature_max'):
-            if order.temperature_min is not None or order.temperature_max is not None:
-                # 냉동 필요
-                if order.temperature_min and order.temperature_min < -10:
-                    if vehicle.vehicle_type in ['냉동', '겸용']:
-                        score += 10
-                        reasons.append("✅ 냉동 기능 보유")
-                    else:
-                        score -= 30
-                        warnings.append("❌ 냉동 기능 없음 (필요함)")
-                        return None
-                # 냉장 필요
-                elif order.temperature_max and order.temperature_max <= 10:
-                    if vehicle.vehicle_type in ['냉장', '겸용', '냉동']:
-                        score += 10
-                        reasons.append("✅ 냉장 기능 보유")
-                    else:
-                        score -= 30
-                        warnings.append("❌ 냉장 기능 없음 (필요함)")
-                        return None
+                score -= 30
+                warnings.append("❌ 냉동 기능 없음 (필요함)")
+                return None
+        elif order_temp_zone == "냉장":
+            if vehicle_type in ["냉장", "겸용", "냉동"]:
+                score += 10
+                reasons.append("✅ 냉장 기능 보유")
+            else:
+                score -= 30
+                warnings.append("❌ 냉장 기능 없음 (필요함)")
+                return None
         
         # 6. 운전자 경력/평가
         # TODO: 운전자 평점 시스템 추가
