@@ -637,15 +637,23 @@ def parse_batch_dispatch(
     
     for line in lines:
         # 시간 / 품목톤수(온도) 형식 파싱
-        full_pattern = rf'{time_pattern}\s*/\s*({product_pattern}){tonnage_pattern}(?:\(([^)]+)\))?'
+        # time_pattern이 이미 캡처 그룹을 포함하고 있으므로 그대로 사용
+        full_pattern = rf'({time_pattern})\s*/\s*({product_pattern}){tonnage_pattern}(?:\(([^)]+)\))?'
         match = re.search(full_pattern, line)
         
         if match:
-            hour = int(match.group(1))
-            minute = int(match.group(2))
-            product_name = match.group(3)
-            tonnage = float(match.group(4))
-            temp_indicator = match.group(5) if len(match.groups()) >= 5 else None
+            # match.group(1)은 전체 시간 문자열 (예: "13:00")
+            time_str = match.group(1)
+            time_match = re.match(r'(\d{1,2}):(\d{2})', time_str)
+            if not time_match:
+                logger.warning(f"⚠️ 시간 파싱 실패: {time_str}")
+                continue
+            
+            hour = int(time_match.group(1))
+            minute = int(time_match.group(2))
+            product_name = match.group(2)
+            tonnage = float(match.group(3))
+            temp_indicator = match.group(4) if len(match.groups()) >= 4 else None
             
             # 시간
             pickup_time = datetime_time(hour, minute)
