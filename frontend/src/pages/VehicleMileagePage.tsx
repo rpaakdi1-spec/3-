@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { RefreshCw, TrendingUp, Clock, Gauge, Fuel, Calendar, Car, ChevronDown, ChevronUp } from 'lucide-react';
+import { RefreshCw, TrendingUp, Clock, Gauge, Fuel, Calendar, Car, ChevronDown, ChevronUp, Truck } from 'lucide-react';
 import { format, subDays, startOfMonth, endOfMonth } from 'date-fns';
 import toast from 'react-hot-toast';
 import Card from '../components/common/Card';
