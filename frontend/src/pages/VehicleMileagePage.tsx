@@ -1,43 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Box,
-  Card,
-  CardContent,
-  Typography,
-  Grid,
-  TextField,
-  Button,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  Tabs,
-  Tab,
-  CircularProgress,
-  Alert,
-  Chip,
-  IconButton,
-  Tooltip,
-} from '@mui/material';
-import {
-  DatePicker,
-  LocalizationProvider,
-} from '@mui/x-date-pickers';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import koLocale from 'date-fns/locale/ko';
-import {
-  Refresh as RefreshIcon,
-  TrendingUp as TrendingUpIcon,
-  Speed as SpeedIcon,
-  LocalGasStation as GasIcon,
-  CalendarToday as CalendarIcon,
-  DirectionsCar as CarIcon,
-} from '@mui/icons-material';
+import { RefreshCw, TrendingUp, Clock, Gauge, Fuel, Calendar, Car, ChevronDown, ChevronUp } from 'lucide-react';
 import { format, subDays, startOfMonth, endOfMonth } from 'date-fns';
 import axios from 'axios';
+import toast from 'react-hot-toast';
+import Card from '../components/common/Card';
+import Button from '../components/common/Button';
+import Loading from '../components/common/Loading';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
@@ -81,31 +49,28 @@ interface Statistics {
 }
 
 const VehicleMileagePage: React.FC = () => {
-  const [tabValue, setTabValue] = useState(0);
-  const [selectedDate, setSelectedDate] = useState<Date>(subDays(new Date(), 1));
-  const [startDate, setStartDate] = useState<Date>(startOfMonth(new Date()));
-  const [endDate, setEndDate] = useState<Date>(endOfMonth(new Date()));
+  const [tabValue, setTabValue] = useState<'daily' | 'weekly' | 'monthly'>('daily');
+  const [selectedDate, setSelectedDate] = useState<string>(format(subDays(new Date(), 1), 'yyyy-MM-dd'));
+  const [selectedMonth, setSelectedMonth] = useState<string>(format(new Date(), 'yyyy-MM'));
   
   const [dailyMileages, setDailyMileages] = useState<DailyMileage[]>([]);
   const [weeklySummary, setWeeklySummary] = useState<MileageSummary[]>([]);
   const [monthlySummary, setMonthlySummary] = useState<MileageSummary[]>([]);
   const [statistics, setStatistics] = useState<Statistics | null>(null);
+  const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
   
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   // 일별 주행거리 조회
-  const fetchDailyMileages = async (date: Date) => {
+  const fetchDailyMileages = async (date: string) => {
     setLoading(true);
-    setError(null);
     try {
-      const dateStr = format(date, 'yyyy-MM-dd');
       const response = await axios.get(`${API_BASE_URL}/api/v1/vehicle-mileage/daily`, {
-        params: { target_date: dateStr },
+        params: { target_date: date },
       });
       setDailyMileages(response.data.mileages || []);
     } catch (err: any) {
-      setError(err.response?.data?.detail || '일별 주행거리 조회 실패');
+      toast.error(err.response?.data?.detail || '일별 주행거리 조회 실패');
       console.error('Failed to fetch daily mileages:', err);
     } finally {
       setLoading(false);
@@ -115,12 +80,11 @@ const VehicleMileagePage: React.FC = () => {
   // 주간 주행거리 조회
   const fetchWeeklySummary = async () => {
     setLoading(true);
-    setError(null);
     try {
       const response = await axios.get(`${API_BASE_URL}/api/v1/vehicle-mileage/weekly`);
       setWeeklySummary(response.data.summary || []);
     } catch (err: any) {
-      setError(err.response?.data?.detail || '주간 주행거리 조회 실패');
+      toast.error(err.response?.data?.detail || '주간 주행거리 조회 실패');
       console.error('Failed to fetch weekly summary:', err);
     } finally {
       setLoading(false);
@@ -128,16 +92,16 @@ const VehicleMileagePage: React.FC = () => {
   };
 
   // 월별 주행거리 조회
-  const fetchMonthlySummary = async (year: number, month: number) => {
+  const fetchMonthlySummary = async (yearMonth: string) => {
     setLoading(true);
-    setError(null);
     try {
+      const [year, month] = yearMonth.split('-').map(Number);
       const response = await axios.get(`${API_BASE_URL}/api/v1/vehicle-mileage/monthly`, {
         params: { year, month },
       });
       setMonthlySummary(response.data.summary || []);
     } catch (err: any) {
-      setError(err.response?.data?.detail || '월별 주행거리 조회 실패');
+      toast.error(err.response?.data?.detail || '월별 주행거리 조회 실패');
       console.error('Failed to fetch monthly summary:', err);
     } finally {
       setLoading(false);
@@ -145,386 +109,452 @@ const VehicleMileagePage: React.FC = () => {
   };
 
   // 통계 조회
-  const fetchStatistics = async (start: Date, end: Date) => {
+  const fetchStatistics = async (startDate: string, endDate: string) => {
     try {
       const response = await axios.get(`${API_BASE_URL}/api/v1/vehicle-mileage/statistics`, {
-        params: {
-          start_date: format(start, 'yyyy-MM-dd'),
-          end_date: format(end, 'yyyy-MM-dd'),
-        },
+        params: { start_date: startDate, end_date: endDate },
       });
-      setStatistics(response.data.total_statistics || null);
+      setStatistics(response.data || null);
     } catch (err: any) {
       console.error('Failed to fetch statistics:', err);
     }
   };
 
-  // 탭 변경 시 데이터 로드
-  useEffect(() => {
-    if (tabValue === 0) {
+  // 주행거리 재계산 (어제 날짜)
+  const handleRecalculate = async () => {
+    const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd');
+    setLoading(true);
+    try {
+      await axios.post(`${API_BASE_URL}/api/v1/vehicle-mileage/calculate`, {
+        target_date: yesterday,
+      });
+      toast.success('주행거리 재계산 완료');
       fetchDailyMileages(selectedDate);
-    } else if (tabValue === 1) {
-      fetchWeeklySummary();
-    } else if (tabValue === 2) {
-      const year = selectedDate.getFullYear();
-      const month = selectedDate.getMonth() + 1;
-      fetchMonthlySummary(year, month);
-    }
-  }, [tabValue]);
-
-  // 통계는 항상 로드
-  useEffect(() => {
-    fetchStatistics(startDate, endDate);
-  }, [startDate, endDate]);
-
-  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
-    setTabValue(newValue);
-  };
-
-  const handleRefresh = () => {
-    if (tabValue === 0) {
-      fetchDailyMileages(selectedDate);
-    } else if (tabValue === 1) {
-      fetchWeeklySummary();
-    } else if (tabValue === 2) {
-      const year = selectedDate.getFullYear();
-      const month = selectedDate.getMonth() + 1;
-      fetchMonthlySummary(year, month);
+    } catch (err: any) {
+      toast.error(err.response?.data?.detail || '재계산 실패');
+      console.error('Failed to recalculate:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const formatDuration = (minutes: number): string => {
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return `${hours}시간 ${mins}분`;
+  const toggleRow = (vehicleId: number) => {
+    setExpandedRows((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(vehicleId)) {
+        newSet.delete(vehicleId);
+      } else {
+        newSet.add(vehicleId);
+      }
+      return newSet;
+    });
   };
+
+  // 탭 변경 시
+  useEffect(() => {
+    if (tabValue === 'daily') {
+      fetchDailyMileages(selectedDate);
+      fetchStatistics(selectedDate, selectedDate);
+    } else if (tabValue === 'weekly') {
+      fetchWeeklySummary();
+      const weekStart = format(subDays(new Date(), 7), 'yyyy-MM-dd');
+      const today = format(new Date(), 'yyyy-MM-dd');
+      fetchStatistics(weekStart, today);
+    } else if (tabValue === 'monthly') {
+      fetchMonthlySummary(selectedMonth);
+      const [year, month] = selectedMonth.split('-').map(Number);
+      const monthStart = format(startOfMonth(new Date(year, month - 1)), 'yyyy-MM-dd');
+      const monthEnd = format(endOfMonth(new Date(year, month - 1)), 'yyyy-MM-dd');
+      fetchStatistics(monthStart, monthEnd);
+    }
+  }, [tabValue, selectedDate, selectedMonth]);
 
   return (
-    <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={koLocale}>
-      <Box sx={{ p: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-            <CarIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-            차량 주행거리 관리
-          </Typography>
-          <Button
-            variant="contained"
-            startIcon={<RefreshIcon />}
-            onClick={handleRefresh}
-            disabled={loading}
+    <div className="p-4 md:p-6 max-w-7xl mx-auto">
+      {/* 헤더 */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+        <div className="flex items-center gap-3 mb-4 md:mb-0">
+          <Car className="h-8 w-8 text-blue-600" />
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-800">주행거리 관리</h1>
+        </div>
+        <Button
+          onClick={handleRecalculate}
+          variant="primary"
+          icon={<RefreshCw className="h-4 w-4" />}
+          disabled={loading}
+        >
+          어제 주행거리 재계산
+        </Button>
+      </div>
+
+      {/* 통계 카드 */}
+      {statistics && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-blue-600 font-medium mb-1">운행 차량</p>
+                <p className="text-2xl font-bold text-blue-700">{statistics.vehicle_count}대</p>
+              </div>
+              <Truck className="h-10 w-10 text-blue-500 opacity-70" />
+            </div>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-green-600 font-medium mb-1">총 주행거리</p>
+                <p className="text-2xl font-bold text-green-700">{statistics.total_distance_km.toFixed(1)} km</p>
+              </div>
+              <TrendingUp className="h-10 w-10 text-green-500 opacity-70" />
+            </div>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-orange-600 font-medium mb-1">총 운행시간</p>
+                <p className="text-2xl font-bold text-orange-700">{statistics.total_driving_hours.toFixed(1)}시간</p>
+              </div>
+              <Clock className="h-10 w-10 text-orange-500 opacity-70" />
+            </div>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-purple-600 font-medium mb-1">평균 속도</p>
+                <p className="text-2xl font-bold text-purple-700">{statistics.avg_speed_kmh.toFixed(1)} km/h</p>
+              </div>
+              <Gauge className="h-10 w-10 text-purple-500 opacity-70" />
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* 탭 네비게이션 */}
+      <Card className="mb-6">
+        <div className="flex border-b border-gray-200">
+          <button
+            onClick={() => setTabValue('daily')}
+            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+              tabValue === 'daily'
+                ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
+                : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+            }`}
           >
-            새로고침
-          </Button>
-        </Box>
+            일별 조회
+          </button>
+          <button
+            onClick={() => setTabValue('weekly')}
+            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+              tabValue === 'weekly'
+                ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
+                : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+            }`}
+          >
+            주간 통계 (최근 7일)
+          </button>
+          <button
+            onClick={() => setTabValue('monthly')}
+            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+              tabValue === 'monthly'
+                ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
+                : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+            }`}
+          >
+            월별 통계
+          </button>
+        </div>
 
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
-            {error}
-          </Alert>
-        )}
+        <div className="p-4">
+          {/* 일별 조회 탭 */}
+          {tabValue === 'daily' && (
+            <div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">날짜 선택</label>
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
 
-        {/* 통계 카드 */}
-        {statistics && (
-          <Grid container spacing={2} sx={{ mb: 3 }}>
-            <Grid item xs={12} sm={6} md={3}>
-              <Card>
-                <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                    <CarIcon color="primary" sx={{ mr: 1 }} />
-                    <Typography color="text.secondary" variant="body2">
-                      운행 차량
-                    </Typography>
-                  </Box>
-                  <Typography variant="h4">{statistics.vehicle_count}대</Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Card>
-                <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                    <TrendingUpIcon color="success" sx={{ mr: 1 }} />
-                    <Typography color="text.secondary" variant="body2">
-                      총 주행거리
-                    </Typography>
-                  </Box>
-                  <Typography variant="h4">{statistics.total_distance_km.toFixed(1)}km</Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Card>
-                <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                    <CalendarIcon color="info" sx={{ mr: 1 }} />
-                    <Typography color="text.secondary" variant="body2">
-                      총 운행시간
-                    </Typography>
-                  </Box>
-                  <Typography variant="h4">{statistics.total_driving_hours.toFixed(1)}h</Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Card>
-                <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                    <SpeedIcon color="warning" sx={{ mr: 1 }} />
-                    <Typography color="text.secondary" variant="body2">
-                      평균 속도
-                    </Typography>
-                  </Box>
-                  <Typography variant="h4">{statistics.avg_speed_kmh.toFixed(1)}km/h</Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
-        )}
+              {loading ? (
+                <Loading />
+              ) : dailyMileages.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>해당 날짜에 주행 기록이 없습니다.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          차량번호
+                        </th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          주행거리
+                        </th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          운행시간
+                        </th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          평균속도
+                        </th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          최고속도
+                        </th>
+                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          상세
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {dailyMileages.map((mileage) => (
+                        <React.Fragment key={mileage.vehicle_id}>
+                          <tr className="hover:bg-gray-50 transition-colors">
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              <div className="flex items-center">
+                                <Truck className="h-4 w-4 text-gray-400 mr-2" />
+                                <span className="font-medium text-gray-900">{mileage.plate_number}</span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-right">
+                              <span className="text-sm font-semibold text-blue-600">
+                                {mileage.total_distance_km.toFixed(1)} km
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-right">
+                              <span className="text-sm text-gray-900">
+                                {(mileage.total_driving_minutes / 60).toFixed(1)}시간
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-right">
+                              <span className="text-sm text-gray-900">{mileage.avg_speed_kmh.toFixed(1)} km/h</span>
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-right">
+                              <span className="text-sm text-gray-900">{mileage.max_speed_kmh.toFixed(1)} km/h</span>
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-center">
+                              <button
+                                onClick={() => toggleRow(mileage.vehicle_id)}
+                                className="text-blue-600 hover:text-blue-800 transition-colors"
+                              >
+                                {expandedRows.has(mileage.vehicle_id) ? (
+                                  <ChevronUp className="h-5 w-5" />
+                                ) : (
+                                  <ChevronDown className="h-5 w-5" />
+                                )}
+                              </button>
+                            </td>
+                          </tr>
+                          {expandedRows.has(mileage.vehicle_id) && (
+                            <tr className="bg-gray-50">
+                              <td colSpan={6} className="px-4 py-4">
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                  <div>
+                                    <p className="text-xs text-gray-500 mb-1">엔진 가동시간</p>
+                                    <p className="text-sm font-medium text-gray-900">
+                                      {(mileage.engine_on_minutes / 60).toFixed(1)}시간
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-gray-500 mb-1">공회전 시간</p>
+                                    <p className="text-sm font-medium text-gray-900">
+                                      {(mileage.idle_minutes / 60).toFixed(1)}시간
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-gray-500 mb-1">GPS 수집 수</p>
+                                    <p className="text-sm font-medium text-gray-900">{mileage.gps_point_count}개</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-gray-500 mb-1">계산 방법</p>
+                                    <p className="text-sm font-medium text-gray-900">{mileage.calculation_method}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-gray-500 mb-1">운행 시작</p>
+                                    <p className="text-sm font-medium text-gray-900">
+                                      {mileage.start_time ? format(new Date(mileage.start_time), 'HH:mm') : '-'}
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-gray-500 mb-1">운행 종료</p>
+                                    <p className="text-sm font-medium text-gray-900">
+                                      {mileage.end_time ? format(new Date(mileage.end_time), 'HH:mm') : '-'}
+                                    </p>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
 
-        {/* 탭 */}
-        <Paper sx={{ mb: 2 }}>
-          <Tabs value={tabValue} onChange={handleTabChange}>
-            <Tab label="일별 조회" />
-            <Tab label="주간 통계" />
-            <Tab label="월별 통계" />
-          </Tabs>
-        </Paper>
+          {/* 주간 통계 탭 */}
+          {tabValue === 'weekly' && (
+            <div>
+              {loading ? (
+                <Loading />
+              ) : weeklySummary.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>최근 7일간 주행 기록이 없습니다.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          차량번호
+                        </th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          총 주행거리
+                        </th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          운행일수
+                        </th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          일평균
+                        </th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          평균속도
+                        </th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          최고속도
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {weeklySummary.map((summary) => (
+                        <tr key={summary.vehicle_id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <Truck className="h-4 w-4 text-gray-400 mr-2" />
+                              <span className="font-medium text-gray-900">{summary.plate_number}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-right">
+                            <span className="text-sm font-semibold text-blue-600">
+                              {summary.total_distance_km.toFixed(1)} km
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-right">
+                            <span className="text-sm text-gray-900">{summary.driving_days}일</span>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-right">
+                            <span className="text-sm text-gray-900">{summary.avg_distance_per_day.toFixed(1)} km/일</span>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-right">
+                            <span className="text-sm text-gray-900">{summary.avg_speed_kmh.toFixed(1)} km/h</span>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-right">
+                            <span className="text-sm text-gray-900">{summary.max_speed_kmh.toFixed(1)} km/h</span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
 
-        {/* 일별 조회 */}
-        {tabValue === 0 && (
-          <Box>
-            <Box sx={{ mb: 2, display: 'flex', gap: 2 }}>
-              <DatePicker
-                label="조회 날짜"
-                value={selectedDate}
-                onChange={(newValue) => {
-                  if (newValue) {
-                    setSelectedDate(newValue);
-                    fetchDailyMileages(newValue);
-                  }
-                }}
-                slotProps={{ textField: { size: 'small' } }}
-              />
-            </Box>
+          {/* 월별 통계 탭 */}
+          {tabValue === 'monthly' && (
+            <div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">월 선택</label>
+                <input
+                  type="month"
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
 
-            {loading ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-                <CircularProgress />
-              </Box>
-            ) : (
-              <TableContainer component={Paper}>
-                <Table>
-                  <TableHead>
-                    <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
-                      <TableCell>차량번호</TableCell>
-                      <TableCell align="right">주행거리</TableCell>
-                      <TableCell align="right">운행시간</TableCell>
-                      <TableCell align="right">평균속도</TableCell>
-                      <TableCell align="right">최고속도</TableCell>
-                      <TableCell align="right">공회전</TableCell>
-                      <TableCell align="right">GPS포인트</TableCell>
-                      <TableCell>운행시작</TableCell>
-                      <TableCell>운행종료</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {dailyMileages.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={9} align="center">
-                          데이터가 없습니다
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      dailyMileages.map((row) => (
-                        <TableRow key={row.vehicle_id} hover>
-                          <TableCell>
-                            <Typography fontWeight="bold">{row.plate_number}</Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              {row.vehicle_code}
-                            </Typography>
-                          </TableCell>
-                          <TableCell align="right">
-                            <Typography fontWeight="bold" color="primary.main">
-                              {row.total_distance_km.toFixed(1)} km
-                            </Typography>
-                          </TableCell>
-                          <TableCell align="right">
-                            {formatDuration(row.total_driving_minutes)}
-                          </TableCell>
-                          <TableCell align="right">{row.avg_speed_kmh.toFixed(1)} km/h</TableCell>
-                          <TableCell align="right">
-                            <Chip
-                              label={`${row.max_speed_kmh} km/h`}
-                              size="small"
-                              color={row.max_speed_kmh > 100 ? 'error' : 'default'}
-                            />
-                          </TableCell>
-                          <TableCell align="right">{row.idle_minutes}분</TableCell>
-                          <TableCell align="right">{row.gps_point_count}개</TableCell>
-                          <TableCell>
-                            {row.start_time ? format(new Date(row.start_time), 'HH:mm') : '-'}
-                          </TableCell>
-                          <TableCell>
-                            {row.end_time ? format(new Date(row.end_time), 'HH:mm') : '-'}
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            )}
-          </Box>
-        )}
-
-        {/* 주간 통계 */}
-        {tabValue === 1 && (
-          <Box>
-            {loading ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-                <CircularProgress />
-              </Box>
-            ) : (
-              <TableContainer component={Paper}>
-                <Table>
-                  <TableHead>
-                    <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
-                      <TableCell>차량번호</TableCell>
-                      <TableCell align="right">총 주행거리</TableCell>
-                      <TableCell align="right">총 운행시간</TableCell>
-                      <TableCell align="right">평균속도</TableCell>
-                      <TableCell align="right">최고속도</TableCell>
-                      <TableCell align="right">운행일수</TableCell>
-                      <TableCell align="right">1일 평균</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {weeklySummary.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={7} align="center">
-                          데이터가 없습니다
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      weeklySummary.map((row) => (
-                        <TableRow key={row.vehicle_id} hover>
-                          <TableCell>
-                            <Typography fontWeight="bold">{row.plate_number}</Typography>
-                          </TableCell>
-                          <TableCell align="right">
-                            <Typography fontWeight="bold" color="primary.main">
-                              {row.total_distance_km.toFixed(1)} km
-                            </Typography>
-                          </TableCell>
-                          <TableCell align="right">
-                            {formatDuration(row.total_driving_minutes || 0)}
-                          </TableCell>
-                          <TableCell align="right">{row.avg_speed_kmh.toFixed(1)} km/h</TableCell>
-                          <TableCell align="right">
-                            <Chip
-                              label={`${row.max_speed_kmh} km/h`}
-                              size="small"
-                              color={row.max_speed_kmh > 100 ? 'error' : 'default'}
-                            />
-                          </TableCell>
-                          <TableCell align="right">{row.driving_days}일</TableCell>
-                          <TableCell align="right">
-                            {row.avg_distance_per_day.toFixed(1)} km
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            )}
-          </Box>
-        )}
-
-        {/* 월별 통계 */}
-        {tabValue === 2 && (
-          <Box>
-            <Box sx={{ mb: 2, display: 'flex', gap: 2 }}>
-              <DatePicker
-                label="조회 월"
-                views={['year', 'month']}
-                value={selectedDate}
-                onChange={(newValue) => {
-                  if (newValue) {
-                    setSelectedDate(newValue);
-                    const year = newValue.getFullYear();
-                    const month = newValue.getMonth() + 1;
-                    fetchMonthlySummary(year, month);
-                  }
-                }}
-                slotProps={{ textField: { size: 'small' } }}
-              />
-            </Box>
-
-            {loading ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-                <CircularProgress />
-              </Box>
-            ) : (
-              <TableContainer component={Paper}>
-                <Table>
-                  <TableHead>
-                    <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
-                      <TableCell>차량번호</TableCell>
-                      <TableCell align="right">총 주행거리</TableCell>
-                      <TableCell align="right">총 운행시간</TableCell>
-                      <TableCell align="right">공회전</TableCell>
-                      <TableCell align="right">평균속도</TableCell>
-                      <TableCell align="right">최고속도</TableCell>
-                      <TableCell align="right">운행일수</TableCell>
-                      <TableCell align="right">1일 평균</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {monthlySummary.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={8} align="center">
-                          데이터가 없습니다
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      monthlySummary.map((row) => (
-                        <TableRow key={row.vehicle_id} hover>
-                          <TableCell>
-                            <Typography fontWeight="bold">{row.plate_number}</Typography>
-                          </TableCell>
-                          <TableCell align="right">
-                            <Typography fontWeight="bold" color="primary.main">
-                              {row.total_distance_km.toFixed(1)} km
-                            </Typography>
-                          </TableCell>
-                          <TableCell align="right">
-                            {row.total_driving_hours?.toFixed(1)} h
-                          </TableCell>
-                          <TableCell align="right">{row.total_idle_minutes}분</TableCell>
-                          <TableCell align="right">{row.avg_speed_kmh.toFixed(1)} km/h</TableCell>
-                          <TableCell align="right">
-                            <Chip
-                              label={`${row.max_speed_kmh} km/h`}
-                              size="small"
-                              color={row.max_speed_kmh > 100 ? 'error' : 'default'}
-                            />
-                          </TableCell>
-                          <TableCell align="right">{row.driving_days}일</TableCell>
-                          <TableCell align="right">
-                            {row.avg_distance_per_day.toFixed(1)} km
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            )}
-          </Box>
-        )}
-      </Box>
-    </LocalizationProvider>
+              {loading ? (
+                <Loading />
+              ) : monthlySummary.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>해당 월에 주행 기록이 없습니다.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          차량번호
+                        </th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          총 주행거리
+                        </th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          운행일수
+                        </th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          일평균
+                        </th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          총 운행시간
+                        </th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          평균속도
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {monthlySummary.map((summary) => (
+                        <tr key={summary.vehicle_id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <Truck className="h-4 w-4 text-gray-400 mr-2" />
+                              <span className="font-medium text-gray-900">{summary.plate_number}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-right">
+                            <span className="text-sm font-semibold text-blue-600">
+                              {summary.total_distance_km.toFixed(1)} km
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-right">
+                            <span className="text-sm text-gray-900">{summary.driving_days}일</span>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-right">
+                            <span className="text-sm text-gray-900">{summary.avg_distance_per_day.toFixed(1)} km/일</span>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-right">
+                            <span className="text-sm text-gray-900">
+                              {summary.total_driving_hours?.toFixed(1) || '-'}시간
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-right">
+                            <span className="text-sm text-gray-900">{summary.avg_speed_kmh.toFixed(1)} km/h</span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </Card>
+    </div>
   );
 };
 
