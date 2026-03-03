@@ -21,6 +21,7 @@ const AICostDashboardPage = lazy(() => import('./pages/AICostDashboardPage'));
 const TrackingPage = lazy(() => import('./pages/TrackingPage'));
 const RealtimeDashboardPage = lazy(() => import('./pages/RealtimeDashboardPage'));
 const VehiclesPage = lazy(() => import('./pages/VehiclesPage'));
+const VehicleMileagePage = lazy(() => import('./pages/VehicleMileagePage'));
 const ClientsPage = lazy(() => import('./pages/ClientsPage'));
 const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'));
 const ReportsPage = lazy(() => import('./pages/ReportsPage'));
@@ -414,6 +415,14 @@ const App: React.FC = () => {
               element={
                 <LayoutWrapper>
                   <VehicleMaintenancePage />
+                </LayoutWrapper>
+              }
+            />
+            <Route
+              path="/vehicle-mileage"
+              element={
+                <LayoutWrapper>
+                  <VehicleMileagePage />
                 </LayoutWrapper>
               }
             />

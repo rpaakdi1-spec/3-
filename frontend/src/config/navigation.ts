@@ -83,6 +83,7 @@ export const navigationConfig: MenuItem[] = [
     roles: ['ADMIN', 'DISPATCHER'],
     children: [
       { path: '/maintenance', label: '차량 유지보수', icon: Wrench, roles: ['ADMIN', 'DISPATCHER'] },
+      { path: '/vehicle-mileage', label: '주행거리 관리', icon: TrendingUp, roles: ['ADMIN', 'DISPATCHER'], isNew: true },
       { path: '/ml-predictions', label: 'AI 예측 정비', icon: Brain, roles: ['ADMIN', 'DISPATCHER'] },
       { path: '/telemetry', label: '실시간 텔레메트리', icon: Activity, roles: ['ADMIN', 'DISPATCHER'] }
     ]
