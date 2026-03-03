@@ -44,6 +44,7 @@ from .simulation import RuleSimulation, SimulationComparison, SimulationTemplate
 from .dispatch_rule import DispatchRule, RuleConstraint, RuleExecutionLog, OptimizationConfig
 from .dispatch_template import DispatchTemplate
 from .vehicle_daily_mileage import VehicleDailyMileage
+from .driver_daily_mileage import DriverDailyMileage
 
 __all__ = [
     "Base",
@@ -136,6 +137,7 @@ __all__ = [
     "OptimizationConfig",
     "DispatchTemplate",
     "VehicleDailyMileage",
+    "DriverDailyMileage",
 ]
 
 # Phase 16.3: Chat models
