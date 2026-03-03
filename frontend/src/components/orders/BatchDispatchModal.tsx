@@ -228,6 +228,7 @@ const BatchDispatchModal: React.FC<BatchDispatchModalProps> = ({
                 <table className="w-full">
                   <thead className="bg-gray-50">
                     <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">날짜</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">시간</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">품목</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">팔레트</th>
@@ -239,6 +240,9 @@ const BatchDispatchModal: React.FC<BatchDispatchModalProps> = ({
                   <tbody className="divide-y divide-gray-200">
                     {parsedOrders.map((order, index) => (
                       <tr key={index} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 text-sm text-gray-600">
+                          {order.order_date}
+                        </td>
                         <td className="px-4 py-3 text-sm">
                           {order.pickup_start_time?.substring(0, 5)}
                         </td>
@@ -253,14 +257,16 @@ const BatchDispatchModal: React.FC<BatchDispatchModalProps> = ({
                         </td>
                         <td className="px-4 py-3 text-sm">
                           <span className={`px-2 py-1 rounded-full text-xs ${
-                            order.temperature_zone === 'FROZEN'
+                            order.temperature_zone === '냉동' || order.temperature_zone === 'FROZEN'
                               ? 'bg-blue-100 text-blue-700'
-                              : order.temperature_zone === 'REFRIGERATED'
+                              : order.temperature_zone === '냉장' || order.temperature_zone === 'REFRIGERATED'
                               ? 'bg-green-100 text-green-700'
                               : 'bg-gray-100 text-gray-700'
                           }`}>
                             {order.temperature_zone === 'FROZEN' ? '냉동' : 
-                             order.temperature_zone === 'REFRIGERATED' ? '냉장' : '상온'}
+                             order.temperature_zone === 'REFRIGERATED' ? '냉장' :
+                             order.temperature_zone === '냉동' ? '냉동' :
+                             order.temperature_zone === '냉장' ? '냉장' : '상온'}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-600">
