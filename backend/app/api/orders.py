@@ -149,9 +149,13 @@ async def create_order(order_data: OrderCreate, db: Session = Depends(get_db)):
     """주문 생성 (거래처 ID 또는 주소로 입력 가능)"""
     from datetime import time as time_type
     
+    # 디버깅: 요청 데이터 로깅
+    logger.info(f"📥 주문 생성 요청: {order_data.model_dump()}")
+    
     # Check if order number already exists
     existing = db.query(Order).filter(Order.order_number == order_data.order_number).first()
     if existing:
+        logger.warning(f"❌ 중복된 주문번호: {order_data.order_number}")
         raise HTTPException(status_code=400, detail="이미 존재하는 주문번호입니다")
     
     from app.models.client import Client

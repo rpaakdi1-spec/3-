@@ -2,6 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.exceptions import RequestValidationError
+from pydantic import ValidationError
 from contextlib import asynccontextmanager
 from loguru import logger
 import sys
@@ -137,6 +139,17 @@ async def root():
 
 
 # Error handlers
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request, exc: RequestValidationError):
+    """Validation error handler with detailed logging"""
+    logger.error(f"❌ Validation Error: {exc.errors()}")
+    logger.error(f"Request body: {exc.body}")
+    return JSONResponse(
+        status_code=422,
+        content={"detail": exc.errors(), "body": exc.body}
+    )
+
+
 @app.exception_handler(404)
 async def not_found_handler(request, exc):
     return JSONResponse(
