@@ -17,8 +17,8 @@ const BatchDispatchModal: React.FC<BatchDispatchModalProps> = ({
   onSuccess
 }) => {
   const [dispatchText, setDispatchText] = useState('');
-  const [pickupAddress, setPickupAddress] = useState('전북 김제시 금산면 용산리 9-13');
-  const [deliveryAddress, setDeliveryAddress] = useState('경기도 안성시 양성면 양성로 376-106');
+  const [pickupAddress, setPickupAddress] = useState('');
+  const [deliveryAddress, setDeliveryAddress] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [parsedOrders, setParsedOrders] = useState<any[]>([]);
   const [showPreview, setShowPreview] = useState(false);
@@ -31,12 +31,24 @@ const BatchDispatchModal: React.FC<BatchDispatchModalProps> = ({
       return;
     }
 
+    // 목우촌 배차인지 확인
+    const isMokwoochon = dispatchText.includes('목우촌');
+    
+    // 목우촌 배차일 때만 기본 주소 사용
+    const finalPickupAddress = isMokwoochon && !pickupAddress.trim() 
+      ? '전북 김제시 금산면 용산리 9-13' 
+      : pickupAddress;
+    
+    const finalDeliveryAddress = isMokwoochon && !deliveryAddress.trim()
+      ? '경기도 안성시 양성면 양성로 376-106'
+      : deliveryAddress;
+
     setIsLoading(true);
     try {
       const response = await apiClient.post('/orders/parse-batch-dispatch', {
         text: dispatchText,
-        pickup_address: pickupAddress,
-        delivery_address: deliveryAddress
+        pickup_address: finalPickupAddress,
+        delivery_address: finalDeliveryAddress
       });
 
       if (response.data.success) {
@@ -100,6 +112,9 @@ const BatchDispatchModal: React.FC<BatchDispatchModalProps> = ({
     onClose();
   };
 
+  // 목우촌 배차인지 확인
+  const isMokwoochon = dispatchText.includes('목우촌');
+
   const exampleText = `**2/23(월)목우촌 오후배차**
 13:00 / 식육18톤(냉동)
 13:30 / 식육11톤
@@ -107,9 +122,9 @@ const BatchDispatchModal: React.FC<BatchDispatchModalProps> = ({
 15:00 / 식육5톤
 16:30 / 육가공5톤
 
-※ 팔레트 자동 계산: 18톤=18p, 11톤=16p, 5톤=10p
+※ 팔레트 자동 계산: 18톤=18p, 11톤=16p, 5톤=10p${isMokwoochon ? `
 ※ (냉동) 표시가 없으면 자동으로 냉장 처리됩니다
-※ 하차 시간은 상차 시간 + 4시간으로 자동 계산됩니다`;
+※ 하차 시간은 상차 시간 + 4시간으로 자동 계산됩니다` : ''}`;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -168,13 +183,13 @@ const BatchDispatchModal: React.FC<BatchDispatchModalProps> = ({
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     <MapPin className="w-4 h-4 inline mr-1" />
-                    상차지 주소
+                    상차지 주소{isMokwoochon && <span className="text-xs text-gray-500 ml-1">(목우촌 배차는 자동 입력)</span>}
                   </label>
                   <input
                     type="text"
                     value={pickupAddress}
                     onChange={(e) => setPickupAddress(e.target.value)}
-                    placeholder="전북 김제시 금산면 용산리 9-13"
+                    placeholder={isMokwoochon ? "전북 김제시 금산면 용산리 9-13 (자동)" : "상차지 주소를 입력하세요"}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
@@ -182,13 +197,13 @@ const BatchDispatchModal: React.FC<BatchDispatchModalProps> = ({
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     <MapPin className="w-4 h-4 inline mr-1" />
-                    하차지 주소
+                    하차지 주소{isMokwoochon && <span className="text-xs text-gray-500 ml-1">(목우촌 배차는 자동 입력)</span>}
                   </label>
                   <input
                     type="text"
                     value={deliveryAddress}
                     onChange={(e) => setDeliveryAddress(e.target.value)}
-                    placeholder="경기도 안성시 양성면 양성로 376-106"
+                    placeholder={isMokwoochon ? "경기도 안성시 양성면 양성로 376-106 (자동)" : "하차지 주소를 입력하세요"}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
