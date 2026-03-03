@@ -175,10 +175,27 @@ async def create_order(order_data: OrderCreate, db: Session = Depends(get_db)):
     
     # 거래처 ID로 입력한 경우 - 거래처 존재 확인
     # 고정 좌표 매핑 (목우촌 등 자주 사용되는 주소)
-    FIXED_COORDINATES = {
-        "전북 김제시 금산면 용산리 9-13": (35.8087, 126.8919),  # 목우촌 상차지
-        "경기도 안성시 양성면 양성로 376-106": (37.0088, 127.2668),  # 목우촌 하차지
-    }
+    # 템플릿에서 자동으로 가져오기
+    from app.models.dispatch_template import DispatchTemplate
+    
+    FIXED_COORDINATES = {}
+    templates = db.query(DispatchTemplate).filter(
+        DispatchTemplate.is_active == True,
+        DispatchTemplate.pickup_latitude.isnot(None),
+        DispatchTemplate.pickup_longitude.isnot(None)
+    ).all()
+    
+    for tmpl in templates:
+        if tmpl.default_pickup_address:
+            FIXED_COORDINATES[tmpl.default_pickup_address] = (
+                tmpl.pickup_latitude, 
+                tmpl.pickup_longitude
+            )
+        if tmpl.default_delivery_address and tmpl.delivery_latitude and tmpl.delivery_longitude:
+            FIXED_COORDINATES[tmpl.default_delivery_address] = (
+                tmpl.delivery_latitude,
+                tmpl.delivery_longitude
+            )
     
     if order_data.pickup_client_id:
         pickup_client = db.query(Client).filter(Client.id == order_data.pickup_client_id).first()
@@ -492,29 +509,27 @@ def parse_batch_dispatch(
     db: Session = Depends(get_db)
 ):
     """
-    배치 배차 텍스트 파싱 (목우촌 형식)
+    배치 배차 텍스트 파싱 (템플릿 기반)
+    
+    거래처별 템플릿을 자동으로 감지하여 파싱 규칙 적용
     
     입력 형식:
     **2/23(월)목우촌 오후배차**
     13:00 / 식육11톤(냉동)
     13:30 / 식육5톤
-    14:30 / 육가공11톤
-    15:00 / 식육5톤
-    16:30 / 육가공11톤
-    
-    상차지:전북 김제시 금산면 용산리 9-13
-    하차지:경기도 안성시 양성면 양성로376-106
     
     Returns:
         {
             "success": true,
             "orders": [...],
-            "count": 5
+            "count": 5,
+            "template_used": "목우촌"
         }
     """
     import re
     from datetime import datetime, time as datetime_time
     from app.models.order import TemperatureZone
+    from app.models.dispatch_template import DispatchTemplate
     
     text = request.get('text', '')
     pickup_address = request.get('pickup_address', '')
@@ -525,91 +540,157 @@ def parse_batch_dispatch(
     
     logger.info(f"📝 배치 배차 파싱 시작...")
     
+    # 1. 템플릿 자동 감지
+    template = None
+    templates = db.query(DispatchTemplate).filter(
+        DispatchTemplate.is_active == True
+    ).all()
+    
+    for tmpl in templates:
+        keywords = tmpl.detection_keywords if isinstance(tmpl.detection_keywords, list) else []
+        for keyword in keywords:
+            if keyword.lower() in text.lower():
+                template = tmpl
+                logger.info(f"🎯 템플릿 감지: {template.name} (키워드: {keyword})")
+                break
+        if template:
+            break
+    
+    if not template:
+        logger.warning(f"⚠️ 매칭되는 템플릿 없음, 기본 파싱 사용")
+        # 기본 파싱 규칙 사용 (하드코딩)
+        parsing_rules = {
+            "time_pattern": r"(\d{1,2}):(\d{2})",
+            "product_pattern": r"식육|육가공",
+            "tonnage_pattern": r"(\d+(?:\.\d+)?)톤",
+            "temperature_keywords": {"냉동": "FROZEN", "냉장": "REFRIGERATED"},
+            "default_temperature": "REFRIGERATED",
+            "pallet_calculation": {"18": 18, "11": 16, "5": 10, "default_multiplier": 2},
+            "delivery_time_offset_hours": 4,
+            "notes_template": "자동 파싱: {client_name} 배차"
+        }
+        template_name = "기본"
+    else:
+        parsing_rules = template.parsing_rules
+        template_name = template.name
+        # 템플릿 사용 횟수 증가
+        template.usage_count += 1
+        db.commit()
+        
+        # 템플릿의 고정 주소/좌표 사용
+        if not pickup_address and template.default_pickup_address:
+            pickup_address = template.default_pickup_address
+            logger.info(f"📍 템플릿 상차지 사용: {pickup_address}")
+        
+        if not delivery_address and template.default_delivery_address:
+            delivery_address = template.default_delivery_address
+            logger.info(f"📍 템플릿 하차지 사용: {delivery_address}")
+    
     orders = []
     today = date.today()
     current_year = today.year
-    # 시분초 포함하여 중복 방지: ORD-20260303-143025-001
     order_number_prefix = f"ORD-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
     
-    # 1. 날짜 추출 (다양한 형식 지원)
-    # 예: 2/23(월), 12/25, 2-23, 12.25 등
+    # 2. 날짜 추출
     date_match = re.search(r'(\d{1,2})[/\-.](\d{1,2})', text)
     if date_match:
         month = int(date_match.group(1))
         day = int(date_match.group(2))
         
-        # 월/일 유효성 검증
         if 1 <= month <= 12 and 1 <= day <= 31:
             try:
                 order_date = date(current_year, month, day)
-                
-                # 과거 날짜면 다음 해로 설정
                 if order_date < today:
                     order_date = date(current_year + 1, month, day)
                     logger.info(f"📅 날짜가 과거이므로 다음 해로 설정: {order_date.isoformat()}")
                 else:
                     logger.info(f"📅 날짜 파싱 성공: {order_date.isoformat()}")
             except ValueError as e:
-                logger.warning(f"⚠️ 날짜 생성 실패 ({month}/{day}): {e}, 오늘 날짜 사용")
+                logger.warning(f"⚠️ 날짜 생성 실패: {e}")
                 order_date = today
         else:
-            logger.warning(f"⚠️ 유효하지 않은 날짜: {month}/{day}, 오늘 날짜 사용")
+            logger.warning(f"⚠️ 유효하지 않은 날짜: {month}/{day}")
             order_date = today
     else:
-        logger.warning(f"⚠️ 날짜를 찾을 수 없음, 오늘 날짜 사용")
+        logger.warning(f"⚠️ 날짜를 찾을 수 없음")
         order_date = today
     
     logger.info(f"📅 최종 주문 날짜: {order_date.isoformat()}")
     
-    # 2. 고객사명 추출 (예: 목우촌)
+    # 3. 고객사명 추출
     client_match = re.search(r'[)\]]([가-힣]+)\s*(?:오전|오후)?배차', text)
-    client_name = client_match.group(1) if client_match else "고객사"
+    client_name = client_match.group(1) if client_match else template_name
     
-    # 3. 각 배차 라인 파싱
+    # 4. 각 배차 라인 파싱 (템플릿 규칙 사용)
     lines = text.split('\n')
     order_count = 0
     
+    # 파싱 규칙 추출
+    time_pattern = parsing_rules.get('time_pattern', r'(\d{1,2}):(\d{2})')
+    product_pattern = parsing_rules.get('product_pattern', r'[가-힣]+')
+    tonnage_pattern = parsing_rules.get('tonnage_pattern', r'(\d+(?:\.\d+)?)톤')
+    temperature_keywords = parsing_rules.get('temperature_keywords', {})
+    default_temperature = parsing_rules.get('default_temperature', 'REFRIGERATED')
+    pallet_calc = parsing_rules.get('pallet_calculation', {})
+    delivery_offset = parsing_rules.get('delivery_time_offset_hours', 4)
+    notes_template = parsing_rules.get('notes_template', '자동 파싱: {client_name} 배차')
+    
     for line in lines:
         # 시간 / 품목톤수(온도) 형식 파싱
-        # 예: 13:00 / 식육11톤(냉동)
-        match = re.search(r'(\d{1,2}):(\d{2})\s*/\s*([가-힣]+)(\d+(?:\.\d+)?)톤(?:\(([^)]+)\))?', line)
+        full_pattern = rf'{time_pattern}\s*/\s*({product_pattern}){tonnage_pattern}(?:\(([^)]+)\))?'
+        match = re.search(full_pattern, line)
         
         if match:
             hour = int(match.group(1))
             minute = int(match.group(2))
-            product_name = match.group(3)  # 식육, 육가공 등
-            tonnage = float(match.group(4))  # 11, 5 등
-            temp_indicator = match.group(5)  # 냉동, None
+            product_name = match.group(3)
+            tonnage = float(match.group(4))
+            temp_indicator = match.group(5) if len(match.groups()) >= 5 else None
             
             # 시간
             pickup_time = datetime_time(hour, minute)
             
-            # 하차 시간 = 상차 시간 + 4시간 (날짜 넘어감 처리)
+            # 하차 시간 = 상차 시간 + offset (템플릿 설정)
             pickup_datetime = datetime.combine(order_date, pickup_time)
-            delivery_datetime = pickup_datetime + timedelta(hours=4)
+            delivery_datetime = pickup_datetime + timedelta(hours=delivery_offset)
             
             # 하차 날짜와 시간 분리
             delivery_date = delivery_datetime.date()
             delivery_time_start = delivery_datetime.time()
-            delivery_time_end = (delivery_datetime + timedelta(hours=2)).time()  # +2시간 여유
+            delivery_time_end = (delivery_datetime + timedelta(hours=2)).time()
             
-            # 온도대 결정: (냉동) 표시가 없으면 기본 냉장
-            if temp_indicator and '냉동' in temp_indicator:
-                temperature_zone = TemperatureZone.FROZEN
-            else:
+            # 온도대 결정 (템플릿 규칙 사용)
+            temperature_zone_str = default_temperature
+            if temp_indicator:
+                for keyword, temp_enum in temperature_keywords.items():
+                    if keyword in temp_indicator:
+                        temperature_zone_str = temp_enum
+                        break
+            
+            # TemperatureZone enum 변환
+            try:
+                temperature_zone = TemperatureZone[temperature_zone_str]
+            except (KeyError, AttributeError):
                 temperature_zone = TemperatureZone.REFRIGERATED
             
-            # 톤수에 따른 팔레트 수 매핑
-            # 18톤 = 18팔레트, 11톤 = 16팔레트, 5톤 = 10팔레트
-            if tonnage >= 18:
-                pallet_count = 18
-            elif tonnage >= 11:
-                pallet_count = 16
-            elif tonnage >= 5:
-                pallet_count = 10
-            else:
-                # 5톤 미만은 비율로 계산 (톤당 2팔레트)
-                pallet_count = max(1, int(tonnage * 2))
+            # 팔레트 수 계산 (템플릿 규칙 사용)
+            pallet_count = None
+            # 정확한 톤수 매칭 먼저 시도
+            for ton_str, pallets in pallet_calc.items():
+                if ton_str == "default_multiplier":
+                    continue
+                try:
+                    ton_threshold = float(ton_str)
+                    if tonnage >= ton_threshold:
+                        pallet_count = pallets
+                        break
+                except (ValueError, TypeError):
+                    continue
+            
+            # 매칭 안 되면 default_multiplier 사용
+            if pallet_count is None:
+                multiplier = pallet_calc.get('default_multiplier', 2)
+                pallet_count = max(1, int(tonnage * multiplier))
             
             # 중량 (톤 → kg)
             weight_kg = tonnage * 1000
@@ -617,10 +698,17 @@ def parse_batch_dispatch(
             order_count += 1
             order_number = f"{order_number_prefix}-{order_count:03d}"
             
+            # 노트 생성 (템플릿 사용)
+            notes = notes_template.format(
+                client_name=client_name,
+                product_name=product_name,
+                temperature=temperature_zone.value
+            )
+            
             order = {
                 'order_number': order_number,
                 'order_date': order_date.isoformat(),
-                'delivery_date': delivery_date.isoformat(),  # 하차 날짜 (필수)
+                'delivery_date': delivery_date.isoformat(),
                 'temperature_zone': temperature_zone.value,
                 'pickup_address': pickup_address or f"{client_name} 본사",
                 'delivery_address': delivery_address,
@@ -628,27 +716,28 @@ def parse_batch_dispatch(
                 'weight_kg': weight_kg,
                 'product_name': f"{product_name} {int(tonnage)}톤",
                 'pickup_start_time': pickup_time.isoformat(),
-                'pickup_end_time': datetime_time(hour + 1, minute).isoformat(),
+                'pickup_end_time': datetime_time(min(hour + 1, 23), minute).isoformat(),
                 'delivery_start_time': delivery_time_start.isoformat(),
                 'delivery_end_time': delivery_time_end.isoformat(),
-                'requested_delivery_date': delivery_date.isoformat(),  # 하차 날짜 반영
+                'requested_delivery_date': delivery_date.isoformat(),
                 'priority': 5,
                 'requires_forklift': True,
                 'is_stackable': True,
-                'notes': f"{client_name} {product_name} ({temperature_zone.value})"
+                'notes': notes
             }
             
             orders.append(order)
             logger.info(f"✅ 배차 {order_count}: {pickup_time.strftime('%H:%M')} - {product_name} {tonnage}톤 ({temperature_zone.value})")
     
-    logger.info(f"✅ 총 {len(orders)}건의 배차 파싱 완료")
+    logger.info(f"✅ 총 {len(orders)}건의 배차 파싱 완료 (템플릿: {template_name})")
     
     return {
         'success': True,
         'orders': orders,
         'count': len(orders),
         'client_name': client_name,
-        'order_date': order_date.isoformat()
+        'order_date': order_date.isoformat(),
+        'template_used': template_name
     }
 
 
