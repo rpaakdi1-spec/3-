@@ -535,8 +535,12 @@ def parse_batch_dispatch(
             
             # 시간
             pickup_time = datetime_time(hour, minute)
+            # 하차 시간 = 상차 시간 + 4시간
+            delivery_hour = (hour + 4) % 24  # 24시간 넘어가면 다음날로
+            delivery_time_start = datetime_time(delivery_hour, minute)
+            delivery_time_end = datetime_time((delivery_hour + 2) % 24, minute)  # +2시간 여유
             
-            # 온도대 결정
+            # 온도대 결정: (냉동) 표시가 없으면 기본 냉장
             if temp_indicator and '냉동' in temp_indicator:
                 temperature_zone = TemperatureZone.FROZEN
             else:
@@ -571,8 +575,8 @@ def parse_batch_dispatch(
                 'product_name': f"{product_name} {int(tonnage)}톤",
                 'pickup_start_time': pickup_time.isoformat(),
                 'pickup_end_time': datetime_time(hour + 1, minute).isoformat(),
-                'delivery_start_time': '16:00:00',
-                'delivery_end_time': '18:00:00',
+                'delivery_start_time': delivery_time_start.isoformat(),
+                'delivery_end_time': delivery_time_end.isoformat(),
                 'requested_delivery_date': order_date.isoformat(),
                 'priority': 5,
                 'requires_forklift': True,
