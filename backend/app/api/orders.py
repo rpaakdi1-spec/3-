@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from typing import Optional
-from datetime import date
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from app.core.database import get_db
@@ -501,17 +501,39 @@ def parse_batch_dispatch(
     logger.info(f"📝 배치 배차 파싱 시작...")
     
     orders = []
+    today = date.today()
+    current_year = today.year
     order_number_prefix = f"ORD-{datetime.now().strftime('%Y%m%d')}"
     
-    # 1. 날짜 추출 (예: 2/23(월))
-    date_match = re.search(r'(\d{1,2})/(\d{1,2})', text)
+    # 1. 날짜 추출 (다양한 형식 지원)
+    # 예: 2/23(월), 12/25, 2-23, 12.25 등
+    date_match = re.search(r'(\d{1,2})[/\-.](\d{1,2})', text)
     if date_match:
         month = int(date_match.group(1))
         day = int(date_match.group(2))
-        current_year = datetime.now().year
-        order_date = date(current_year, month, day)
+        
+        # 월/일 유효성 검증
+        if 1 <= month <= 12 and 1 <= day <= 31:
+            try:
+                order_date = date(current_year, month, day)
+                
+                # 과거 날짜면 다음 해로 설정
+                if order_date < today:
+                    order_date = date(current_year + 1, month, day)
+                    logger.info(f"📅 날짜가 과거이므로 다음 해로 설정: {order_date.isoformat()}")
+                else:
+                    logger.info(f"📅 날짜 파싱 성공: {order_date.isoformat()}")
+            except ValueError as e:
+                logger.warning(f"⚠️ 날짜 생성 실패 ({month}/{day}): {e}, 오늘 날짜 사용")
+                order_date = today
+        else:
+            logger.warning(f"⚠️ 유효하지 않은 날짜: {month}/{day}, 오늘 날짜 사용")
+            order_date = today
     else:
-        order_date = date.today()
+        logger.warning(f"⚠️ 날짜를 찾을 수 없음, 오늘 날짜 사용")
+        order_date = today
+    
+    logger.info(f"📅 최종 주문 날짜: {order_date.isoformat()}")
     
     # 2. 고객사명 추출 (예: 목우촌)
     client_match = re.search(r'[)\]]([가-힣]+)\s*(?:오전|오후)?배차', text)
@@ -535,10 +557,15 @@ def parse_batch_dispatch(
             
             # 시간
             pickup_time = datetime_time(hour, minute)
-            # 하차 시간 = 상차 시간 + 4시간
-            delivery_hour = (hour + 4) % 24  # 24시간 넘어가면 다음날로
-            delivery_time_start = datetime_time(delivery_hour, minute)
-            delivery_time_end = datetime_time((delivery_hour + 2) % 24, minute)  # +2시간 여유
+            
+            # 하차 시간 = 상차 시간 + 4시간 (날짜 넘어감 처리)
+            pickup_datetime = datetime.combine(order_date, pickup_time)
+            delivery_datetime = pickup_datetime + timedelta(hours=4)
+            
+            # 하차 날짜와 시간 분리
+            delivery_date = delivery_datetime.date()
+            delivery_time_start = delivery_datetime.time()
+            delivery_time_end = (delivery_datetime + timedelta(hours=2)).time()  # +2시간 여유
             
             # 온도대 결정: (냉동) 표시가 없으면 기본 냉장
             if temp_indicator and '냉동' in temp_indicator:
@@ -577,7 +604,7 @@ def parse_batch_dispatch(
                 'pickup_end_time': datetime_time(hour + 1, minute).isoformat(),
                 'delivery_start_time': delivery_time_start.isoformat(),
                 'delivery_end_time': delivery_time_end.isoformat(),
-                'requested_delivery_date': order_date.isoformat(),
+                'requested_delivery_date': delivery_date.isoformat(),  # 하차 날짜 반영
                 'priority': 5,
                 'requires_forklift': True,
                 'is_stackable': True,
