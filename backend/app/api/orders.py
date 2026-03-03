@@ -174,31 +174,43 @@ async def create_order(order_data: OrderCreate, db: Session = Depends(get_db)):
                 order_dict[time_field] = time_type(hour, minute)
     
     # 거래처 ID로 입력한 경우 - 거래처 존재 확인
+    # 고정 좌표 매핑 (목우촌 등 자주 사용되는 주소)
+    FIXED_COORDINATES = {
+        "전북 김제시 금산면 용산리 9-13": (35.8087, 126.8919),  # 목우촌 상차지
+        "경기도 안성시 양성면 양성로 376-106": (37.0088, 127.2668),  # 목우촌 하차지
+    }
+    
     if order_data.pickup_client_id:
         pickup_client = db.query(Client).filter(Client.id == order_data.pickup_client_id).first()
         if not pickup_client:
             raise HTTPException(status_code=404, detail="상차 거래처를 찾을 수 없습니다")
     elif order_data.pickup_address:
-        # 주소로 입력한 경우 - Naver 지오코딩
-        try:
-            naver_service = NaverMapService()
-            full_address = f"{order_data.pickup_address} {order_data.pickup_address_detail or ''}".strip()
-            result = await naver_service.geocode_address(full_address)
-            
-            if result and len(result) == 3:
-                latitude, longitude, error = result
-                if latitude and longitude:
-                    # 위경도 저장
-                    order_dict['pickup_latitude'] = latitude
-                    order_dict['pickup_longitude'] = longitude
-                    logger.info(f"Geocoded pickup address: {full_address} -> ({latitude}, {longitude})")
+        full_address = f"{order_data.pickup_address} {order_data.pickup_address_detail or ''}".strip()
+        
+        # 고정 좌표가 있는 경우
+        if order_data.pickup_address in FIXED_COORDINATES:
+            latitude, longitude = FIXED_COORDINATES[order_data.pickup_address]
+            order_dict['pickup_latitude'] = latitude
+            order_dict['pickup_longitude'] = longitude
+            logger.info(f"✅ Using fixed coordinates for pickup: {order_data.pickup_address} -> ({latitude}, {longitude})")
+        else:
+            # Naver 지오코딩 사용
+            try:
+                naver_service = NaverMapService()
+                result = await naver_service.geocode_address(full_address)
+                
+                if result and len(result) == 3:
+                    latitude, longitude, error = result
+                    if latitude and longitude:
+                        order_dict['pickup_latitude'] = latitude
+                        order_dict['pickup_longitude'] = longitude
+                        logger.info(f"Geocoded pickup address: {full_address} -> ({latitude}, {longitude})")
+                    else:
+                        logger.warning(f"Failed to geocode pickup address: {full_address}, error: {error}")
                 else:
-                    logger.warning(f"Failed to geocode pickup address: {full_address}, error: {error}")
-            else:
-                logger.warning(f"Geocoding returned None for pickup address: {full_address}")
-        except Exception as e:
-            logger.error(f"Error during pickup geocoding: {str(e)}")
-            # Continue without geocoding
+                    logger.warning(f"Geocoding returned None for pickup address: {full_address}")
+            except Exception as e:
+                logger.error(f"Error during pickup geocoding: {str(e)}")
     else:
         raise HTTPException(status_code=400, detail="상차 거래처 ID 또는 주소를 입력해주세요")
     
@@ -207,26 +219,32 @@ async def create_order(order_data: OrderCreate, db: Session = Depends(get_db)):
         if not delivery_client:
             raise HTTPException(status_code=404, detail="하차 거래처를 찾을 수 없습니다")
     elif order_data.delivery_address:
-        # 주소로 입력한 경우 - Naver 지오코딩
-        try:
-            naver_service = NaverMapService()
-            full_address = f"{order_data.delivery_address} {order_data.delivery_address_detail or ''}".strip()
-            result = await naver_service.geocode_address(full_address)
-            
-            if result and len(result) == 3:
-                latitude, longitude, error = result
-                if latitude and longitude:
-                    # 위경도 저장
-                    order_dict['delivery_latitude'] = latitude
-                    order_dict['delivery_longitude'] = longitude
-                    logger.info(f"Geocoded delivery address: {full_address} -> ({latitude}, {longitude})")
+        full_address = f"{order_data.delivery_address} {order_data.delivery_address_detail or ''}".strip()
+        
+        # 고정 좌표가 있는 경우
+        if order_data.delivery_address in FIXED_COORDINATES:
+            latitude, longitude = FIXED_COORDINATES[order_data.delivery_address]
+            order_dict['delivery_latitude'] = latitude
+            order_dict['delivery_longitude'] = longitude
+            logger.info(f"✅ Using fixed coordinates for delivery: {order_data.delivery_address} -> ({latitude}, {longitude})")
+        else:
+            # Naver 지오코딩 사용
+            try:
+                naver_service = NaverMapService()
+                result = await naver_service.geocode_address(full_address)
+                
+                if result and len(result) == 3:
+                    latitude, longitude, error = result
+                    if latitude and longitude:
+                        order_dict['delivery_latitude'] = latitude
+                        order_dict['delivery_longitude'] = longitude
+                        logger.info(f"Geocoded delivery address: {full_address} -> ({latitude}, {longitude})")
+                    else:
+                        logger.warning(f"Failed to geocode delivery address: {full_address}, error: {error}")
                 else:
-                    logger.warning(f"Failed to geocode delivery address: {full_address}, error: {error}")
-            else:
-                logger.warning(f"Geocoding returned None for delivery address: {full_address}")
-        except Exception as e:
-            logger.error(f"Error during delivery geocoding: {str(e)}")
-            # Continue without geocoding
+                    logger.warning(f"Geocoding returned None for delivery address: {full_address}")
+            except Exception as e:
+                logger.error(f"Error during delivery geocoding: {str(e)}")
     else:
         raise HTTPException(status_code=400, detail="하차 거래처 ID 또는 주소를 입력해주세요")
     
