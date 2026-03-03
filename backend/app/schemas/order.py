@@ -65,11 +65,18 @@ class OrderCreate(OrderBase):
             return value
         if isinstance(value, str):
             try:
-                # Parse HH:MM format
-                hour, minute = map(int, value.split(':'))
-                return time(hour=hour, minute=minute)
-            except (ValueError, AttributeError):
-                raise ValueError(f"Invalid time format: {value}. Expected HH:MM")
+                # Parse HH:MM:SS or HH:MM format
+                parts = value.split(':')
+                if len(parts) == 2:
+                    hour, minute = map(int, parts)
+                    return time(hour=hour, minute=minute)
+                elif len(parts) == 3:
+                    hour, minute, second = map(int, parts)
+                    return time(hour=hour, minute=minute, second=second)
+                else:
+                    raise ValueError(f"Invalid time format: {value}")
+            except (ValueError, AttributeError) as e:
+                raise ValueError(f"Invalid time format: {value}. Expected HH:MM or HH:MM:SS")
         return value
 
 
@@ -108,11 +115,18 @@ class OrderUpdate(BaseModel):
             return value
         if isinstance(value, str):
             try:
-                # Parse HH:MM format
-                hour, minute = map(int, value.split(':'))
-                return time(hour=hour, minute=minute)
-            except (ValueError, AttributeError):
-                raise ValueError(f"Invalid time format: {value}. Expected HH:MM")
+                # Parse HH:MM:SS or HH:MM format
+                parts = value.split(':')
+                if len(parts) == 2:
+                    hour, minute = map(int, parts)
+                    return time(hour=hour, minute=minute)
+                elif len(parts) == 3:
+                    hour, minute, second = map(int, parts)
+                    return time(hour=hour, minute=minute, second=second)
+                else:
+                    raise ValueError(f"Invalid time format: {value}")
+            except (ValueError, AttributeError) as e:
+                raise ValueError(f"Invalid time format: {value}. Expected HH:MM or HH:MM:SS")
         return value
 
 
