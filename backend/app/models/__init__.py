@@ -42,6 +42,7 @@ from .mobile_photo import MobilePhoto, NotificationPreferences, MobileSession
 # Import simulation models BEFORE dispatch_rule to avoid circular dependency
 from .simulation import RuleSimulation, SimulationComparison, SimulationTemplate
 from .dispatch_rule import DispatchRule, RuleConstraint, RuleExecutionLog, OptimizationConfig
+from .dispatch_template import DispatchTemplate
 
 __all__ = [
     "Base",
@@ -132,6 +133,7 @@ __all__ = [
     "RuleConstraint",
     "RuleExecutionLog",
     "OptimizationConfig",
+    "DispatchTemplate",
 ]
 
 # Phase 16.3: Chat models
