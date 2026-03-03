@@ -49,7 +49,7 @@ class VehicleDailyMileage(Base):
     notes = Column(String(500), nullable=True, comment="비고")
     
     created_at = Column(DateTime(timezone=True), server_default=func.now(), comment="생성일시")
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), comment="수정일시")
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), comment="수정일시")
 
     # 관계
     vehicle = relationship("Vehicle", back_populates="daily_mileages")
