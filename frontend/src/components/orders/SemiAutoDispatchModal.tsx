@@ -142,7 +142,7 @@ const SemiAutoDispatchModal: React.FC<SemiAutoDispatchModalProps> = ({
             {orderInfo.pickup_start_time && (
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4 text-blue-600" />
-                <span className="text-gray-700"><strong>상차 시간:</strong> {new Date(orderInfo.pickup_start_time).toLocaleString('ko-KR')}</span>
+                <span className="text-gray-700"><strong>상차 시간:</strong> {orderInfo.pickup_start_time}</span>
               </div>
             )}
           </div>
