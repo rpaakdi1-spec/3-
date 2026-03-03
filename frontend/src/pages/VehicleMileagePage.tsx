@@ -184,7 +184,7 @@ const VehicleMileagePage: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-blue-600 font-medium mb-1">운행 차량</p>
-                <p className="text-2xl font-bold text-blue-700">{statistics.vehicle_count}대</p>
+                <p className="text-2xl font-bold text-blue-700">{statistics?.vehicle_count || 0}대</p>
               </div>
               <Truck className="h-10 w-10 text-blue-500 opacity-70" />
             </div>
@@ -194,7 +194,7 @@ const VehicleMileagePage: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-green-600 font-medium mb-1">총 주행거리</p>
-                <p className="text-2xl font-bold text-green-700">{statistics.total_distance_km.toFixed(1)} km</p>
+                <p className="text-2xl font-bold text-green-700">{statistics?.total_distance_km?.toFixed(1) || '0.0'} km</p>
               </div>
               <TrendingUp className="h-10 w-10 text-green-500 opacity-70" />
             </div>
@@ -204,7 +204,7 @@ const VehicleMileagePage: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-orange-600 font-medium mb-1">총 운행시간</p>
-                <p className="text-2xl font-bold text-orange-700">{statistics.total_driving_hours.toFixed(1)}시간</p>
+                <p className="text-2xl font-bold text-orange-700">{statistics?.total_driving_hours?.toFixed(1) || '0.0'}시간</p>
               </div>
               <Clock className="h-10 w-10 text-orange-500 opacity-70" />
             </div>
@@ -214,7 +214,7 @@ const VehicleMileagePage: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-purple-600 font-medium mb-1">평균 속도</p>
-                <p className="text-2xl font-bold text-purple-700">{statistics.avg_speed_kmh.toFixed(1)} km/h</p>
+                <p className="text-2xl font-bold text-purple-700">{statistics?.avg_speed_kmh?.toFixed(1) || '0.0'} km/h</p>
               </div>
               <Gauge className="h-10 w-10 text-purple-500 opacity-70" />
             </div>
