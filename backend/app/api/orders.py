@@ -598,6 +598,7 @@ def parse_batch_dispatch(
             order = {
                 'order_number': order_number,
                 'order_date': order_date.isoformat(),
+                'delivery_date': delivery_date.isoformat(),  # 하차 날짜 (필수)
                 'temperature_zone': temperature_zone.value,
                 'pickup_address': pickup_address or f"{client_name} 본사",
                 'delivery_address': delivery_address,

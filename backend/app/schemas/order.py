@@ -9,6 +9,7 @@ class OrderBase(BaseModel):
     """Base schema for Order"""
     order_number: str = Field(..., max_length=50, description="주문번호")
     order_date: date = Field(..., description="주문일자")
+    delivery_date: date = Field(..., description="배송일자")
     temperature_zone: TemperatureZone = Field(..., description="온도대 구분")
     
     # 거래처 선택 방식 1: 거래처 ID로 선택
@@ -83,6 +84,7 @@ class OrderCreate(OrderBase):
 class OrderUpdate(BaseModel):
     """Schema for updating an order"""
     order_date: Optional[date] = None
+    delivery_date: Optional[date] = None
     temperature_zone: Optional[TemperatureZone] = None
     pickup_client_id: Optional[int] = None
     delivery_client_id: Optional[int] = None
