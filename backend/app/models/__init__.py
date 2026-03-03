@@ -43,6 +43,7 @@ from .mobile_photo import MobilePhoto, NotificationPreferences, MobileSession
 from .simulation import RuleSimulation, SimulationComparison, SimulationTemplate
 from .dispatch_rule import DispatchRule, RuleConstraint, RuleExecutionLog, OptimizationConfig
 from .dispatch_template import DispatchTemplate
+from .vehicle_daily_mileage import VehicleDailyMileage
 
 __all__ = [
     "Base",
@@ -134,6 +135,7 @@ __all__ = [
     "RuleExecutionLog",
     "OptimizationConfig",
     "DispatchTemplate",
+    "VehicleDailyMileage",
 ]
 
 # Phase 16.3: Chat models

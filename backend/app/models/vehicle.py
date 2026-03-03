@@ -116,6 +116,7 @@ class Vehicle(Base, IDMixin, TimestampMixin):
     maintenance_records = relationship("VehicleMaintenanceRecord", back_populates="vehicle", cascade="all, delete-orphan", order_by="desc(VehicleMaintenanceRecord.scheduled_date)")
     maintenance_schedules = relationship("MaintenanceSchedule", back_populates="vehicle", cascade="all, delete-orphan", order_by="MaintenanceSchedule.next_maintenance_date")
     inspections = relationship("VehicleInspection", back_populates="vehicle", cascade="all, delete-orphan")
+    daily_mileages = relationship("VehicleDailyMileage", back_populates="vehicle", cascade="all, delete-orphan", order_by="desc(VehicleDailyMileage.date)")
     
     def __repr__(self):
         return f"<Vehicle(code={self.code}, plate={self.plate_number}, type={self.vehicle_type})>"
