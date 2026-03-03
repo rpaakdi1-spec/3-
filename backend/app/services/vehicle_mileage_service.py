@@ -138,23 +138,20 @@ class VehicleMileageService:
             if time_diff_minutes <= 2:
                 # 짧은 간격 (2분 이하): 하버사인 거리 × 1.3 (도로 굴곡 보정)
                 adjusted_distance = distance * 1.3
-            elif time_diff_minutes <= 10 and current_log.speed_kmh and current_log.speed_kmh > 0:
-                # 중간 간격 (10분 이하): 속도 기반 계산과 하버사인 중 큰 값 사용
+            elif time_diff_minutes <= 5 and current_log.speed_kmh and current_log.speed_kmh > 0:
+                # 중간 간격 (5분 이하): 속도 기반과 하버사인 중 작은 값 사용 (과다 산정 방지)
                 speed_based_distance = (current_log.speed_kmh * time_diff_minutes) / 60
-                adjusted_distance = max(distance * 1.3, speed_based_distance)
-            elif time_diff_minutes > 10 and current_log.speed_kmh and current_log.speed_kmh > 30:
-                # 긴 간격 (10분 초과) + 고속 주행: 속도 기반 계산 우선
-                adjusted_distance = (current_log.speed_kmh * time_diff_minutes) / 60
+                adjusted_distance = min(distance * 1.3, speed_based_distance)
             else:
-                # 기타: 하버사인 × 1.3
+                # 긴 간격 (5분 초과) 또는 속도 정보 없음: 하버사인만 사용 (과다 산정 방지)
                 adjusted_distance = distance * 1.3
             
-            # 비정상적으로 큰 거리는 제외 (시속 150km 초과는 비정상)
-            max_reasonable_distance = (150 * time_diff_minutes) / 60
+            # 비정상적으로 큰 거리는 제외 (시속 120km 기준으로 강화)
+            max_reasonable_distance = (120 * time_diff_minutes) / 60
             if adjusted_distance <= max_reasonable_distance:
                 total_distance += adjusted_distance
             else:
-                logger.debug(f"⚠️ 비정상 거리 제외: {adjusted_distance:.2f}km (시간: {time_diff_minutes:.1f}분)")
+                logger.debug(f"⚠️ 비정상 거리 제외: {adjusted_distance:.2f}km (시간: {time_diff_minutes:.1f}분, 최대: {max_reasonable_distance:.2f}km)")
             
             # 속도 통계
             if current_log.speed_kmh is not None:
