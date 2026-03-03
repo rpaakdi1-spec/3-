@@ -510,7 +510,8 @@ def parse_batch_dispatch(
     orders = []
     today = date.today()
     current_year = today.year
-    order_number_prefix = f"ORD-{datetime.now().strftime('%Y%m%d')}"
+    # 시분초 포함하여 중복 방지: ORD-20260303-143025-001
+    order_number_prefix = f"ORD-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
     
     # 1. 날짜 추출 (다양한 형식 지원)
     # 예: 2/23(월), 12/25, 2-23, 12.25 등
