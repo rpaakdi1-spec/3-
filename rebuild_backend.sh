@@ -1,20 +1,22 @@
 #!/bin/bash
-echo "=== 백엔드 재빌드 및 재시작 ==="
+cd /root/uvis
+echo "🔄 최신 코드 확인..."
+git pull origin main
 
-# 백엔드 중지
-docker compose down backend
-
-# 이미지 재빌드
+echo "🏗️ 백엔드 이미지 재빌드..."
 docker compose build backend
 
-# 백엔드 시작
+echo "🚀 백엔드 컨테이너 재시작..."
 docker compose up -d backend
 
-# 10초 대기
-sleep 10
+echo "⏳ 백엔드 시작 대기 (20초)..."
+sleep 20
 
-# 상태 확인
+echo "✅ 컨테이너 상태 확인..."
 docker compose ps backend
 
-# 로그 확인
-docker compose logs backend | tail -30
+echo "✅ 백엔드 헬스체크..."
+curl -s http://139.150.11.99/api/v1/health | jq '.' || echo "헬스체크 실패"
+
+echo ""
+echo "✅ 배포 완료!"

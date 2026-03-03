@@ -86,7 +86,23 @@ class VehicleMileageService:
         
         logger.info(f"✅ GPS 로그 {len(gps_logs)}개 조회")
         
-        # 2. 주행거리 계산
+        # 2. 중복 제거 (같은 시간/좌표는 1개만 유지)
+        unique_logs = []
+        prev_key = None
+        for log in gps_logs:
+            key = (log.bi_time, log.latitude, log.longitude)
+            if key != prev_key:
+                unique_logs.append(log)
+                prev_key = key
+        
+        if len(unique_logs) < 2:
+            logger.warning(f"⚠️ 차량 {vehicle_id}의 {target_date} GPS 로그가 중복 제거 후 {len(unique_logs)}개 (계산 불가)")
+            return None
+        
+        logger.info(f"✅ 중복 제거: {len(gps_logs)}개 → {len(unique_logs)}개")
+        gps_logs = unique_logs
+        
+        # 3. 주행거리 계산
         total_distance = 0.0
         max_speed = 0
         total_speed = 0
@@ -98,15 +114,47 @@ class VehicleMileageService:
             current_log = gps_logs[i]
             next_log = gps_logs[i + 1]
             
+            # 시간 간격 계산 (분)
+            try:
+                current_time = datetime.strptime(
+                    f"{current_log.bi_date}{current_log.bi_time}",
+                    "%Y%m%d%H%M%S"
+                )
+                next_time = datetime.strptime(
+                    f"{next_log.bi_date}{next_log.bi_time}",
+                    "%Y%m%d%H%M%S"
+                )
+                time_diff_minutes = (next_time - current_time).total_seconds() / 60
+            except:
+                time_diff_minutes = 1  # 기본값
+            
             # 거리 계산
             distance = self.haversine_distance(
                 current_log.latitude, current_log.longitude,
                 next_log.latitude, next_log.longitude
             )
             
-            # 비정상적으로 큰 거리는 제외 (텔레포트 방지, 예: 1시간에 200km 이상)
-            if distance < 200:
-                total_distance += distance
+            # 거리 보정 로직
+            if time_diff_minutes <= 2:
+                # 짧은 간격 (2분 이하): 하버사인 거리 × 1.3 (도로 굴곡 보정)
+                adjusted_distance = distance * 1.3
+            elif time_diff_minutes <= 10 and current_log.speed_kmh and current_log.speed_kmh > 0:
+                # 중간 간격 (10분 이하): 속도 기반 계산과 하버사인 중 큰 값 사용
+                speed_based_distance = (current_log.speed_kmh * time_diff_minutes) / 60
+                adjusted_distance = max(distance * 1.3, speed_based_distance)
+            elif time_diff_minutes > 10 and current_log.speed_kmh and current_log.speed_kmh > 30:
+                # 긴 간격 (10분 초과) + 고속 주행: 속도 기반 계산 우선
+                adjusted_distance = (current_log.speed_kmh * time_diff_minutes) / 60
+            else:
+                # 기타: 하버사인 × 1.3
+                adjusted_distance = distance * 1.3
+            
+            # 비정상적으로 큰 거리는 제외 (시속 150km 초과는 비정상)
+            max_reasonable_distance = (150 * time_diff_minutes) / 60
+            if adjusted_distance <= max_reasonable_distance:
+                total_distance += adjusted_distance
+            else:
+                logger.debug(f"⚠️ 비정상 거리 제외: {adjusted_distance:.2f}km (시간: {time_diff_minutes:.1f}분)")
             
             # 속도 통계
             if current_log.speed_kmh is not None:
@@ -168,7 +216,7 @@ class VehicleMileageService:
             mileage.end_longitude = end_log.longitude
             mileage.end_time = end_time
             mileage.is_calculated = True
-            mileage.calculation_method = "haversine"
+            mileage.calculation_method = "haversine_speed_hybrid"
             logger.info(f"🔄 기존 레코드 업데이트")
         else:
             # 새 레코드 생성
@@ -189,7 +237,7 @@ class VehicleMileageService:
                 end_longitude=end_log.longitude,
                 end_time=end_time,
                 is_calculated=True,
-                calculation_method="haversine"
+                calculation_method="haversine_speed_hybrid"
             )
             self.db.add(mileage)
             logger.info(f"✨ 새 레코드 생성")
