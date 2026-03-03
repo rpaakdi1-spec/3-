@@ -1,13 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { RefreshCw, TrendingUp, Clock, Gauge, Fuel, Calendar, Car, ChevronDown, ChevronUp } from 'lucide-react';
 import { format, subDays, startOfMonth, endOfMonth } from 'date-fns';
-import axios from 'axios';
 import toast from 'react-hot-toast';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Loading from '../components/common/Loading';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+import { vehicleMileageAPI } from '../services/api';
 
 interface DailyMileage {
   vehicle_id: number;
@@ -65,9 +63,7 @@ const VehicleMileagePage: React.FC = () => {
   const fetchDailyMileages = async (date: string) => {
     setLoading(true);
     try {
-      const response = await axios.get(`${API_BASE_URL}/api/v1/vehicle-mileage/daily`, {
-        params: { target_date: date },
-      });
+      const response = await vehicleMileageAPI.getDaily(date);
       setDailyMileages(response.data.mileages || []);
     } catch (err: any) {
       toast.error(err.response?.data?.detail || '일별 주행거리 조회 실패');
@@ -81,7 +77,7 @@ const VehicleMileagePage: React.FC = () => {
   const fetchWeeklySummary = async () => {
     setLoading(true);
     try {
-      const response = await axios.get(`${API_BASE_URL}/api/v1/vehicle-mileage/weekly`);
+      const response = await vehicleMileageAPI.getWeekly();
       setWeeklySummary(response.data.summary || []);
     } catch (err: any) {
       toast.error(err.response?.data?.detail || '주간 주행거리 조회 실패');
@@ -96,9 +92,7 @@ const VehicleMileagePage: React.FC = () => {
     setLoading(true);
     try {
       const [year, month] = yearMonth.split('-').map(Number);
-      const response = await axios.get(`${API_BASE_URL}/api/v1/vehicle-mileage/monthly`, {
-        params: { year, month },
-      });
+      const response = await vehicleMileageAPI.getMonthly(year, month);
       setMonthlySummary(response.data.summary || []);
     } catch (err: any) {
       toast.error(err.response?.data?.detail || '월별 주행거리 조회 실패');
@@ -111,9 +105,7 @@ const VehicleMileagePage: React.FC = () => {
   // 통계 조회
   const fetchStatistics = async (startDate: string, endDate: string) => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/api/v1/vehicle-mileage/statistics`, {
-        params: { start_date: startDate, end_date: endDate },
-      });
+      const response = await vehicleMileageAPI.getStatistics(startDate, endDate);
       setStatistics(response.data || null);
     } catch (err: any) {
       console.error('Failed to fetch statistics:', err);
@@ -125,9 +117,7 @@ const VehicleMileagePage: React.FC = () => {
     const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd');
     setLoading(true);
     try {
-      await axios.post(`${API_BASE_URL}/api/v1/vehicle-mileage/calculate`, {
-        target_date: yesterday,
-      });
+      await vehicleMileageAPI.calculate(yesterday);
       toast.success('주행거리 재계산 완료');
       fetchDailyMileages(selectedDate);
     } catch (err: any) {

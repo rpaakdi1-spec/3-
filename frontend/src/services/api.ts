@@ -179,3 +179,26 @@ export const mlDispatchAPI = {
   forceAssignUser: (userId: number, group: 'control' | 'treatment') => 
     api.post(`/ab-test/force-assign?user_id=${userId}&group=${group}`)
 }
+
+// Vehicle Mileage Management API
+export const vehicleMileageAPI = {
+  // 일별 주행거리 조회
+  getDaily: (targetDate: string) => 
+    api.get('/vehicle-mileage/daily', { params: { target_date: targetDate } }),
+  
+  // 주간 주행거리 조회 (최근 7일)
+  getWeekly: () => 
+    api.get('/vehicle-mileage/weekly'),
+  
+  // 월별 주행거리 조회
+  getMonthly: (year: number, month: number) => 
+    api.get('/vehicle-mileage/monthly', { params: { year, month } }),
+  
+  // 통계 조회
+  getStatistics: (startDate: string, endDate: string) => 
+    api.get('/vehicle-mileage/statistics', { params: { start_date: startDate, end_date: endDate } }),
+  
+  // 주행거리 재계산
+  calculate: (targetDate: string) => 
+    api.post('/vehicle-mileage/calculate', { target_date: targetDate }),
+}
