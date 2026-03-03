@@ -134,17 +134,17 @@ class VehicleMileageService:
                 next_log.latitude, next_log.longitude
             )
             
-            # 거리 보정 로직 (보수적 접근)
+            # 거리 보정 로직 (현실적 접근)
             if time_diff_minutes <= 2:
-                # 짧은 간격 (2분 이하): 하버사인 거리 × 1.2 (도로 굴곡 보정, 보수적)
-                adjusted_distance = distance * 1.2
+                # 짧은 간격 (2분 이하): 하버사인 거리 × 1.3 (도로 굴곡 보정)
+                adjusted_distance = distance * 1.3
             elif time_diff_minutes <= 5 and current_log.speed_kmh and current_log.speed_kmh > 10:
                 # 중간 간격 (5분 이하): 속도 기반과 하버사인 중 작은 값 사용
                 speed_based_distance = (current_log.speed_kmh * time_diff_minutes) / 60
-                adjusted_distance = min(distance * 1.2, speed_based_distance * 0.9)  # 속도 기반도 10% 할인
+                adjusted_distance = min(distance * 1.3, speed_based_distance * 0.95)  # 속도 기반 5% 할인
             else:
-                # 긴 간격 (5분 초과) 또는 저속/정지: 하버사인만 사용
-                adjusted_distance = distance * 1.2
+                # 긴 간격 (5분 초과) 또는 저속/정지: 하버사인 × 1.25 (보수적)
+                adjusted_distance = distance * 1.25
             
             # 비정상적으로 큰 거리는 제외 (시속 120km 기준으로 강화)
             max_reasonable_distance = (120 * time_diff_minutes) / 60
@@ -170,8 +170,21 @@ class VehicleMileageService:
         # 평균 속도 계산
         avg_speed = (total_speed / speed_count) if speed_count > 0 else 0.0
         
-        # 시간 계산 (1개 GPS 로그 = 약 1분 간격으로 가정)
-        total_driving_minutes = len(gps_logs)
+        # 시간 계산 (실제 시작~종료 시간 기반)
+        try:
+            first_time = datetime.strptime(
+                f"{gps_logs[0].bi_date}{gps_logs[0].bi_time}",
+                "%Y%m%d%H%M%S"
+            )
+            last_time = datetime.strptime(
+                f"{gps_logs[-1].bi_date}{gps_logs[-1].bi_time}",
+                "%Y%m%d%H%M%S"
+            )
+            actual_time_diff = (last_time - first_time).total_seconds() / 60
+            total_driving_minutes = max(len(gps_logs), int(actual_time_diff))
+        except:
+            total_driving_minutes = len(gps_logs)
+        
         engine_on_minutes = engine_on_count
         idle_minutes = idle_count
         
