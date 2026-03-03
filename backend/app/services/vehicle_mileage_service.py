@@ -8,6 +8,8 @@ from datetime import date, datetime, timedelta, timezone
 from typing import List, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_
+import requests
+import os
 
 from app.models.vehicle import Vehicle
 from app.models.uvis_gps import VehicleGPSLog
@@ -16,12 +18,17 @@ import math
 
 logger = logging.getLogger(__name__)
 
+# Naver API 설정
+NAVER_CLIENT_ID = os.getenv("NAVER_MAP_CLIENT_ID")
+NAVER_CLIENT_SECRET = os.getenv("NAVER_MAP_CLIENT_SECRET")
+
 
 class VehicleMileageService:
     """차량 주행거리 계산 서비스"""
     
     def __init__(self, db: Session):
         self.db = db
+        self.naver_api_call_count = 0  # API 호출 횟수 추적
     
     @staticmethod
     def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -50,6 +57,50 @@ class VehicleMileageService:
         
         distance = R * c
         return distance
+    
+    def get_road_distance(self, lat1: float, lon1: float, lat2: float, lon2: float) -> Optional[float]:
+        """
+        Naver Directions API로 실제 도로 거리 계산 (km)
+        
+        Args:
+            lat1, lon1: 시작점 위도/경도
+            lat2, lon2: 끝점 위도/경도
+            
+        Returns:
+            도로 거리 (km) 또는 None (API 실패 시)
+        """
+        if not NAVER_CLIENT_ID or not NAVER_CLIENT_SECRET:
+            logger.warning("⚠️ Naver API 키가 설정되지 않음")
+            return None
+        
+        try:
+            url = "https://naveropenapi.apigw.ntruss.com/map-direction/v1/driving"
+            headers = {
+                "X-NCP-APIGW-API-KEY-ID": NAVER_CLIENT_ID,
+                "X-NCP-APIGW-API-KEY": NAVER_CLIENT_SECRET,
+            }
+            params = {
+                "start": f"{lon1},{lat1}",  # 경도,위도 순서
+                "goal": f"{lon2},{lat2}",
+                "option": "trafast"  # 실시간 빠른길
+            }
+            
+            response = requests.get(url, headers=headers, params=params, timeout=3)
+            
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("code") == 0 and data.get("route"):
+                    # trafast 경로의 총 거리 (미터) → km 변환
+                    distance_m = data["route"]["trafast"][0]["summary"]["distance"]
+                    self.naver_api_call_count += 1
+                    return distance_m / 1000.0
+            
+            logger.debug(f"⚠️ Naver API 응답 오류: {response.status_code}")
+            return None
+            
+        except Exception as e:
+            logger.debug(f"⚠️ Naver API 호출 실패: {e}")
+            return None
     
     def calculate_daily_mileage(
         self,
@@ -128,23 +179,51 @@ class VehicleMileageService:
             except:
                 time_diff_minutes = 1  # 기본값
             
-            # 거리 계산
-            distance = self.haversine_distance(
+            # 거리 계산: 하이브리드 방식 (Haversine + Naver API)
+            haversine_dist = self.haversine_distance(
                 current_log.latitude, current_log.longitude,
                 next_log.latitude, next_log.longitude
             )
             
-            # 거리 보정 로직 (현실적 접근)
+            # 거리 보정 로직 (하이브리드 접근)
             if time_diff_minutes <= 2:
-                # 짧은 간격 (2분 이하): 하버사인 거리 × 1.3 (도로 굴곡 보정)
-                adjusted_distance = distance * 1.3
-            elif time_diff_minutes <= 5 and current_log.speed_kmh and current_log.speed_kmh > 10:
-                # 중간 간격 (5분 이하): 속도 기반과 하버사인 중 작은 값 사용
-                speed_based_distance = (current_log.speed_kmh * time_diff_minutes) / 60
-                adjusted_distance = min(distance * 1.3, speed_based_distance * 0.95)  # 속도 기반 5% 할인
+                # 짧은 간격 (2분 이하): Haversine × 1.3 (빠르고 충분히 정확)
+                adjusted_distance = haversine_dist * 1.3
+                
+            elif time_diff_minutes <= 10:
+                # 중간 간격 (2~10분): 도로 거리 API 시도 (정확도 향상)
+                road_distance = self.get_road_distance(
+                    current_log.latitude, current_log.longitude,
+                    next_log.latitude, next_log.longitude
+                )
+                
+                if road_distance:
+                    # API 성공: 실제 도로 거리 사용
+                    adjusted_distance = road_distance
+                elif current_log.speed_kmh and current_log.speed_kmh > 10:
+                    # API 실패 + 속도 있음: 속도 기반 계산
+                    speed_based_distance = (current_log.speed_kmh * time_diff_minutes) / 60
+                    adjusted_distance = min(haversine_dist * 1.3, speed_based_distance * 0.95)
+                else:
+                    # API 실패 + 속도 없음: Haversine × 1.3
+                    adjusted_distance = haversine_dist * 1.3
+                    
             else:
-                # 긴 간격 (5분 초과) 또는 저속/정지: 하버사인 × 1.25 (보수적)
-                adjusted_distance = distance * 1.25
+                # 긴 간격 (10분+): 도로 거리 API 우선 (필수)
+                road_distance = self.get_road_distance(
+                    current_log.latitude, current_log.longitude,
+                    next_log.latitude, next_log.longitude
+                )
+                
+                if road_distance:
+                    # API 성공: 실제 도로 거리 사용
+                    adjusted_distance = road_distance
+                elif current_log.speed_kmh and current_log.speed_kmh > 20:
+                    # API 실패 + 고속 주행: 속도 기반 계산
+                    adjusted_distance = (current_log.speed_kmh * time_diff_minutes) / 60
+                else:
+                    # API 실패 + 저속/정지: Haversine × 1.25 (보수적)
+                    adjusted_distance = haversine_dist * 1.25
             
             # 비정상적으로 큰 거리는 제외 (시속 120km 기준으로 강화)
             max_reasonable_distance = (120 * time_diff_minutes) / 60
@@ -226,7 +305,7 @@ class VehicleMileageService:
             mileage.end_longitude = end_log.longitude
             mileage.end_time = end_time
             mileage.is_calculated = True
-            mileage.calculation_method = "haversine_speed_hybrid"
+            mileage.calculation_method = "hybrid_road_api"
             logger.info(f"🔄 기존 레코드 업데이트")
         else:
             # 새 레코드 생성
@@ -247,7 +326,7 @@ class VehicleMileageService:
                 end_longitude=end_log.longitude,
                 end_time=end_time,
                 is_calculated=True,
-                calculation_method="haversine_speed_hybrid"
+                calculation_method="hybrid_road_api"
             )
             self.db.add(mileage)
             logger.info(f"✨ 새 레코드 생성")
@@ -255,7 +334,7 @@ class VehicleMileageService:
         self.db.commit()
         self.db.refresh(mileage)
         
-        logger.info(f"✅ 주행거리 계산 완료: {total_distance:.2f}km, 평균 속도: {avg_speed:.1f}km/h")
+        logger.info(f"✅ 주행거리 계산 완료: {total_distance:.2f}km, 평균 속도: {avg_speed:.1f}km/h, Naver API 호출: {self.naver_api_call_count}회")
         
         return mileage
     
