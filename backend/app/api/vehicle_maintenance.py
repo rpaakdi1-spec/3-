@@ -133,8 +133,7 @@ def get_maintenance_records(
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
     limit: int = Query(50, le=200),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    db: Session = Depends(get_db)
 ):
     """정비 기록 목록 조회"""
     from app.models.vehicle_maintenance import VehicleMaintenanceRecord
@@ -158,8 +157,7 @@ def get_maintenance_records(
 @router.get("/maintenance/records/{record_id}", tags=["Maintenance"])
 def get_maintenance_record(
     record_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    db: Session = Depends(get_db)
 ):
     """정비 기록 상세 조회"""
     from app.models.vehicle_maintenance import VehicleMaintenanceRecord
@@ -254,8 +252,7 @@ def add_part_usage(
 @router.get("/maintenance/records/{record_id}/parts", tags=["Maintenance"])
 def get_maintenance_parts(
     record_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    db: Session = Depends(get_db)
 ):
     """정비 부품 사용 내역 조회"""
     from app.models.vehicle_maintenance import MaintenancePartUsage
@@ -294,8 +291,7 @@ def create_maintenance_schedule(
 def get_maintenance_schedules(
     vehicle_id: Optional[int] = None,
     is_overdue: Optional[bool] = None,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    db: Session = Depends(get_db)
 ):
     """정비 스케줄 목록 조회"""
     from app.models.vehicle_maintenance import MaintenanceSchedule
@@ -355,8 +351,7 @@ def get_parts(
     category: Optional[PartCategory] = None,
     low_stock: bool = False,
     search: Optional[str] = None,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    db: Session = Depends(get_db)
 ):
     """부품 목록 조회"""
     from app.models.vehicle_maintenance import VehiclePart
@@ -385,8 +380,7 @@ def get_parts(
 @router.get("/maintenance/parts/{part_id}", tags=["Parts Inventory"])
 def get_part(
     part_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    db: Session = Depends(get_db)
 ):
     """부품 상세 조회"""
     from app.models.vehicle_maintenance import VehiclePart
@@ -441,8 +435,7 @@ def update_part_stock(
 def get_part_usage_history(
     part_id: int,
     limit: int = Query(50, le=200),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    db: Session = Depends(get_db)
 ):
     """부품 사용 이력 조회"""
     service = PartInventoryService(db)
@@ -479,8 +472,7 @@ def create_inspection(
 def get_inspections(
     vehicle_id: Optional[int] = None,
     expiring_soon: Optional[int] = None,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    db: Session = Depends(get_db)
 ):
     """차량 검사 기록 조회"""
     from app.models.vehicle_maintenance import VehicleInspection
@@ -508,8 +500,7 @@ def get_maintenance_cost_summary(
     vehicle_id: Optional[int] = None,
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    db: Session = Depends(get_db)
 ):
     """정비 비용 요약"""
     service = MaintenanceService(db)
@@ -521,8 +512,7 @@ def get_maintenance_cost_summary(
 def get_vehicle_maintenance_history(
     vehicle_id: int,
     limit: int = Query(50, le=200),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    db: Session = Depends(get_db)
 ):
     """차량별 정비 이력"""
     service = MaintenanceService(db)
@@ -536,8 +526,7 @@ def get_vehicle_maintenance_history(
 
 @router.get("/maintenance/alerts/overdue", tags=["Alerts"])
 def get_overdue_maintenance_alerts(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    db: Session = Depends(get_db)
 ):
     """연체된 정비 알림 조회"""
     alert_service = MaintenanceAlertService(db)
@@ -548,8 +537,7 @@ def get_overdue_maintenance_alerts(
 @router.get("/maintenance/alerts/upcoming", tags=["Alerts"])
 def get_upcoming_maintenance_alerts(
     days_ahead: int = Query(7, ge=1, le=90),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    db: Session = Depends(get_db)
 ):
     """다가오는 정비 알림 조회"""
     alert_service = MaintenanceAlertService(db)
@@ -560,8 +548,7 @@ def get_upcoming_maintenance_alerts(
 @router.get("/maintenance/alerts/inspections", tags=["Alerts"])
 def get_inspection_alerts(
     days_ahead: int = Query(30, ge=1, le=90),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    db: Session = Depends(get_db)
 ):
     """만료 예정 검사 알림 조회"""
     alert_service = MaintenanceAlertService(db)
@@ -571,8 +558,7 @@ def get_inspection_alerts(
 
 @router.get("/maintenance/alerts/parts", tags=["Alerts"])
 def get_low_stock_alerts(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    db: Session = Depends(get_db)
 ):
     """부품 재고 부족 알림 조회"""
     alert_service = MaintenanceAlertService(db)
@@ -593,8 +579,7 @@ def send_all_maintenance_alerts(
 
 @router.get("/maintenance/alerts/dashboard", tags=["Alerts"])
 def get_maintenance_alerts_dashboard(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    db: Session = Depends(get_db)
 ):
     """정비 알림 대시보드 요약"""
     alert_service = MaintenanceAlertService(db)

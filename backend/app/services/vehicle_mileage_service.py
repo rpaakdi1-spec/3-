@@ -185,45 +185,43 @@ class VehicleMileageService:
                 next_log.latitude, next_log.longitude
             )
             
-            # 거리 보정 로직 (하이브리드 접근)
-            if time_diff_minutes <= 2:
-                # 짧은 간격 (2분 이하): Haversine × 1.3 (빠르고 충분히 정확)
-                adjusted_distance = haversine_dist * 1.3
-                
-            elif time_diff_minutes <= 10:
-                # 중간 간격 (2~10분): 도로 거리 API 시도 (정확도 향상)
-                road_distance = self.get_road_distance(
-                    current_log.latitude, current_log.longitude,
-                    next_log.latitude, next_log.longitude
-                )
-                
-                if road_distance:
-                    # API 성공: 실제 도로 거리 사용
-                    adjusted_distance = road_distance
-                elif current_log.speed_kmh and current_log.speed_kmh > 10:
-                    # API 실패 + 속도 있음: 속도 기반 계산
-                    speed_based_distance = (current_log.speed_kmh * time_diff_minutes) / 60
-                    adjusted_distance = min(haversine_dist * 1.3, speed_based_distance * 0.95)
-                else:
-                    # API 실패 + 속도 없음: Haversine × 1.3
+            # 거리 보정 로직 (최적화: API 호출 최소화)
+            # 전략: 직선거리가 20km 이하일 경우 Haversine × 1.3으로 충분히 정확
+            # 20km 초과시에만 Naver API 호출
+            
+            if haversine_dist <= 20.0:
+                # 직선거리 20km 이하: Haversine × 1.3 (도로 거리 근사값)
+                # 시간 간격에 따라 보정 계수 조정
+                if time_diff_minutes <= 5:
                     adjusted_distance = haversine_dist * 1.3
-                    
+                elif time_diff_minutes <= 15:
+                    # 중간 간격: 속도 데이터 활용
+                    if current_log.speed_kmh and current_log.speed_kmh > 10:
+                        speed_based_distance = (current_log.speed_kmh * time_diff_minutes) / 60
+                        adjusted_distance = min(haversine_dist * 1.35, speed_based_distance * 0.95)
+                    else:
+                        adjusted_distance = haversine_dist * 1.35
+                else:
+                    # 긴 간격: 보수적 계산
+                    if current_log.speed_kmh and current_log.speed_kmh > 20:
+                        adjusted_distance = (current_log.speed_kmh * time_diff_minutes) / 60
+                    else:
+                        adjusted_distance = haversine_dist * 1.4
             else:
-                # 긴 간격 (10분+): 도로 거리 API 우선 (필수)
+                # 직선거리 20km 초과: Naver API 사용 (정확도 필요)
                 road_distance = self.get_road_distance(
                     current_log.latitude, current_log.longitude,
                     next_log.latitude, next_log.longitude
                 )
                 
                 if road_distance:
-                    # API 성공: 실제 도로 거리 사용
                     adjusted_distance = road_distance
                 elif current_log.speed_kmh and current_log.speed_kmh > 20:
-                    # API 실패 + 고속 주행: 속도 기반 계산
+                    # API 실패 + 속도 있음: 속도 기반 계산
                     adjusted_distance = (current_log.speed_kmh * time_diff_minutes) / 60
                 else:
-                    # API 실패 + 저속/정지: Haversine × 1.25 (보수적)
-                    adjusted_distance = haversine_dist * 1.25
+                    # API 실패: Haversine × 1.3 (보수적)
+                    adjusted_distance = haversine_dist * 1.3
             
             # 비정상적으로 큰 거리는 제외 (시속 120km 기준으로 강화)
             max_reasonable_distance = (120 * time_diff_minutes) / 60
@@ -343,6 +341,7 @@ class VehicleMileageService:
         모든 차량의 어제 주행거리 계산
         
         배치 작업으로 매일 자동 실행
+        최적화: API 호출 횟수 추적 및 로깅
         
         Returns:
             계산된 VehicleDailyMileage 리스트
@@ -352,17 +351,23 @@ class VehicleMileageService:
         
         vehicles = self.db.query(Vehicle).filter(Vehicle.is_active == True).all()
         results = []
+        total_api_calls = 0
         
         for vehicle in vehicles:
             try:
+                # API 호출 카운터 초기화
+                self.naver_api_call_count = 0
+                
                 mileage = self.calculate_daily_mileage(vehicle.id, yesterday)
                 if mileage:
                     results.append(mileage)
+                    total_api_calls += self.naver_api_call_count
+                    logger.info(f"✅ 차량 {vehicle.plate_number}: {mileage.total_distance_km:.1f}km (API 호출: {self.naver_api_call_count}회)")
             except Exception as e:
                 logger.error(f"❌ 차량 {vehicle.id} ({vehicle.plate_number}) 계산 실패: {e}")
                 continue
         
-        logger.info(f"✅ 총 {len(results)}개 차량 주행거리 계산 완료")
+        logger.info(f"✅ 총 {len(results)}개 차량 주행거리 계산 완료 (총 API 호출: {total_api_calls}회)")
         return results
     
     def get_vehicle_mileage_summary(

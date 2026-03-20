@@ -11,6 +11,7 @@ class TemperatureZone(str, Enum):
     FROZEN = "냉동"  # -18°C ~ -25°C
     REFRIGERATED = "냉장"  # 0°C ~ 6°C
     AMBIENT = "상온"  # 온도 제어 없음
+    MIXED = "혼적"  # 냉동+냉장 혼적
 
 
 class OrderStatus(str, Enum):
@@ -29,8 +30,8 @@ class Order(Base, IDMixin, TimestampMixin):
     
     # 기본 정보
     order_number: Mapped[str] = mapped_column(String(50), unique=True, index=True, nullable=False, comment="주문번호")
-    order_date: Mapped[date] = mapped_column(Date, nullable=False, comment="주문일자")
-    delivery_date: Mapped[date] = mapped_column(Date, nullable=False, comment="배송일자")
+    order_date: Mapped[date] = mapped_column(Date, nullable=False, index=True, comment="주문일자")
+    delivery_date: Mapped[date] = mapped_column(Date, nullable=False, index=True, comment="배송일자")
     
     # 온도대
     temperature_zone: Mapped[TemperatureZone] = mapped_column(
@@ -91,7 +92,8 @@ class Order(Base, IDMixin, TimestampMixin):
     # 상태
     status: Mapped[OrderStatus] = mapped_column(
         SQLEnum(OrderStatus), 
-        default=OrderStatus.PENDING, 
+        default=OrderStatus.PENDING,
+        index=True,
         comment="주문 상태"
     )
     

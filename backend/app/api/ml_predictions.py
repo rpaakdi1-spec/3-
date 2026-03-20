@@ -78,7 +78,7 @@ def train_ml_model(
     }
 
 
-@router.get("/ml/predictions", tags=["ML Predictions"], response_model=List[PredictionResponse])
+@router.get("/ml/predictions", tags=["ML Predictions"])
 def get_all_predictions(
     risk_level: Optional[str] = None,
     db: Session = Depends(get_db),
@@ -90,19 +90,17 @@ def get_all_predictions(
     - 활성 차량 전체 예측
     - 위험도 기준 필터링
     - 위험도 순으로 정렬
+    - 모델 미학습 시 빈 목록 반환 (400 대신)
     """
     try:
         ml_model = get_ml_model()
         
-        # 모델 로드 시도
+        # 모델 로드 시도 - 미학습 시 빈 목록 반환 (에러 아님)
         if not ml_model.model_trained:
             try:
                 ml_model.load_model()
             except:
-                raise HTTPException(
-                    status_code=400,
-                    detail="모델이 학습되지 않았습니다. /ml/train 엔드포인트를 먼저 호출하세요"
-                )
+                return []  # 400 대신 빈 목록 반환
         
         predictions = ml_model.predict_all_vehicles(db)
         
@@ -139,14 +137,14 @@ def get_vehicle_prediction(
     try:
         ml_model = get_ml_model()
         
-        # 모델 로드
+        # 모델 로드 - 미학습 시 404 반환
         if not ml_model.model_trained:
             try:
                 ml_model.load_model()
             except:
                 raise HTTPException(
-                    status_code=400,
-                    detail="모델이 학습되지 않았습니다"
+                    status_code=404,
+                    detail="모델이 학습되지 않았습니다. /ml/train을 먼저 호출하세요"
                 )
         
         prediction = ml_model.predict_failure_probability(vehicle, db)

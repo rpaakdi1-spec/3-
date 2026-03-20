@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { X, FileText, MapPin, Calendar, CheckCircle2, AlertCircle } from 'lucide-react';
+import { X, FileText, MapPin, Calendar, CheckCircle2, AlertCircle, BookOpen } from 'lucide-react';
 import Button from '../common/Button';
 import Card from '../common/Card';
 import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
+import DispatchTemplateSelector from './DispatchTemplateSelector';
 
 interface BatchDispatchModalProps {
   isOpen: boolean;
@@ -22,8 +23,52 @@ const BatchDispatchModal: React.FC<BatchDispatchModalProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [parsedOrders, setParsedOrders] = useState<any[]>([]);
   const [showPreview, setShowPreview] = useState(false);
+  const [showTemplateSelector, setShowTemplateSelector] = useState(false);
 
   if (!isOpen) return null;
+
+  const handleLoadTemplate = (template: any) => {
+    const dispatches: any[] = template.template_data?.dispatches || [];
+
+    // 헤더: 날짜 + 거래처명만 표기 (템플릿 이름 제외)
+    const today = new Date();
+    const month = today.getMonth() + 1;
+    const day = today.getDate();
+    const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+    const weekday = weekdays[today.getDay()];
+
+    const header = `**${month}/${day}(${weekday})${template.client_name}**`;
+
+    // 배차 항목 전체 사용 — 형식: "시간 / 온도 / 팔렛수"
+    const dispatchLines = dispatches.map((d: any) => {
+      const parts: string[] = [];
+
+      if (d.time) parts.push(d.time);
+      if (d.temperature) parts.push(d.temperature);
+      if (d.pallet_count) parts.push(`${d.pallet_count}p`);
+      if (d.notes) parts.push(d.notes);
+
+      return parts.join(' / ');
+    }).join('\n');
+
+    const formattedText = dispatchLines
+      ? `${header}\n${dispatchLines}`
+      : header;
+
+    setDispatchText(formattedText);
+
+    // 기본 주소 설정
+    if (template.template_data?.default_pickup) {
+      setPickupAddress(template.template_data.default_pickup);
+    }
+    if (template.template_data?.default_delivery) {
+      setDeliveryAddress(template.template_data.default_delivery);
+    }
+
+    setShowTemplateSelector(false);
+    toast.success(`"${template.name}" 템플릿을 불러왔습니다 (${dispatches.length}건)`);
+  };
+
 
   const handleParse = async () => {
     if (!dispatchText.trim()) {
@@ -152,6 +197,17 @@ const BatchDispatchModal: React.FC<BatchDispatchModalProps> = ({
           <>
             {/* Input Section */}
             <div className="space-y-4">
+              {/* 템플릿 불러오기 버튼 */}
+              <div className="flex justify-end">
+                <button
+                  onClick={() => setShowTemplateSelector(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                >
+                  <BookOpen className="w-4 h-4" />
+                  <span>템플릿 불러오기</span>
+                </button>
+              </div>
+
               {/* 예시 */}
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <h3 className="font-semibold text-blue-900 mb-2 flex items-center gap-2">
@@ -276,12 +332,16 @@ const BatchDispatchModal: React.FC<BatchDispatchModalProps> = ({
                               ? 'bg-blue-100 text-blue-700'
                               : order.temperature_zone === '냉장' || order.temperature_zone === 'REFRIGERATED'
                               ? 'bg-green-100 text-green-700'
+                              : order.temperature_zone === '혼적' || order.temperature_zone === 'MIXED'
+                              ? 'bg-purple-100 text-purple-700'
                               : 'bg-gray-100 text-gray-700'
                           }`}>
                             {order.temperature_zone === 'FROZEN' ? '냉동' : 
                              order.temperature_zone === 'REFRIGERATED' ? '냉장' :
+                             order.temperature_zone === 'MIXED' ? '혼적' :
                              order.temperature_zone === '냉동' ? '냉동' :
-                             order.temperature_zone === '냉장' ? '냉장' : '상온'}
+                             order.temperature_zone === '냉장' ? '냉장' :
+                             order.temperature_zone === '혼적' ? '혼적' : '상온'}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-600">
@@ -325,6 +385,14 @@ const BatchDispatchModal: React.FC<BatchDispatchModalProps> = ({
           </>
         )}
       </Card>
+
+      {/* 템플릿 선택 모달 */}
+      {showTemplateSelector && (
+        <DispatchTemplateSelector
+          onSelectTemplate={handleLoadTemplate}
+          onClose={() => setShowTemplateSelector(false)}
+        />
+      )}
     </div>
   );
 };

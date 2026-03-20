@@ -96,10 +96,10 @@ async def report_emergency(
         
         affected_dispatches.append(AffectedDispatch(
             dispatch_id=dispatch.dispatch_number,
-            order_number=dispatch.order.order_number if dispatch.order else "",
+            order_number=dispatch.routes[0].order.order_number if dispatch.routes and dispatch.routes[0].order else "",
             pickup_time=dispatch.scheduled_start_time.strftime("%H:%M") if dispatch.scheduled_start_time else "",
             delay_estimate=delay_estimate,
-            customer_name=dispatch.order.pickup_client.name if dispatch.order and dispatch.order.pickup_client else ""
+            customer_name=dispatch.routes[0].order.pickup_client.name if dispatch.routes and dispatch.routes[0].order and dispatch.routes[0].order.pickup_client else ""
         ))
     
     # 4. 대체 차량 추천
@@ -196,7 +196,7 @@ async def reassign_dispatches(
         
         reassigned.append(ReassignedDispatch(
             dispatch_id=dispatch.dispatch_number,
-            order_number=dispatch.order.order_number if dispatch.order else "",
+            order_number=dispatch.routes[0].order.order_number if dispatch.routes and dispatch.routes[0].order else "",
             original_vehicle=original_vehicle,
             new_vehicle=replacement_vehicle.plate_number,
             customer_notified=request.notify_customers

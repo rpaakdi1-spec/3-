@@ -29,7 +29,7 @@ async def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ) -> User:
-    """현재 로그인한 사용자 조회"""
+    """현재 로그인한 사용자 조회 (Redis 캐시 300초)"""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="인증 정보를 확인할 수 없습니다",
@@ -44,8 +44,31 @@ async def get_current_user(
     username: str = payload.get("sub")
     if username is None:
         raise credentials_exception
-    
-    user = db.query(User).filter(User.username == username).first()
+
+    # Redis 캐시에서 유저 정보 조회 (DB 쿼리 절약)
+    import hashlib, json
+    token_hash = hashlib.md5(token.encode()).hexdigest()[:16]
+    user_cache_key = f"auth:user:{token_hash}"
+    cached_user_id = None
+
+    try:
+        from app.services.cache_service import cache_service
+        cached_user_id = cache_service.get(user_cache_key)
+    except Exception:
+        pass
+
+    if cached_user_id:
+        user = db.query(User).filter(User.id == cached_user_id).first()
+    else:
+        user = db.query(User).filter(User.username == username).first()
+        # 캐시에 유저 ID 저장 (5분)
+        try:
+            from app.services.cache_service import cache_service
+            if user:
+                cache_service.set(user_cache_key, user.id, ttl=300)
+        except Exception:
+            pass
+
     if user is None:
         raise credentials_exception
     

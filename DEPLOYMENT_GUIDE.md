@@ -1,313 +1,275 @@
-# 🚀 AI 배차 모니터링 대시보드 배포 가이드
+# 📦 CSV 템플릿 관리 시스템 배포 가이드
 
-## 📋 목차
-1. [자동 배포 (권장)](#자동-배포)
-2. [수동 배포](#수동-배포)
-3. [Docker 배포](#docker-배포)
-4. [확인 및 테스트](#확인-및-테스트)
-5. [문제 해결](#문제-해결)
+## ✅ 생성된 파일
 
----
+```
+/home/user/webapp/
+├── csv_to_sql.py          # CSV → SQL 변환 스크립트
+├── templates.csv          # 샘플 템플릿 데이터
+├── apply_templates.sh     # 템플릿 적용 스크립트
+├── TEMPLATES_README.md    # 사용자 가이드
+└── DEPLOYMENT_GUIDE.md    # 이 문서
+```
 
-## 🎯 자동 배포 (권장)
+## 🚀 서버 배포 방법
 
-서버에서 다음 명령어를 실행하세요:
+### 1️⃣ 파일을 서버로 복사
+
+```bash
+# 로컬에서 실행
+scp csv_to_sql.py templates.csv apply_templates.sh TEMPLATES_README.md \
+    root@139.150.11.99:/root/uvis/
+```
+
+또는 한 번에 tar로 묶어서:
+
+```bash
+cd /home/user/webapp
+tar -czf template_manager.tar.gz csv_to_sql.py templates.csv apply_templates.sh TEMPLATES_README.md
+scp template_manager.tar.gz root@139.150.11.99:/root/uvis/
+ssh root@139.150.11.99 'cd /root/uvis && tar -xzf template_manager.tar.gz'
+```
+
+### 2️⃣ 서버에서 실행 권한 부여
+
+```bash
+ssh root@139.150.11.99
+cd /root/uvis
+chmod +x csv_to_sql.py apply_templates.sh
+```
+
+### 3️⃣ 템플릿 적용
 
 ```bash
 cd /root/uvis
-chmod +x DEPLOY_DISPATCH_MONITORING.sh
-./DEPLOY_DISPATCH_MONITORING.sh
+bash apply_templates.sh
+# 또는 직접 적용:
+python3 csv_to_sql.py templates.csv | docker compose exec -T db psql -U uvis_user -d uvis_db
 ```
 
-이 스크립트는 자동으로:
-- ✅ Git pull로 최신 코드 가져오기
-- ✅ 백엔드 재시작
-- ✅ 프론트엔드 빌드
-- ✅ 빌드 파일 배포
-- ✅ 헬스 체크
+## 📝 현재 템플릿 목록
 
----
+| 템플릿명 | 상차거래처 | 하차거래처 | 카테고리 | 시간 | 팔레트 | 온도 | 하차완료 |
+|---------|-----------|-----------|---------|------|--------|------|----------|
+| 김제 한우물 → 오산센터 | 한우물 | 오산동원 | 새벽배차 | 06:00 | 16p | 냉동 | 10:00 |
+| 정읍 부엉이 → 백암 웰빙 | 정읍 부엉이 | 백암 웰빙 | 아침배차 | 08:30 | 16p | 냉동 | 13:30 |
+| 목우촌 오후배차 1 | 목우촌 | 목우촌 안성센터 | 오후배차 | 13:00 | 18p | 냉동 | 17:00 |
 
-## 🔧 수동 배포
+## 🧪 테스트 절차
 
-### Step 1: Git Pull
+### 1. CSV → SQL 변환 테스트
+
 ```bash
-cd /root/uvis
-git pull origin main
+python3 csv_to_sql.py templates.csv > /tmp/test.sql
+cat /tmp/test.sql | head -n 50
 ```
 
-### Step 2: 백엔드 재시작
+### 2. 데이터베이스 확인
 
-#### Docker 사용 시:
 ```bash
-cd /root/uvis
-docker-compose restart backend
-
-# 로그 확인
-docker-compose logs -f backend
+docker compose exec -T db psql -U uvis_user -d uvis_db -c "
+SELECT 
+    id,
+    client_name AS 거래처,
+    name AS 템플릿명,
+    category AS 카테고리,
+    template_data->'dispatches'->0->>'time' AS 시간,
+    template_data->'dispatches'->0->>'pallet_count' AS 팔레트,
+    template_data->'dispatches'->0->>'temperature' AS 온도
+FROM dispatch_form_templates
+ORDER BY client_name, name;"
 ```
 
-#### PM2 사용 시:
+### 3. 브라우저 테스트
+
+1. http://139.150.11.99/orders 접속
+2. **일괄 등록** 버튼 클릭
+3. **템플릿 불러오기** 선택
+4. 거래처 선택: **한우물**
+5. 템플릿 선택: **김제 한우물 → 오산센터**
+6. 자동 입력 확인:
+   - 상차지: `전북 김제시 용지면 부교리 87-10`
+   - 하차지: `경기도 화성시 정남면 가장로 285`
+   - 배차 정보: `**3/5(목)한우물 새벽배차**\n06:00 / 냉동16p`
+7. **파싱하기** 클릭
+8. 파싱 결과 확인:
+   - 날짜: 2026-03-06
+   - 시간: 06:00
+   - 품목: 냉동식품 11톤
+   - 팔레트: 16p
+   - 온도: 냉동
+   - 상차지: 전북 김제시 용지면 부교리 87-10 (좌표 표시)
+   - 하차지: 경기도 화성시 정남면 가장로 285 (좌표 표시)
+9. **1건 등록하기** 클릭
+10. 성공 메시지 확인
+11. **AI 배차** 테스트:
+    - 방금 등록한 배차 선택
+    - **AI 배차** 버튼 클릭
+    - 거리 약 230km, 예상 시간 3-4시간 표시 확인
+    - 적합 차량 목록 표시 확인
+
+## 📊 새 템플릿 추가 예시
+
+### templates.csv에 행 추가:
+
+```csv
+김제 한우물 → 부산센터,한우물,부산 냉장,아침배차,08:00,18,냉장,전북 김제시 용지면 부교리 87-10,35.803456,126.878901,부산광역시 강서구 명지동 123,35.123456,129.012345,13:00,2공장
+```
+
+### 적용:
+
 ```bash
-pm2 restart uvis-backend
-pm2 logs uvis-backend
+bash apply_templates.sh
 ```
 
-#### systemd 사용 시:
+## 🔧 유지보수 명령어
+
+### 전체 템플릿 조회
+
 ```bash
-sudo systemctl restart uvis-backend
-sudo systemctl status uvis-backend
+docker compose exec -T db psql -U uvis_user -d uvis_db -c "
+SELECT id, client_name, name, category
+FROM dispatch_form_templates
+ORDER BY client_name, name;"
 ```
 
-### Step 3: 프론트엔드 빌드
+### 특정 템플릿 상세 조회
+
 ```bash
-cd /root/uvis/frontend
-npm run build
+docker compose exec -T db psql -U uvis_user -d uvis_db -c "
+SELECT 
+    name,
+    client_name,
+    category,
+    description,
+    template_data::text,
+    is_active,
+    created_at
+FROM dispatch_form_templates
+WHERE client_name = '한우물'
+  AND name = '김제 한우물 → 오산센터';"
 ```
 
-### Step 4: 프론트엔드 배포
+### 템플릿 삭제
 
-#### Docker 사용 시:
 ```bash
-# 기존 파일 삭제
-docker exec uvis-frontend rm -rf /usr/share/nginx/html/*
-
-# 새 빌드 복사
-docker cp dist/. uvis-frontend:/usr/share/nginx/html/
-
-# 재시작
-docker-compose restart frontend
+docker compose exec -T db psql -U uvis_user -d uvis_db -c "
+DELETE FROM dispatch_form_templates
+WHERE name = '김제 한우물 → 오산센터'
+  AND client_name = '한우물';"
 ```
 
-#### Nginx 직접 사용 시:
+### 템플릿 비활성화
+
 ```bash
-# 빌드 파일 복사
-sudo cp -r dist/* /var/www/html/
-
-# Nginx 재시작
-sudo systemctl reload nginx
+docker compose exec -T db psql -U uvis_user -d uvis_db -c "
+UPDATE dispatch_form_templates
+SET is_active = false
+WHERE name = '김제 한우물 → 오산센터'
+  AND client_name = '한우물';"
 ```
 
----
+### 거래처 좌표 확인
 
-## 🐳 Docker 배포 (상세)
-
-### 1. Docker Compose 확인
 ```bash
-cd /root/uvis
-cat docker-compose.yml | grep -A 5 backend
-cat docker-compose.yml | grep -A 5 frontend
+docker compose exec -T db psql -U uvis_user -d uvis_db -c "
+SELECT name, client_type, address, latitude, longitude, geocoded
+FROM clients
+WHERE name IN ('한우물', '오산동원', '정읍 부엉이', '백암 웰빙')
+ORDER BY name;"
 ```
 
-### 2. 컨테이너 상태 확인
+## 🐛 트러블슈팅
+
+### 문제: 템플릿이 로드되지 않음
+
 ```bash
-docker-compose ps
+# 1. 데이터베이스 확인
+docker compose exec -T db psql -U uvis_user -d uvis_db -c "
+SELECT name, client_name, is_active FROM dispatch_form_templates;"
+
+# 2. 백엔드 로그 확인
+docker compose logs backend --tail=50 | grep -E "template|템플릿"
+
+# 3. 브라우저 DevTools Network 탭 확인
+# GET /api/v1/dispatch-form/templates 응답 확인
 ```
 
-### 3. 전체 재시작 (필요시)
+### 문제: 파싱이 0건으로 나옴
+
 ```bash
-# 모든 컨테이너 재시작
-docker-compose restart
+# 1. 템플릿 데이터 확인
+docker compose exec -T db psql -U uvis_user -d uvis_db -c "
+SELECT 
+    name,
+    template_data->'dispatches'->0->>'vehicle_type' AS vehicle_type
+FROM dispatch_form_templates
+WHERE client_name = '한우물';"
 
-# 또는 개별 재시작
-docker-compose restart backend
-docker-compose restart frontend
+# 예상 결과: vehicle_type = "냉동16팔레트"
+
+# 2. 파싱 API 직접 테스트
+curl -X POST http://localhost/api/v1/orders/parse-batch-dispatch \
+  -H "Content-Type: application/json" \
+  -d '{
+    "text":"**3/5(목)한우물 새벽배차**\n06:00 / 냉동16p",
+    "pickup_address":"전북 김제시 용지면 부교리 87-10",
+    "delivery_address":"경기도 화성시 정남면 가장로 285"
+  }' | python3 -m json.tool
 ```
 
-### 4. 로그 확인
+### 문제: AI 배차 시 좌표 없음 오류
+
 ```bash
-# 실시간 로그
-docker-compose logs -f backend
-docker-compose logs -f frontend
+# 1. 거래처 좌표 확인
+docker compose exec -T db psql -U uvis_user -d uvis_db -c "
+SELECT name, address, latitude, longitude, geocoded
+FROM clients
+WHERE name = '한우물' OR name = '오산동원';"
 
-# 최근 100줄
-docker-compose logs --tail=100 backend
+# 2. 주문 좌표 확인
+docker compose exec -T db psql -U uvis_user -d uvis_db -c "
+SELECT 
+    id,
+    order_number,
+    pickup_address,
+    pickup_latitude,
+    pickup_longitude,
+    delivery_address,
+    delivery_latitude,
+    delivery_longitude
+FROM orders
+ORDER BY created_at DESC
+LIMIT 5;"
+
+# 3. NULL 좌표 업데이트
+docker compose exec -T db psql -U uvis_user -d uvis_db <<EOF
+UPDATE orders 
+SET pickup_latitude = 35.803456, pickup_longitude = 126.878901
+WHERE pickup_address LIKE '%부교리%' 
+  AND (pickup_latitude IS NULL OR pickup_longitude IS NULL);
+
+UPDATE orders 
+SET delivery_latitude = 37.156789, delivery_longitude = 127.012345
+WHERE delivery_address LIKE '%가장로 285%'
+  AND (delivery_latitude IS NULL OR delivery_longitude IS NULL);
+EOF
 ```
-
----
-
-## ✅ 확인 및 테스트
-
-### 1. 백엔드 API 테스트
-```bash
-# 헬스 체크
-curl http://139.150.11.99/api/v1/health
-
-# 실시간 통계
-curl http://139.150.11.99/api/v1/dispatch/monitoring/live-stats
-
-# Agent 성능
-curl http://139.150.11.99/api/v1/dispatch/monitoring/agent-performance?days=30
-
-# 최고 성과 차량
-curl http://139.150.11.99/api/v1/dispatch/monitoring/top-vehicles?limit=10
-```
-
-### 2. 프론트엔드 접속
-```
-브라우저에서 접속:
-http://139.150.11.99/dispatch/monitoring
-
-Ctrl + Shift + R (강력 새로고침)
-```
-
-### 3. 브라우저 개발자 도구 확인
-```
-1. F12 키를 눌러 개발자 도구 열기
-2. Console 탭: JavaScript 에러 확인
-3. Network 탭: API 요청 확인
-4. 필터: "monitoring" 입력
-```
-
----
-
-## 🔍 문제 해결
-
-### 문제 1: 백엔드 API 404 에러
-
-**증상:**
-```
-GET /api/v1/dispatch/monitoring/live-stats → 404 Not Found
-```
-
-**해결:**
-```bash
-# 1. 백엔드 로그 확인
-docker-compose logs backend | grep "dispatch/monitoring"
-
-# 2. 라우터 등록 확인
-docker exec uvis-backend cat /app/main.py | grep "dispatch_monitoring"
-
-# 3. 백엔드 재시작
-docker-compose restart backend
-```
-
-### 문제 2: 프론트엔드 페이지 404 에러
-
-**증상:**
-```
-http://139.150.11.99/dispatch/monitoring → 404 Not Found
-```
-
-**해결:**
-```bash
-# 1. 빌드 파일 존재 확인
-docker exec uvis-frontend ls -la /usr/share/nginx/html/assets/ | grep DispatchMonitoring
-
-# 2. Nginx 설정 확인
-docker exec uvis-frontend cat /etc/nginx/conf.d/default.conf
-
-# 3. 프론트엔드 재배포
-cd /root/uvis/frontend
-npm run build
-docker cp dist/. uvis-frontend:/usr/share/nginx/html/
-docker-compose restart frontend
-```
-
-### 문제 3: 빌드 파일이 로드되지 않음
-
-**증상:**
-```
-브라우저 Console:
-Failed to load resource: net::ERR_FILE_NOT_FOUND
-```
-
-**해결:**
-```bash
-# 1. 브라우저 캐시 완전 삭제
-F12 → Application → Storage → Clear site data
-
-# 2. 시크릿 모드로 접속
-Ctrl + Shift + N (Chrome)
-Ctrl + Shift + P (Firefox)
-
-# 3. 파일 존재 확인
-docker exec uvis-frontend ls -lh /usr/share/nginx/html/assets/ | grep -i dispatch
-```
-
-### 문제 4: WebSocket 연결 실패
-
-**증상:**
-```
-WebSocket connection to 'ws://...' failed
-```
-
-**해결:**
-```bash
-# 1. Nginx WebSocket 설정 확인
-docker exec uvis-frontend cat /etc/nginx/conf.d/default.conf | grep -A 5 "websocket"
-
-# 2. 백엔드 WebSocket 엔드포인트 확인
-curl http://139.150.11.99/api/v1/health
-
-# 3. 방화벽 확인
-sudo firewall-cmd --list-all | grep 8000
-```
-
-### 문제 5: 모듈 import 에러
-
-**증상:**
-```
-ModuleNotFoundError: No module named 'app.api.dispatch_monitoring'
-```
-
-**해결:**
-```bash
-# 1. 파일 존재 확인
-ls -la /root/uvis/backend/app/api/dispatch_monitoring.py
-
-# 2. Python 경로 확인
-docker exec uvis-backend python3 -c "import sys; print('\n'.join(sys.path))"
-
-# 3. 컨테이너 재빌드 (필요시)
-docker-compose down
-docker-compose up -d --build
-```
-
----
 
 ## 📞 지원
 
-문제가 지속되면 다음 정보를 제공해주세요:
+문제 발생 시 확인 사항:
 
-```bash
-# 시스템 정보
-docker-compose ps
-docker-compose logs --tail=50 backend
-docker-compose logs --tail=50 frontend
-
-# API 테스트
-curl -v http://139.150.11.99/api/v1/health
-curl -v http://139.150.11.99/api/v1/dispatch/monitoring/live-stats
-
-# 파일 확인
-ls -la /root/uvis/backend/app/api/ | grep dispatch
-ls -la /root/uvis/frontend/dist/assets/ | grep Dispatch
-```
+1. **CSV 파일 인코딩**: UTF-8 확인
+2. **좌표 형식**: 소수점 6자리 (예: 35.803456)
+3. **데이터베이스 연결**: `docker compose ps | grep db`
+4. **백엔드 상태**: `docker compose ps | grep backend`
+5. **로그 확인**: 
+   ```bash
+   docker compose logs backend --tail=100 | grep -E "ERROR|파싱|template"
+   ```
 
 ---
 
-## 🎯 빠른 체크리스트
-
-배포 전:
-- [ ] Git pull 완료
-- [ ] 백엔드 코드 수정 확인
-- [ ] 프론트엔드 코드 수정 확인
-
-배포 중:
-- [ ] 백엔드 재시작 완료
-- [ ] 프론트엔드 빌드 성공
-- [ ] 빌드 파일 배포 완료
-- [ ] 컨테이너 재시작 완료
-
-배포 후:
-- [ ] API 헬스 체크 성공
-- [ ] 프론트엔드 접속 성공
-- [ ] 브라우저 캐시 삭제
-- [ ] 실시간 통계 확인
-- [ ] WebSocket 연결 확인
-
----
-
-**작성일**: 2026-02-14  
-**버전**: 1.0
+**작성일**: 2026-03-05  
+**버전**: 1.0.0

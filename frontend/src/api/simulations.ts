@@ -1,7 +1,7 @@
 // Simulations API Client
-import axios from 'axios';
+import { api } from '../services/api';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+const API_BASE_URL = '';
 
 // Types
 export interface RuleSimulation {
@@ -92,7 +92,7 @@ export interface SimulationStatistics {
 export const SimulationsAPI = {
   // 시뮬레이션 생성 및 실행
   create: async (data: SimulationCreateRequest): Promise<RuleSimulation> => {
-    const response = await axios.post(`${API_BASE_URL}/simulations`, data);
+    const response = await api.post(`${API_BASE_URL}/simulations`, data);
     return response.data;
   },
 
@@ -103,24 +103,24 @@ export const SimulationsAPI = {
     status?: string;
     rule_id?: number;
   }): Promise<RuleSimulation[]> => {
-    const response = await axios.get(`${API_BASE_URL}/simulations`, { params });
+    const response = await api.get(`${API_BASE_URL}/simulations`, { params });
     return response.data;
   },
 
   // 시뮬레이션 상세 조회
   get: async (id: number): Promise<RuleSimulation> => {
-    const response = await axios.get(`${API_BASE_URL}/simulations/${id}`);
+    const response = await api.get(`${API_BASE_URL}/simulations/${id}`);
     return response.data;
   },
 
   // 시뮬레이션 삭제
   delete: async (id: number): Promise<void> => {
-    await axios.delete(`${API_BASE_URL}/simulations/${id}`);
+    await api.delete(`${API_BASE_URL}/simulations/${id}`);
   },
 
   // A/B 비교 실행
   compare: async (data: ComparisonCreateRequest): Promise<any> => {
-    const response = await axios.post(`${API_BASE_URL}/simulations/compare`, data);
+    const response = await api.post(`${API_BASE_URL}/simulations/compare`, data);
     return response.data;
   },
 
@@ -129,7 +129,7 @@ export const SimulationsAPI = {
     skip?: number;
     limit?: number;
   }): Promise<SimulationComparison[]> => {
-    const response = await axios.get(`${API_BASE_URL}/simulations/comparisons`, { params });
+    const response = await api.get(`${API_BASE_URL}/simulations/comparisons`, { params });
     return response.data;
   },
 
@@ -138,19 +138,19 @@ export const SimulationsAPI = {
     category?: string;
     difficulty?: string;
   }): Promise<SimulationTemplate[]> => {
-    const response = await axios.get(`${API_BASE_URL}/simulations/templates`, { params });
+    const response = await api.get(`${API_BASE_URL}/simulations/templates`, { params });
     return response.data;
   },
 
   // 템플릿 상세 조회
   getTemplate: async (id: number): Promise<SimulationTemplate> => {
-    const response = await axios.get(`${API_BASE_URL}/simulations/templates/${id}`);
+    const response = await api.get(`${API_BASE_URL}/simulations/templates/${id}`);
     return response.data;
   },
 
   // 통계 요약
   getStatistics: async (days: number = 7): Promise<SimulationStatistics> => {
-    const response = await axios.get(`${API_BASE_URL}/simulations/statistics/summary`, {
+    const response = await api.get(`${API_BASE_URL}/simulations/statistics/summary`, {
       params: { days }
     });
     return response.data;

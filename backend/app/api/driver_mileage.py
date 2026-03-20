@@ -6,6 +6,7 @@
 from datetime import date, datetime, timedelta
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, func, desc
 
@@ -13,6 +14,7 @@ from app.core.database import get_db
 from app.models.driver import Driver
 from app.models.driver_daily_mileage import DriverDailyMileage
 from app.services.driver_mileage_service import DriverMileageService
+from app.services.driver_mileage_excel_service import DriverMileageExcelService
 
 router = APIRouter()
 
@@ -20,19 +22,19 @@ router = APIRouter()
 @router.get("/daily")
 async def get_driver_daily_mileages(
     target_date: Optional[date] = Query(None, description="조회 날짜 (기본: 어제)"),
-    driver_id: Optional[int] = Query(None, description="특정 운전자 ID"),
+    driver_name: Optional[str] = Query(None, description="운전자명 검색"),
     db: Session = Depends(get_db)
 ):
-    """운전자 일별 주행거리 조회"""
+    """운전자 일별 주행거리 조회 (차량 기반)"""
     if not target_date:
         target_date = date.today() - timedelta(days=1)
     
-    query = db.query(DriverDailyMileage, Driver).join(
-        Driver, DriverDailyMileage.driver_id == Driver.id
-    ).filter(DriverDailyMileage.date == target_date)
+    query = db.query(DriverDailyMileage).filter(
+        DriverDailyMileage.date == target_date
+    )
     
-    if driver_id:
-        query = query.filter(DriverDailyMileage.driver_id == driver_id)
+    if driver_name:
+        query = query.filter(DriverDailyMileage.notes.like(f"%{driver_name}%"))
     
     results = query.order_by(desc(DriverDailyMileage.total_distance_km)).all()
     
@@ -42,9 +44,7 @@ async def get_driver_daily_mileages(
         "count": len(results),
         "mileages": [
             {
-                "driver_id": mileage.driver_id,
-                "driver_code": driver.code,
-                "driver_name": driver.name,
+                "driver_name": mileage.notes.replace("차량기반:", "") if mileage.notes else "미지정",
                 "date": mileage.date.isoformat(),
                 "total_distance_km": mileage.total_distance_km,
                 "total_driving_minutes": mileage.total_driving_minutes,
@@ -59,7 +59,7 @@ async def get_driver_daily_mileages(
                 "vehicle_ids": mileage.vehicle_ids,
                 "calculation_method": mileage.calculation_method
             }
-            for mileage, driver in results
+            for mileage in results
         ]
     }
 
@@ -348,3 +348,111 @@ async def get_top_drivers(
             for idx, row in enumerate(results)
         ]
     }
+
+
+@router.get("/export/daily")
+async def export_daily_excel(
+    target_date: Optional[date] = Query(None, description="조회 날짜 (기본: 어제)"),
+    driver_name: Optional[str] = Query(None, description="운전자명 필터"),
+    db: Session = Depends(get_db)
+):
+    """일별 주행거리 Excel 다운로드"""
+    if not target_date:
+        target_date = date.today() - timedelta(days=1)
+    
+    excel_service = DriverMileageExcelService(db)
+    excel_file = excel_service.generate_daily_report(target_date, driver_name)
+    
+    filename = f"driver_mileage_daily_{target_date.strftime('%Y%m%d')}.xlsx"
+    
+    return StreamingResponse(
+        excel_file,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+
+@router.get("/export/weekly")
+async def export_weekly_excel(
+    end_date: Optional[date] = Query(None, description="종료 날짜 (기본: 어제)"),
+    driver_name: Optional[str] = Query(None, description="운전자명 필터"),
+    db: Session = Depends(get_db)
+):
+    """주간 주행거리 Excel 다운로드 (최근 7일)"""
+    if not end_date:
+        end_date = date.today() - timedelta(days=1)
+    
+    excel_service = DriverMileageExcelService(db)
+    excel_file = excel_service.generate_weekly_report(end_date, driver_name)
+    
+    start_date = end_date - timedelta(days=6)
+    filename = f"driver_mileage_weekly_{start_date.strftime('%Y%m%d')}_{end_date.strftime('%Y%m%d')}.xlsx"
+    
+    return StreamingResponse(
+        excel_file,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+
+@router.get("/export/monthly")
+async def export_monthly_excel(
+    year: int = Query(..., ge=2020, le=2100, description="연도"),
+    month: int = Query(..., ge=1, le=12, description="월"),
+    driver_name: Optional[str] = Query(None, description="운전자명 필터"),
+    db: Session = Depends(get_db)
+):
+    """월간 주행거리 Excel 다운로드"""
+    excel_service = DriverMileageExcelService(db)
+    excel_file = excel_service.generate_monthly_report(year, month, driver_name)
+    
+    filename = f"driver_mileage_monthly_{year}{month:02d}.xlsx"
+    
+    return StreamingResponse(
+        excel_file,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+
+@router.get("/export/pdf/monthly")
+async def export_monthly_pdf(
+    year: int = Query(..., ge=2020, le=2100, description="연도"),
+    month: int = Query(..., ge=1, le=12, description="월"),
+    driver_name: Optional[str] = Query(None, description="운전자명 필터"),
+    db: Session = Depends(get_db)
+):
+    """월간 주행거리 PDF 다운로드"""
+    from app.services.driver_mileage_pdf_service import DriverMileagePDFService
+    
+    pdf_service = DriverMileagePDFService(db)
+    pdf_file = pdf_service.generate_monthly_report(year, month, driver_name)
+    
+    filename = f"driver_mileage_monthly_{year}{month:02d}.pdf"
+    
+    return StreamingResponse(
+        pdf_file,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+
+@router.get("/export/pdf/annual")
+async def export_annual_pdf(
+    year: int = Query(..., ge=2020, le=2100, description="연도"),
+    driver_name: Optional[str] = Query(None, description="운전자명 필터"),
+    db: Session = Depends(get_db)
+):
+    """연간 요약 PDF 다운로드"""
+    from app.services.driver_mileage_pdf_service import DriverMileagePDFService
+    
+    pdf_service = DriverMileagePDFService(db)
+    pdf_file = pdf_service.generate_annual_summary(year, driver_name)
+    
+    filename = f"driver_mileage_annual_{year}.pdf"
+    
+    return StreamingResponse(
+        pdf_file,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )

@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
-import axios from 'axios';
+import { api } from '../services/api';
 import type { RecurringOrder, RecurringOrderCreate, Client } from '../types';
 import { recurringOrdersAPI } from '../api/recurringOrders';
 import { RecurringOrderForm } from '../components/recurring-orders/RecurringOrderForm';
 import { RecurringOrderTable } from '../components/recurring-orders/RecurringOrderTable';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+const API_BASE_URL = '';
 
 export const RecurringOrdersPage: React.FC = () => {
   const [recurringOrders, setRecurringOrders] = useState<RecurringOrder[]>([]);
@@ -41,7 +41,7 @@ export const RecurringOrdersPage: React.FC = () => {
 
   const loadClients = async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/clients/`, {
+      const response = await api.get(`${API_BASE_URL}/clients/`, {
         params: { is_active: true },
       });
       setClients(response.data.items || []);

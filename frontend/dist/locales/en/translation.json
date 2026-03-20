@@ -1,0 +1,51 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "error": "An error occurred",
+    "success": "Success",
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "search": "Search",
+    "filter": "Filter",
+    "refresh": "Refresh",
+    "logout": "Logout"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "orders": "Orders",
+    "dispatches": "Dispatches",
+    "vehicles": "Vehicles",
+    "clients": "Clients",
+    "analytics": "Analytics",
+    "settings": "Settings"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "totalOrders": "Total Orders",
+    "pendingOrders": "Pending Orders",
+    "completedOrders": "Completed Orders",
+    "activeVehicles": "Active Vehicles"
+  },
+  "orders": {
+    "title": "Order Management",
+    "create": "Create New Order",
+    "orderNumber": "Order Number",
+    "client": "Client",
+    "status": "Status",
+    "temperature": "Temperature",
+    "weight": "Weight",
+    "pallets": "Pallets"
+  },
+  "pwa": {
+    "installPrompt": "Install app?",
+    "install": "Install",
+    "updateAvailable": "Update available",
+    "update": "Update",
+    "offline": "Offline",
+    "online": "Online"
+  }
+}
