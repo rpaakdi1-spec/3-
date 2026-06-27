@@ -108,6 +108,14 @@ const LocationRoomsPage: React.FC = () => {
   const [selectedRoom, setSelectedRoom] = useState<RoomDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
+  // GPS 이력 탭
+  const [gpsTab, setGpsTab] = useState(false);
+  const [gpsDate, setGpsDate] = useState('');
+  const [gpsAvailDates, setGpsAvailDates] = useState<string[]>([]);
+  const [gpsHistory, setGpsHistory] = useState<any[]>([]);
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const [gpsMessage, setGpsMessage] = useState<string | null>(null);
+
   // 링크 복사 상태
   const [copied, setCopied] = useState<string | null>(null);
 
@@ -180,6 +188,11 @@ const LocationRoomsPage: React.FC = () => {
   const handleViewDetail = async (roomId: number) => {
     setDetailLoading(true);
     setSelectedRoom(null);
+    // GPS 탭 초기화
+    setGpsTab(false);
+    setGpsHistory([]);
+    setGpsAvailDates([]);
+    setGpsMessage(null);
     try {
       const res = await apiClient.get(`/rooms/${roomId}`);
       setSelectedRoom(res.data);
@@ -190,8 +203,49 @@ const LocationRoomsPage: React.FC = () => {
     }
   };
 
+  // GPS 이력 - 가용 날짜 로드
+  const loadGpsAvailDates = async (roomId: number) => {
+    try {
+      const res = await apiClient.get(`/location-rooms/${roomId}/gps-available-dates`);
+      const dates: string[] = res.data?.dates ?? [];
+      setGpsAvailDates(dates);
+      if (dates.length > 0) {
+        setGpsDate(dates[0]);
+        loadGpsHistory(roomId, dates[0]);
+      } else {
+        setGpsDate('');
+        setGpsHistory([]);
+        setGpsMessage('최근 3일 이내 GPS 이력이 없습니다.');
+      }
+    } catch {
+      setGpsAvailDates([]);
+      setGpsMessage('GPS 데이터를 불러올 수 없습니다.');
+    }
+  };
+
+  // GPS 이력 - 날짜별 경로 로드
+  const loadGpsHistory = async (roomId: number, date: string) => {
+    if (!date) return;
+    setGpsLoading(true);
+    setGpsMessage(null);
+    try {
+      const res = await apiClient.get(`/location-rooms/${roomId}/gps-history?date=${date}`);
+      setGpsHistory(res.data?.items ?? []);
+      setGpsMessage(res.data?.message ?? null);
+    } catch {
+      setGpsHistory([]);
+      setGpsMessage('GPS 데이터를 불러올 수 없습니다.');
+    } finally {
+      setGpsLoading(false);
+    }
+  };
+
+  const handleSwitchToGpsTab = (roomId: number) => {
+    setGpsTab(true);
+    loadGpsAvailDates(roomId);
+  };
+
   const handleStatusChange = async (roomId: number, newStatus: string) => {
-    if (!window.confirm(`상태를 '${newStatus}'(으)로 변경하시겠습니까?`)) return;
     try {
       await apiClient.patch(`/rooms/${roomId}/status?new_status=${encodeURIComponent(newStatus)}`);
       fetchRooms();
@@ -567,6 +621,125 @@ const LocationRoomsPage: React.FC = () => {
                   </span>
                 </div>
 
+                {/* 탭 전환 버튼 */}
+                <div className="flex gap-2 border-b pb-1">
+                  <button
+                    onClick={() => setGpsTab(false)}
+                    className={`px-4 py-1.5 rounded-t-lg text-sm font-medium transition-colors ${!gpsTab ? 'bg-blue-600 text-white' : 'text-gray-500 hover:text-blue-600'}`}
+                  >
+                    <MapPin size={14} className="inline mr-1" />방 정보
+                  </button>
+                  <button
+                    onClick={() => handleSwitchToGpsTab(selectedRoom.id)}
+                    className={`px-4 py-1.5 rounded-t-lg text-sm font-medium transition-colors ${gpsTab ? 'bg-blue-600 text-white' : 'text-gray-500 hover:text-blue-600'}`}
+                  >
+                    <Navigation size={14} className="inline mr-1" />GPS 이력
+                    {gpsAvailDates.length > 0 && (
+                      <span className="ml-1 bg-white text-blue-600 rounded-full px-1.5 text-xs font-bold">{gpsAvailDates.length}</span>
+                    )}
+                  </button>
+                </div>
+
+                {/* GPS 이력 탭 */}
+                {gpsTab ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm text-gray-500">날짜 선택 (최근 3일):</span>
+                      {gpsAvailDates.length > 0 ? (
+                        gpsAvailDates.map(d => (
+                          <button
+                            key={d}
+                            onClick={() => { setGpsDate(d); loadGpsHistory(selectedRoom.id, d); }}
+                            className={`px-3 py-1 rounded-lg text-sm font-medium border transition-colors ${
+                              gpsDate === d
+                                ? 'bg-blue-600 text-white border-blue-600'
+                                : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
+                            }`}
+                          >
+                            {`${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}`}
+                          </button>
+                        ))
+                      ) : (
+                        <span className="text-sm text-gray-400">조회 가능한 날짜 없음</span>
+                      )}
+                    </div>
+
+                    {gpsLoading ? (
+                      <div className="flex items-center justify-center py-10">
+                        <Loader2 className="animate-spin text-blue-500" size={24} />
+                        <span className="ml-2 text-sm text-gray-500">GPS 이력 불러오는 중...</span>
+                      </div>
+                    ) : gpsHistory.length > 0 ? (
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium text-gray-700">
+                            📍 {gpsDate.slice(0,4)}-{gpsDate.slice(4,6)}-{gpsDate.slice(6,8)} 이동 기록
+                            <span className="ml-2 text-blue-600 font-bold">{gpsHistory.length}건</span>
+                          </span>
+                          <span className="text-xs text-gray-400">5분 간격 수집 · 3일치 보관</span>
+                        </div>
+
+                        {/* 이동 경로 요약 */}
+                        <div className="grid grid-cols-3 gap-2 mb-3">
+                          <div className="bg-blue-50 rounded-lg p-2 text-center">
+                            <p className="text-xs text-gray-500">첫 수신</p>
+                            <p className="text-sm font-bold text-blue-700">
+                              {`${gpsHistory[0].time.slice(0,2)}:${gpsHistory[0].time.slice(2,4)}`}
+                            </p>
+                          </div>
+                          <div className="bg-green-50 rounded-lg p-2 text-center">
+                            <p className="text-xs text-gray-500">최고속도</p>
+                            <p className="text-sm font-bold text-green-700">
+                              {Math.max(...gpsHistory.map((g:any) => g.speed_kmh || 0))} km/h
+                            </p>
+                          </div>
+                          <div className="bg-orange-50 rounded-lg p-2 text-center">
+                            <p className="text-xs text-gray-500">마지막 수신</p>
+                            <p className="text-sm font-bold text-orange-700">
+                              {`${gpsHistory[gpsHistory.length-1].time.slice(0,2)}:${gpsHistory[gpsHistory.length-1].time.slice(2,4)}`}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* 지도 링크 버튼 */}
+                        {gpsHistory.length > 0 && (
+                          <a
+                            href={`https://map.naver.com/v5/search/${gpsHistory[Math.floor(gpsHistory.length/2)].latitude},${gpsHistory[Math.floor(gpsHistory.length/2)].longitude}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 w-full justify-center py-2 mb-3 bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 rounded-xl text-sm font-medium transition-colors"
+                          >
+                            <MapPin size={14} /> 네이버 지도에서 위치 보기
+                          </a>
+                        )}
+
+                        {/* GPS 포인트 목록 */}
+                        <div className="max-h-60 overflow-y-auto space-y-1 border rounded-xl p-2 bg-gray-50">
+                          {gpsHistory.map((g: any, i: number) => (
+                            <div key={i} className="flex items-center gap-2 text-xs py-1 border-b border-gray-100 last:border-0">
+                              <span className="text-gray-400 w-12 shrink-0">
+                                {`${g.time.slice(0,2)}:${g.time.slice(2,4)}`}
+                              </span>
+                              <span className={`w-2 h-2 rounded-full shrink-0 ${g.is_engine_on ? 'bg-green-400' : 'bg-gray-300'}`} />
+                              <span className="text-gray-600 flex-1">
+                                {g.latitude.toFixed(5)}, {g.longitude.toFixed(5)}
+                              </span>
+                              <span className="text-blue-600 shrink-0">{g.speed_kmh} km/h</span>
+                            </div>
+                          ))}
+                        </div>
+                        <p className="text-xs text-gray-400 mt-1">● 초록: 시동ON / ● 회색: 시동OFF</p>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-10 text-gray-400">
+                        <Navigation size={32} className="mb-2 opacity-30" />
+                        <p className="text-sm">{gpsMessage || '해당 날짜의 GPS 데이터가 없습니다.'}</p>
+                        <p className="text-xs mt-1">GPS 데이터는 5분마다 수집되며 3일치만 보관됩니다.</p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <>
                 {/* 기본 정보 */}
                 <div className="bg-gray-50 rounded-xl p-4 grid grid-cols-2 gap-3 text-sm">
                   {selectedRoom.driver_name && (
@@ -691,6 +864,8 @@ const LocationRoomsPage: React.FC = () => {
                     <Trash2 size={14} /> 삭제
                   </button>
                 </div>
+                  </>
+                )}
               </div>
             ) : null}
           </div>

@@ -24,6 +24,8 @@ from app.models.location_room import (
 )
 from app.api.auth import get_current_user
 from app.models.user import User
+from app.models.vehicle import Vehicle
+from app.models.uvis_gps import VehicleGPSLog
 
 router = APIRouter()
 
@@ -695,4 +697,132 @@ async def get_room_by_code(
         "status": _status(room),
         "driver_token": room.driver_token,
         "driver_url": _build_driver_url(request, room.driver_token)
+    }
+
+
+# ===================== GPS 이력 조회 (UVIS DB 연동) =====================
+
+@router.get(
+    "/location-rooms/{room_id}/gps-history",
+    summary="위치공유방 차량 GPS 이력 조회 (날짜별)",
+    tags=["Location Rooms"]
+)
+async def get_room_gps_history(
+    room_id: int,
+    date: str = Query(..., description="조회 날짜 (YYYYMMDD, 예: 20260320)"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    위치공유방에 등록된 차량번호로 UVIS GPS 이력을 날짜별로 조회합니다.
+    - vehicle_plate → vehicles.plate_number 매칭 → vehicle_gps_logs 조회
+    - 3일치 이내 데이터만 보존 (자동삭제 스케줄러 연동)
+    """
+    # 방 조회
+    room = db.query(LocationRoom).filter(LocationRoom.id == room_id).first()
+    if not room:
+        raise HTTPException(status_code=404, detail="방을 찾을 수 없습니다.")
+
+    if not room.vehicle_plate:
+        return {
+            "room_id": room_id,
+            "vehicle_plate": None,
+            "vehicle_id": None,
+            "date": date,
+            "total": 0,
+            "items": [],
+            "message": "방에 차량번호가 등록되지 않았습니다."
+        }
+
+    # 차량번호로 vehicle 조회 (공백/하이픈 제거 후 비교)
+    plate = room.vehicle_plate.replace(" ", "").replace("-", "")
+    vehicle = db.query(Vehicle).filter(
+        Vehicle.plate_number.ilike(f"%{plate}%")
+    ).first()
+
+    # vehicle_id가 없어도 cm_number(차량번호)로 직접 조회
+    query = db.query(VehicleGPSLog).filter(
+        VehicleGPSLog.bi_date == date
+    )
+
+    if vehicle:
+        query = query.filter(VehicleGPSLog.vehicle_id == vehicle.id)
+    else:
+        # vehicle 등록 없이 UVIS cm_number로 직접 매칭
+        query = query.filter(
+            VehicleGPSLog.cm_number.ilike(f"%{plate}%")
+        )
+
+    logs = query.order_by(VehicleGPSLog.bi_time).all()
+
+    items = []
+    for log in logs:
+        if log.latitude and log.longitude:
+            items.append({
+                "time": log.bi_time,            # HHMMSS
+                "latitude": log.latitude,
+                "longitude": log.longitude,
+                "speed_kmh": log.speed_kmh,
+                "is_engine_on": log.is_engine_on,
+                "cm_number": log.cm_number,
+            })
+
+    return {
+        "room_id": room_id,
+        "vehicle_plate": room.vehicle_plate,
+        "vehicle_id": vehicle.id if vehicle else None,
+        "date": date,
+        "total": len(items),
+        "items": items,
+        "message": None if items else "해당 날짜의 GPS 데이터가 없습니다. (데이터는 3일치만 보관됩니다)"
+    }
+
+
+@router.get(
+    "/location-rooms/{room_id}/gps-available-dates",
+    summary="GPS 이력이 있는 날짜 목록",
+    tags=["Location Rooms"]
+)
+async def get_gps_available_dates(
+    room_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    위치공유방 차량의 GPS 이력이 존재하는 날짜 목록을 반환합니다. (최근 3일)
+    """
+    from datetime import timedelta
+    from sqlalchemy import distinct
+
+    room = db.query(LocationRoom).filter(LocationRoom.id == room_id).first()
+    if not room:
+        raise HTTPException(status_code=404, detail="방을 찾을 수 없습니다.")
+
+    if not room.vehicle_plate:
+        return {"dates": [], "vehicle_plate": None}
+
+    plate = room.vehicle_plate.replace(" ", "").replace("-", "")
+    vehicle = db.query(Vehicle).filter(
+        Vehicle.plate_number.ilike(f"%{plate}%")
+    ).first()
+
+    # 최근 3일 날짜 범위
+    today = datetime.utcnow().date()
+    date_list = [(today - timedelta(days=i)).strftime("%Y%m%d") for i in range(3)]
+
+    query = db.query(distinct(VehicleGPSLog.bi_date)).filter(
+        VehicleGPSLog.bi_date.in_(date_list)
+    )
+    if vehicle:
+        query = query.filter(VehicleGPSLog.vehicle_id == vehicle.id)
+    else:
+        query = query.filter(VehicleGPSLog.cm_number.ilike(f"%{plate}%"))
+
+    available_dates = [row[0] for row in query.all()]
+    available_dates.sort(reverse=True)
+
+    return {
+        "vehicle_plate": room.vehicle_plate,
+        "vehicle_id": vehicle.id if vehicle else None,
+        "dates": available_dates    # ["20260320", "20260319", ...]
     }

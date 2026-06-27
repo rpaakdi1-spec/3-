@@ -97,12 +97,22 @@ class SchedulerService:
             name='운전자 주행거리 자동 계산',
             replace_existing=True
         )
-        
+
+        # GPS 이력 자동삭제 (매일 새벽 2시) - 3일치만 보관
+        self.scheduler.add_job(
+            self._cleanup_old_gps_logs,
+            trigger=CronTrigger(hour=2, minute=0),
+            id='cleanup_old_gps_logs',
+            name='GPS 이력 자동삭제 (3일 초과분)',
+            replace_existing=True
+        )
+
         logger.info("✅ Scheduled jobs configured:")
         logger.info("  - 정기 주문 자동 생성: 매일 오전 6시")
         logger.info("  - GPS 위치 데이터 자동 수집: 5분마다")
         logger.info("  - 온도 데이터 자동 수집: 5분마다")
         logger.info("  - 운전자 주행거리 자동 계산: 매일 오전 00:05 (자정 5분 후)")
+        logger.info("  - GPS 이력 자동삭제: 매일 새벽 2시 (3일 초과분)")
     
     async def _generate_recurring_orders(self):
         """정기 주문 자동 생성 (스케줄 작업)"""
@@ -335,6 +345,39 @@ class SchedulerService:
                 'trigger': str(job.trigger)
             })
         return jobs
+
+    async def _cleanup_old_gps_logs(self):
+        """GPS/온도 이력 자동삭제 - 3일치만 보관 (매일 새벽 2시)"""
+        from datetime import timedelta
+        from app.models.uvis_gps import VehicleGPSLog, VehicleTemperatureLog
+
+        logger.info("🗑️  Starting GPS history cleanup (keeping 3 days)...")
+        cutoff = datetime.utcnow() - timedelta(days=3)
+        cutoff_date = cutoff.strftime("%Y%m%d")  # YYYYMMDD
+
+        db: Session = SessionLocal()
+        try:
+            # VehicleGPSLog 삭제
+            gps_deleted = db.query(VehicleGPSLog).filter(
+                VehicleGPSLog.bi_date < cutoff_date
+            ).delete(synchronize_session=False)
+
+            # VehicleTemperatureLog 삭제
+            temp_deleted = db.query(VehicleTemperatureLog).filter(
+                VehicleTemperatureLog.tpl_date < cutoff_date
+            ).delete(synchronize_session=False)
+
+            db.commit()
+            logger.info(
+                f"✅ GPS cleanup done: "
+                f"GPS {gps_deleted}건 삭제, 온도 {temp_deleted}건 삭제 "
+                f"(기준: {cutoff_date} 이전)"
+            )
+        except Exception as e:
+            db.rollback()
+            logger.error(f"❌ GPS cleanup failed: {e}")
+        finally:
+            db.close()
 
 
 # 싱글톤 인스턴스
