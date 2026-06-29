@@ -105,101 +105,100 @@ const ClientRoomPage: React.FC = () => {
     return () => clearInterval(interval);
   }, [fetchData, data?.is_completed]);
 
-  // 네이버 SDK 로드 (데이터 수신 즉시 — DOM 마운트 전에 미리 로드)
-  useEffect(() => {
-    if (!data?.current_location) return;
-    if (document.getElementById('naver-map-script')) return;
-    if ((window as any).naver?.maps) return;
+  // 네이버 지도 초기화 함수 (window에 등록 — callback 방식)
+  const initNaverMap = useCallback(() => {
+    const mapDiv = mapRef.current;
+    const naver = (window as any).naver;
+    if (!mapDiv || !naver?.maps || !data?.current_location) return;
 
-    const s = document.createElement('script');
-    s.id = 'naver-map-script';
-    s.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${NAVER_CLIENT_ID}`;
-    document.head.appendChild(s);
-  }, [data?.current_location]);
+    const loc = data.current_location;
+    const center = new naver.maps.LatLng(loc.latitude, loc.longitude);
 
-  // 네이버 지도 초기화 — mapRef(DOM)와 SDK 둘 다 준비될 때까지 폴링
-  useEffect(() => {
-    if (!data?.current_location) return;
+    if (!naverMapRef.current) {
+      naverMapRef.current = new naver.maps.Map(mapDiv, {
+        center,
+        zoom: 14,
+        zoomControl: true,
+        mapTypeControl: false,
+      });
+    } else {
+      naverMapRef.current.setCenter(center);
+    }
 
-    let attempts = 0;
-    const MAX = 40; // 최대 4초 대기
+    if (markerRef.current) {
+      markerRef.current.setPosition(center);
+    } else {
+      markerRef.current = new naver.maps.Marker({
+        position: center,
+        map: naverMapRef.current,
+        icon: {
+          content: `<div style="
+            background:#3b82f6;border:3px solid white;border-radius:50%;
+            width:20px;height:20px;box-shadow:0 2px 8px rgba(59,130,246,0.5);
+            position:relative;">
+            <div style="position:absolute;top:-28px;left:50%;transform:translateX(-50%);
+              background:#1e40af;color:white;font-size:10px;padding:2px 6px;
+              border-radius:8px;white-space:nowrap;font-weight:bold;">🚛 차량 위치</div>
+          </div>`,
+          anchor: new naver.maps.Point(10, 10),
+        },
+      });
+    }
 
-    const tryInit = () => {
-      attempts++;
-      const mapDiv = mapRef.current;
-      const naver = (window as any).naver;
-
-      // DOM 또는 SDK 아직 미준비 → 재시도
-      if (!mapDiv || !naver?.maps) {
-        if (attempts < MAX) setTimeout(tryInit, 100);
-        return;
-      }
-
-      const loc = data.current_location!;
-      const center = new naver.maps.LatLng(loc.latitude, loc.longitude);
-
-      // 지도 생성 또는 중심 이동
-      if (!naverMapRef.current) {
-        naverMapRef.current = new naver.maps.Map(mapDiv, {
-          center,
-          zoom: 14,
-          zoomControl: true,
-          mapTypeControl: false,
-        });
+    if (data.location_history.length > 1) {
+      const path = data.location_history.map(
+        p => new naver.maps.LatLng(p.latitude, p.longitude)
+      );
+      if (pathRef.current) {
+        pathRef.current.setPath(path);
       } else {
-        naverMapRef.current.setCenter(center);
-      }
-
-      // 마커 생성 또는 위치 업데이트
-      if (markerRef.current) {
-        markerRef.current.setPosition(center);
-      } else {
-        markerRef.current = new naver.maps.Marker({
-          position: center,
+        pathRef.current = new naver.maps.Polyline({
           map: naverMapRef.current,
-          icon: {
-            content: `<div style="
-              background: #3b82f6;
-              border: 3px solid white;
-              border-radius: 50%;
-              width: 20px; height: 20px;
-              box-shadow: 0 2px 8px rgba(59,130,246,0.5);
-              position: relative;
-            ">
-              <div style="
-                position: absolute; top: -28px; left: 50%;
-                transform: translateX(-50%);
-                background: #1e40af; color: white; font-size: 10px;
-                padding: 2px 6px; border-radius: 8px; white-space: nowrap;
-                font-weight: bold;
-              ">🚛 차량 위치</div>
-            </div>`,
-            anchor: new naver.maps.Point(10, 10),
-          },
+          path,
+          strokeColor: '#3b82f6',
+          strokeWeight: 4,
+          strokeOpacity: 0.7,
         });
       }
+    }
+  }, [data?.current_location, data?.location_history]);
 
-      // 경로 폴리라인
-      if (data.location_history.length > 1) {
-        const path = data.location_history.map(
-          p => new naver.maps.LatLng(p.latitude, p.longitude)
-        );
-        if (pathRef.current) {
-          pathRef.current.setPath(path);
-        } else {
-          pathRef.current = new naver.maps.Polyline({
-            map: naverMapRef.current,
-            path,
-            strokeColor: '#3b82f6',
-            strokeWeight: 4,
-            strokeOpacity: 0.7,
-          });
-        }
-      }
+  // 네이버 SDK 로드 — 공식 callback 방식 사용
+  useEffect(() => {
+    if (!data?.current_location) return;
+
+    // 인증 실패 핸들러 등록 (공식 문서 권장)
+    (window as any).navermap_authFailure = () => {
+      console.error('[NaverMap] 인증 실패 — Client ID 또는 도메인 등록 확인 필요');
     };
 
-    tryInit();
-  }, [data?.current_location, data?.location_history]);
+    // 이미 SDK 로드 완료된 경우 바로 초기화
+    if ((window as any).naver?.maps) {
+      initNaverMap();
+      return;
+    }
+
+    // 이미 스크립트 로딩 중인 경우 콜백 재등록
+    if (document.getElementById('naver-map-script')) {
+      (window as any).__naverMapCallback = initNaverMap;
+      return;
+    }
+
+    // 공식 callback 파라미터 방식으로 스크립트 로드
+    (window as any).__naverMapCallback = initNaverMap;
+    const s = document.createElement('script');
+    s.id = 'naver-map-script';
+    s.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${NAVER_CLIENT_ID}&callback=__naverMapCallback`;
+    s.async = true;
+    document.head.appendChild(s);
+  }, [data?.current_location, initNaverMap]);
+
+  // 위치/경로 데이터 갱신 시 지도 업데이트
+  useEffect(() => {
+    if ((window as any).naver?.maps && naverMapRef.current) {
+      initNaverMap();
+    }
+  }, [data?.location_history, initNaverMap]);
 
   // ====== 렌더링 ======
 
