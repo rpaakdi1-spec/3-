@@ -717,6 +717,46 @@ async def client_get_location(
         "recorded_at": _fmt(loc.recorded_at)
     } for loc in locations]
 
+    # ── 현재 위치 결정: 기사앱 위치 우선, 없으면 UVIS GPS 자동 조회 ──
+    cur_lat = room.last_latitude
+    cur_lng = room.last_longitude
+    cur_updated = room.last_location_at
+
+    if (not cur_lat) and room.vehicle_plate:
+        # vehicle_plate → vehicle → 최신 GPS 로그 조회
+        plate = room.vehicle_plate.replace(" ", "").replace("-", "")
+        vehicle = db.query(Vehicle).filter(
+            Vehicle.plate_number.ilike(f"%{plate}%")
+        ).first()
+        if vehicle:
+            latest_gps = db.query(VehicleGPSLog).filter(
+                VehicleGPSLog.vehicle_id == vehicle.id
+            ).order_by(desc(VehicleGPSLog.created_at)).first()
+            if latest_gps and latest_gps.latitude and latest_gps.longitude:
+                cur_lat = latest_gps.latitude
+                cur_lng = latest_gps.longitude
+                cur_updated = latest_gps.created_at
+
+    # ── location_history: 기사앱 경로 없으면 오늘 UVIS GPS 경로로 대체 ──
+    if not location_history and room.vehicle_plate:
+        plate = room.vehicle_plate.replace(" ", "").replace("-", "")
+        vehicle = db.query(Vehicle).filter(
+            Vehicle.plate_number.ilike(f"%{plate}%")
+        ).first()
+        if vehicle:
+            today = datetime.utcnow().strftime("%Y%m%d")
+            gps_logs = db.query(VehicleGPSLog).filter(
+                VehicleGPSLog.vehicle_id == vehicle.id,
+                VehicleGPSLog.bi_date == today,
+                VehicleGPSLog.latitude.isnot(None),
+                VehicleGPSLog.longitude.isnot(None),
+            ).order_by(VehicleGPSLog.bi_time).all()
+            location_history = [{
+                "latitude": g.latitude,
+                "longitude": g.longitude,
+                "recorded_at": _fmt(g.created_at)
+            } for g in gps_logs]
+
     return {
         "room_code": room.room_code,
         "title": room.title,
@@ -725,10 +765,10 @@ async def client_get_location(
         "driver_name": room.driver_name,
         "vehicle_plate": room.vehicle_plate,
         "current_location": {
-            "latitude": room.last_latitude,
-            "longitude": room.last_longitude,
-            "updated_at": _fmt(room.last_location_at)
-        } if room.last_latitude else None,
+            "latitude": cur_lat,
+            "longitude": cur_lng,
+            "updated_at": _fmt(cur_updated)
+        } if cur_lat else None,
         "location_history": location_history,
         "documents": documents,
         "driver_joined_at": _fmt(room.driver_joined_at),

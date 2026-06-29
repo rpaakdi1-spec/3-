@@ -98,10 +98,10 @@ const ClientRoomPage: React.FC = () => {
     fetchData();
   }, [fetchData]);
 
-  // 30초마다 자동 갱신 (완료 전까지)
+  // 10초마다 자동 갱신 (완료 전까지) — UVIS GPS 5분 주기 수신 감안
   useEffect(() => {
     if (data?.is_completed) return;
-    const interval = setInterval(() => fetchData(false), 30000);
+    const interval = setInterval(() => fetchData(false), 10000);
     return () => clearInterval(interval);
   }, [fetchData, data?.is_completed]);
 
@@ -304,11 +304,8 @@ const ClientRoomPage: React.FC = () => {
           ) : (
             <div className="h-48 flex flex-col items-center justify-center text-gray-400 bg-gray-50">
               <MapPin size={32} className="mb-2 opacity-30" />
-              <p className="text-sm">
-                {data?.status === '대기중'
-                  ? '기사가 아직 운행을 시작하지 않았습니다.'
-                  : '위치 정보가 없습니다.'}
-              </p>
+              <p className="text-sm">차량 GPS 신호를 기다리는 중입니다.</p>
+              <p className="text-xs mt-1 text-gray-300">차량 시동 ON 후 자동으로 위치가 표시됩니다.</p>
             </div>
           )}
         </div>
@@ -367,7 +364,7 @@ const ClientRoomPage: React.FC = () => {
 
         {/* 마지막 갱신 */}
         <p className="text-xs text-center text-gray-400">
-          마지막 갱신: {lastRefresh.toLocaleTimeString('ko-KR')} (30초마다 자동 갱신)
+          마지막 갱신: {lastRefresh.toLocaleTimeString('ko-KR')} (10초마다 자동 갱신)
         </p>
 
         <div className="pb-8" />
