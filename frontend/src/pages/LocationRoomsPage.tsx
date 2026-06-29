@@ -113,6 +113,24 @@ interface MonitoringVehicle {
   is_engine_on?: boolean;
 }
 
+// ── 미리 정의된 센터 목록 (상/하차지 드롭다운용) ──
+interface CenterPreset {
+  name: string;
+  address: string;
+  lat: number;
+  lng: number;
+}
+
+const CENTER_PRESETS: CenterPreset[] = [
+  { name: '김해센터', address: '경남 김해시 주촌면 골든루트로 80-16', lat: 35.2412, lng: 128.8301 },
+  { name: '광주센터', address: '광주 북구 삼소로 148', lat: 35.1740, lng: 126.8420 },
+  { name: '전주센터', address: '전북 전주시 덕진구 팔복로 56', lat: 35.8579, lng: 127.1025 },
+  { name: '부산센터', address: '부산 강서구 녹산산단335로 7', lat: 35.0960, lng: 128.8570 },
+  { name: '서울센터', address: '서울 강동구 올림픽로 623', lat: 37.5497, lng: 127.1495 },
+  { name: '대구센터', address: '대구 북구 노원로 82', lat: 35.8870, lng: 128.5890 },
+  { name: '대전센터', address: '대전 유성구 산업로 154', lat: 36.3540, lng: 127.3290 },
+];
+
 const STATUS_CONFIG: { [key: string]: { label: string; dot: string; badge: string } } = {
   '대기중': { label: '대기중', dot: 'bg-yellow-400', badge: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
   '진행중': { label: '진행중', dot: 'bg-blue-400 animate-pulse', badge: 'bg-blue-50 text-blue-700 border-blue-200' },
@@ -151,6 +169,9 @@ const LocationRoomsPage: React.FC = () => {
   const [monitoringVehicles, setMonitoringVehicles] = useState<MonitoringVehicle[]>([]);
   const [vehiclesLoading, setVehiclesLoading] = useState(false);
   const [showVehiclePicker, setShowVehiclePicker] = useState(false);
+  // 상/하차지 센터 선택 드롭다운
+  const [showLoadingPicker, setShowLoadingPicker] = useState(false);
+  const [showUnloadingPicker, setShowUnloadingPicker] = useState(false);
 
   // 방 상세 모달
   const [selectedRoom, setSelectedRoom] = useState<RoomDetail | null>(null);
@@ -683,9 +704,47 @@ const LocationRoomsPage: React.FC = () => {
                 {/* 상차지 */}
                 <div className="bg-blue-50 rounded-xl p-3 space-y-2">
                   <p className="text-sm font-semibold text-blue-700 flex items-center gap-1.5">
-                    <MapPin size={14} /> 상차지 정보
-                    <span className="text-xs font-normal text-blue-500">(입력 시 도착/출차 시각 자동기록)</span>
+                    <MapPin size={14} /> 상차지
+                    <span className="text-xs font-normal text-blue-500">(반경 300m 진입·이탈 시 자동기록)</span>
                   </p>
+                  {/* 센터 선택 드롭다운 */}
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setShowLoadingPicker(p => !p)}
+                      className="w-full flex items-center justify-between px-3 py-2 border border-blue-300 bg-white rounded-lg text-sm hover:bg-blue-50 transition-colors"
+                    >
+                      <span className={createForm.loading_name ? 'text-gray-800 font-medium' : 'text-gray-400'}>
+                        {createForm.loading_name || '센터 선택 또는 직접 입력'}
+                      </span>
+                      <ChevronDown size={14} className="text-blue-500" />
+                    </button>
+                    {showLoadingPicker && (
+                      <div className="absolute z-10 mt-1 w-full bg-white border border-blue-200 rounded-xl shadow-lg overflow-hidden">
+                        {CENTER_PRESETS.map(c => (
+                          <button
+                            key={c.name}
+                            type="button"
+                            onClick={() => {
+                              setCreateForm(p => ({
+                                ...p,
+                                loading_name: c.name,
+                                loading_address: c.address,
+                                loading_lat: String(c.lat),
+                                loading_lng: String(c.lng),
+                              }));
+                              setShowLoadingPicker(false);
+                            }}
+                            className="w-full text-left px-4 py-2.5 hover:bg-blue-50 transition-colors border-b border-gray-50 last:border-0"
+                          >
+                            <p className="text-sm font-medium text-gray-800">{c.name}</p>
+                            <p className="text-xs text-gray-400">{c.address}</p>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {/* 직접 입력 필드 */}
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label className="block text-xs text-gray-600 mb-1">명칭</label>
@@ -708,7 +767,7 @@ const LocationRoomsPage: React.FC = () => {
                       />
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-600 mb-1">위도 (Lat)</label>
+                      <label className="block text-xs text-gray-600 mb-1">위도 (자동입력)</label>
                       <input
                         type="number"
                         step="0.000001"
@@ -719,7 +778,7 @@ const LocationRoomsPage: React.FC = () => {
                       />
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-600 mb-1">경도 (Lng)</label>
+                      <label className="block text-xs text-gray-600 mb-1">경도 (자동입력)</label>
                       <input
                         type="number"
                         step="0.000001"
@@ -735,9 +794,48 @@ const LocationRoomsPage: React.FC = () => {
                 {/* 하차지 */}
                 <div className="bg-orange-50 rounded-xl p-3 space-y-2">
                   <p className="text-sm font-semibold text-orange-700 flex items-center gap-1.5">
-                    <MapPin size={14} /> 하차지 정보
-                    <span className="text-xs font-normal text-orange-500">(입력 시 도착/출차 시각 자동기록)</span>
+                    <MapPin size={14} /> 하차지
+                    <span className="text-xs font-normal text-orange-500">(반경 300m 진입·이탈 시 자동기록)</span>
                   </p>
+                  {/* 센터 선택 드롭다운 */}
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setShowUnloadingPicker(p => !p)}
+                      className="w-full flex items-center justify-between px-3 py-2 border border-orange-300 bg-white rounded-lg text-sm hover:bg-orange-50 transition-colors"
+                    >
+                      <span className={createForm.unloading_name ? 'text-gray-800 font-medium' : 'text-gray-400'}>
+                        {createForm.unloading_name || '센터 선택 또는 직접 입력'}
+                      </span>
+                      <ChevronDown size={14} className="text-orange-500" />
+                    </button>
+                    {showUnloadingPicker && (
+                      <div className="absolute z-10 mt-1 w-full bg-white border border-orange-200 rounded-xl shadow-lg overflow-hidden">
+                        {CENTER_PRESETS.map(c => (
+                          <button
+                            key={c.name}
+                            type="button"
+                            onClick={() => {
+                              setCreateForm(p => ({
+                                ...p,
+                                unloading_name: c.name,
+                                unloading_address: c.address,
+                                unloading_lat: String(c.lat),
+                                unloading_lng: String(c.lng),
+                              }));
+                              setShowUnloadingPicker(false);
+                            }}
+                            className="w-full text-left px-4 py-2.5 hover:bg-orange-50 transition-colors border-b border-gray-50 last:border-0"
+                          >
+                            <p className="text-sm font-medium text-gray-800">{c.name}</p>
+                            <p className="text-xs text-gray-400">{c.address}</p>
+
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {/* 직접 입력 필드 */}
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label className="block text-xs text-gray-600 mb-1">명칭</label>
@@ -760,7 +858,7 @@ const LocationRoomsPage: React.FC = () => {
                       />
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-600 mb-1">위도 (Lat)</label>
+                      <label className="block text-xs text-gray-600 mb-1">위도 (자동입력)</label>
                       <input
                         type="number"
                         step="0.000001"
@@ -771,7 +869,7 @@ const LocationRoomsPage: React.FC = () => {
                       />
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-600 mb-1">경도 (Lng)</label>
+                      <label className="block text-xs text-gray-600 mb-1">경도 (자동입력)</label>
                       <input
                         type="number"
                         step="0.000001"

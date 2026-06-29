@@ -919,10 +919,10 @@ async def get_monitoring_vehicles(
     최근 GPS 수신 정보도 함께 반환합니다.
     """
     from sqlalchemy import func
-    from app.models.vehicle import VehicleStatus
 
+    # is_active=True 인 전체 차량 (운행가능/운행중/정비중 등 모두 포함)
     vehicles = db.query(Vehicle).filter(
-        Vehicle.status == VehicleStatus.ACTIVE
+        Vehicle.is_active.is_(True)
     ).order_by(Vehicle.plate_number).all()
 
     # 각 차량의 최근 GPS 로그 조회 (오늘 날짜)
