@@ -105,20 +105,42 @@ const ClientRoomPage: React.FC = () => {
     return () => clearInterval(interval);
   }, [fetchData, data?.is_completed]);
 
-  // 네이버 지도 초기화
+  // 네이버 SDK 로드 (데이터 수신 즉시 — DOM 마운트 전에 미리 로드)
   useEffect(() => {
     if (!data?.current_location) return;
-    if (!mapRef.current) return;
+    if (document.getElementById('naver-map-script')) return;
+    if ((window as any).naver?.maps) return;
 
-    const initMap = () => {
-      if (!(window as any).naver?.maps) return;
+    const s = document.createElement('script');
+    s.id = 'naver-map-script';
+    s.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${NAVER_CLIENT_ID}`;
+    document.head.appendChild(s);
+  }, [data?.current_location]);
 
+  // 네이버 지도 초기화 — mapRef(DOM)와 SDK 둘 다 준비될 때까지 폴링
+  useEffect(() => {
+    if (!data?.current_location) return;
+
+    let attempts = 0;
+    const MAX = 40; // 최대 4초 대기
+
+    const tryInit = () => {
+      attempts++;
+      const mapDiv = mapRef.current;
       const naver = (window as any).naver;
+
+      // DOM 또는 SDK 아직 미준비 → 재시도
+      if (!mapDiv || !naver?.maps) {
+        if (attempts < MAX) setTimeout(tryInit, 100);
+        return;
+      }
+
       const loc = data.current_location!;
       const center = new naver.maps.LatLng(loc.latitude, loc.longitude);
 
+      // 지도 생성 또는 중심 이동
       if (!naverMapRef.current) {
-        naverMapRef.current = new naver.maps.Map(mapRef.current, {
+        naverMapRef.current = new naver.maps.Map(mapDiv, {
           center,
           zoom: 14,
           zoomControl: true,
@@ -128,7 +150,7 @@ const ClientRoomPage: React.FC = () => {
         naverMapRef.current.setCenter(center);
       }
 
-      // 현재 위치 마커 업데이트
+      // 마커 생성 또는 위치 업데이트
       if (markerRef.current) {
         markerRef.current.setPosition(center);
       } else {
@@ -145,7 +167,8 @@ const ClientRoomPage: React.FC = () => {
               position: relative;
             ">
               <div style="
-                position: absolute; top: -28px; left: 50%; transform: translateX(-50%);
+                position: absolute; top: -28px; left: 50%;
+                transform: translateX(-50%);
                 background: #1e40af; color: white; font-size: 10px;
                 padding: 2px 6px; border-radius: 8px; white-space: nowrap;
                 font-weight: bold;
@@ -156,12 +179,11 @@ const ClientRoomPage: React.FC = () => {
         });
       }
 
-      // 경로 업데이트
+      // 경로 폴리라인
       if (data.location_history.length > 1) {
         const path = data.location_history.map(
           p => new naver.maps.LatLng(p.latitude, p.longitude)
         );
-
         if (pathRef.current) {
           pathRef.current.setPath(path);
         } else {
@@ -176,21 +198,7 @@ const ClientRoomPage: React.FC = () => {
       }
     };
 
-    if ((window as any).naver?.maps) {
-      initMap();
-    } else {
-      // 지도 SDK 로드
-      const script = document.getElementById('naver-map-script');
-      if (!script) {
-        const s = document.createElement('script');
-        s.id = 'naver-map-script';
-        s.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${NAVER_CLIENT_ID}`;
-        s.onload = initMap;
-        document.head.appendChild(s);
-      } else {
-        script.addEventListener('load', initMap);
-      }
-    }
+    tryInit();
   }, [data?.current_location, data?.location_history]);
 
   // ====== 렌더링 ======
