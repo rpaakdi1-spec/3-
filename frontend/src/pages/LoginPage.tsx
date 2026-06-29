@@ -63,6 +63,7 @@ const LoginPage: React.FC = () => {
           <Input
             label="사용자 이름"
             type="text"
+            autoComplete="username"
             placeholder="사용자 이름을 입력하세요"
             value={credentials.username}
             onChange={(e) => {
@@ -76,6 +77,7 @@ const LoginPage: React.FC = () => {
           <Input
             label="비밀번호"
             type="password"
+            autoComplete="current-password"
             placeholder="비밀번호를 입력하세요"
             value={credentials.password}
             onChange={(e) => {

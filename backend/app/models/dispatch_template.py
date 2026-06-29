@@ -1,115 +1,73 @@
 """
-거래처별 배차 템플릿 모델
-
-거래처마다 고유한 배차 파싱 규칙을 저장하고 관리
+배차 템플릿 모델
+Dispatch Template Models
 """
-from sqlalchemy import String, Text, Boolean, JSON
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey, JSON, Float
+from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
+from app.models.base import Base
 
-from .base import Base, IDMixin, TimestampMixin
 
-
-class DispatchTemplate(Base, IDMixin, TimestampMixin):
-    """거래처별 배차 템플릿"""
-    
+class DispatchTemplate(Base):
+    """배차 파싱 템플릿 모델 (자동 파싱 규칙용)"""
     __tablename__ = "dispatch_templates"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), unique=True, nullable=False, index=True)
+    description = Column(Text)
+    is_active = Column(Boolean, default=True, nullable=False, index=True)
     
-    # 기본 정보
-    name: Mapped[str] = mapped_column(
-        String(100), 
-        nullable=False, 
-        unique=True,
-        comment="템플릿 이름 (예: 목우촌, 하림, 사조)"
-    )
-    
-    description: Mapped[str] = mapped_column(
-        Text,
-        nullable=True,
-        comment="템플릿 설명"
-    )
-    
-    is_active: Mapped[bool] = mapped_column(
-        Boolean,
-        default=True,
-        nullable=False,
-        comment="활성화 여부"
-    )
-    
-    # 식별 패턴
-    detection_keywords: Mapped[str] = mapped_column(
-        JSON,
-        nullable=False,
-        comment="배차 텍스트에서 이 템플릿을 식별하는 키워드 목록 (JSON array)"
-    )
+    # 감지 키워드 (JSON 배열)
+    detection_keywords = Column(JSON, nullable=False)
     
     # 기본 주소
-    default_pickup_address: Mapped[str] = mapped_column(
-        String(500),
-        nullable=True,
-        comment="기본 상차지 주소"
-    )
+    default_pickup_address = Column(String(500))
+    default_delivery_address = Column(String(500))
     
-    default_delivery_address: Mapped[str] = mapped_column(
-        String(500),
-        nullable=True,
-        comment="기본 하차지 주소"
-    )
+    # 좌표
+    pickup_latitude = Column(Float)
+    pickup_longitude = Column(Float)
+    delivery_latitude = Column(Float)
+    delivery_longitude = Column(Float)
     
-    # 고정 좌표 (API 비용 절감)
-    pickup_latitude: Mapped[float] = mapped_column(
-        nullable=True,
-        comment="상차지 위도 (고정값)"
-    )
+    # 파싱 규칙 (JSON)
+    parsing_rules = Column(JSON, nullable=False, default=dict)
     
-    pickup_longitude: Mapped[float] = mapped_column(
-        nullable=True,
-        comment="상차지 경도 (고정값)"
-    )
-    
-    delivery_latitude: Mapped[float] = mapped_column(
-        nullable=True,
-        comment="하차지 위도 (고정값)"
-    )
-    
-    delivery_longitude: Mapped[float] = mapped_column(
-        nullable=True,
-        comment="하차지 경도 (고정값)"
-    )
-    
-    # 파싱 규칙
-    parsing_rules: Mapped[dict] = mapped_column(
-        JSON,
-        nullable=False,
-        default=dict,
-        comment="""
-        파싱 규칙 (JSON):
-        {
-            "time_pattern": "정규식 패턴",
-            "product_pattern": "정규식 패턴", 
-            "tonnage_pattern": "정규식 패턴",
-            "temperature_mapping": {
-                "냉동": "FROZEN",
-                "냉장": "REFRIGERATED"
-            },
-            "default_temperature": "REFRIGERATED",
-            "pallet_calculation": {
-                ">=18": 18,
-                ">=11": 16,
-                ">=5": 10,
-                "default": "tonnage * 2"
-            },
-            "delivery_time_offset_hours": 4,
-            "notes_template": "자동 파싱: {client_name} 배차"
-        }
-        """
-    )
-    
-    # 사용 통계
-    usage_count: Mapped[int] = mapped_column(
-        default=0,
-        nullable=False,
-        comment="사용 횟수"
-    )
+    # 메타 정보
+    usage_count = Column(Integer, default=0, nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
     
     def __repr__(self):
-        return f"<DispatchTemplate(id={self.id}, name='{self.name}', active={self.is_active})>"
+        return f"<DispatchTemplate(id={self.id}, name='{self.name}')>"
+
+
+class DispatchFormTemplate(Base):
+    """배차 폼 템플릿 모델 (배차 일괄 등록용)"""
+    __tablename__ = "dispatch_form_templates"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(200), nullable=False, index=True)
+    client_name = Column(String(200), nullable=False, index=True)
+    category = Column(String(100), index=True)
+    description = Column(Text)
+    
+    # 템플릿 데이터 (JSON)
+    template_data = Column(JSON, nullable=False)
+    
+    # 메타 정보
+    usage_count = Column(Integer, default=0)
+    is_active = Column(Boolean, default=True, index=True)
+    is_favorite = Column(Boolean, default=False, index=True)
+    
+    # 생성자 정보
+    created_by = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    last_used_at = Column(DateTime(timezone=True), nullable=True)
+    
+    # Relationships
+    creator = relationship("User", foreign_keys=[created_by])
+    
+    def __repr__(self):
+        return f"<DispatchFormTemplate(id={self.id}, name='{self.name}', client='{self.client_name}')>"

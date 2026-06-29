@@ -9,6 +9,9 @@ venv/
 ENV/
 build/
 dist/
+# frontend/dist는 pre-built 배포용으로 git에 포함 (예외)
+!frontend/dist/
+!frontend/dist/**
 *.egg-info/
 .pytest_cache/
 .coverage

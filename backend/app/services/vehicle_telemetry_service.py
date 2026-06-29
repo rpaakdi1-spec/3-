@@ -362,6 +362,28 @@ class VehicleTelemetryService:
             else:
                 status = "offline"
             
+            # 활성 배차의 주문번호 안전하게 조회
+            active_dispatch_info = None
+            if active_dispatch:
+                try:
+                    # Dispatch에 order relationship이 없으므로 routes를 통해 조회
+                    order_number = None
+                    if active_dispatch.routes:
+                        first_route = active_dispatch.routes[0]
+                        if first_route.order:
+                            order_number = first_route.order.order_number
+                    active_dispatch_info = {
+                        "dispatch_id": active_dispatch.id,
+                        "order_number": order_number,
+                        "status": active_dispatch.status
+                    }
+                except Exception:
+                    active_dispatch_info = {
+                        "dispatch_id": active_dispatch.id,
+                        "order_number": None,
+                        "status": active_dispatch.status
+                    }
+
             result.append({
                 "vehicle_id": vehicle.id,
                 "plate_number": vehicle.plate_number,
@@ -374,11 +396,7 @@ class VehicleTelemetryService:
                     "speed": recent_location.speed if recent_location else None,
                     "timestamp": recent_location.timestamp.isoformat() if recent_location else None
                 } if recent_location else None,
-                "active_dispatch": {
-                    "dispatch_id": active_dispatch.id,
-                    "order_number": active_dispatch.order.order_number if active_dispatch.order else None,
-                    "status": active_dispatch.status
-                } if active_dispatch else None
+                "active_dispatch": active_dispatch_info
             })
         
         return result

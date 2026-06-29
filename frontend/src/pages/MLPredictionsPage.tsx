@@ -16,9 +16,7 @@ import {
   Shield,
   Info
 } from 'lucide-react';
-import axios from 'axios';
-
-const API_URL = import.meta.env.VITE_API_URL || '/api/v1';
+import { api } from '../services/api';
 
 interface VehiclePrediction {
   vehicle_id: number;
@@ -76,24 +74,17 @@ const MLPredictionsPage: React.FC = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('access_token');
-      const headers = { Authorization: `Bearer ${token}` };
-
-      // Load predictions
+      // Load predictions — 모델 미학습 시 빈 배열 반환 (400 없음)
       const params = selectedRisk !== 'all' ? { risk_level: selectedRisk } : {};
-      const predRes = await axios.get(`${API_URL}/ml/predictions`, {
-        headers,
-        params
-      });
-      setPredictions(predRes.data);
+      const predRes = await api.get('/ml/predictions', { params });
+      setPredictions(Array.isArray(predRes.data) ? predRes.data : []);
 
       // Load statistics
-      const statsRes = await axios.get(`${API_URL}/ml/statistics`, {
-        headers
-      });
-      setStatistics(statsRes.data);
+      const statsRes = await api.get('/ml/statistics');
+      setStatistics(statsRes.data?.statistics !== undefined ? statsRes.data : statsRes.data);
     } catch (error) {
       console.error('Failed to load ML predictions:', error);
+      // 에러 시 빈 상태 유지 (콘솔 로그만)
     } finally {
       setLoading(false);
     }
@@ -101,10 +92,7 @@ const MLPredictionsPage: React.FC = () => {
 
   const loadModelStatus = async () => {
     try {
-      const token = localStorage.getItem('access_token');
-      const res = await axios.get(`${API_URL}/ml/model-status`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await api.get('/ml/model-status');
       setModelStatus(res.data);
     } catch (error) {
       console.error('Failed to load model status:', error);
@@ -118,12 +106,7 @@ const MLPredictionsPage: React.FC = () => {
 
     setTraining(true);
     try {
-      const token = localStorage.getItem('access_token');
-      await axios.post(
-        `${API_URL}/ml/train`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      await api.post('/ml/train', {});
       alert('모델 학습이 백그라운드에서 시작되었습니다. 잠시 후 다시 확인해주세요.');
       
       // Reload after 30 seconds
@@ -287,13 +270,13 @@ const MLPredictionsPage: React.FC = () => {
                 <BarChart3 className="w-5 h-5 text-purple-500" />
               </div>
               <div className="flex gap-1 mt-2">
-                <div className="flex-1 bg-red-200 h-2 rounded" style={{width: `${(statistics.risk_distribution.critical / statistics.total_vehicles) * 100}%`}}></div>
-                <div className="flex-1 bg-orange-200 h-2 rounded" style={{width: `${(statistics.risk_distribution.high / statistics.total_vehicles) * 100}%`}}></div>
-                <div className="flex-1 bg-yellow-200 h-2 rounded" style={{width: `${(statistics.risk_distribution.medium / statistics.total_vehicles) * 100}%`}}></div>
-                <div className="flex-1 bg-green-200 h-2 rounded" style={{width: `${(statistics.risk_distribution.low / statistics.total_vehicles) * 100}%`}}></div>
+                <div className="flex-1 bg-red-200 h-2 rounded" style={{width: `${((statistics.risk_distribution?.critical ?? 0) / (statistics.total_vehicles || 1)) * 100}%`}}></div>
+                <div className="flex-1 bg-orange-200 h-2 rounded" style={{width: `${((statistics.risk_distribution?.high ?? 0) / (statistics.total_vehicles || 1)) * 100}%`}}></div>
+                <div className="flex-1 bg-yellow-200 h-2 rounded" style={{width: `${((statistics.risk_distribution?.medium ?? 0) / (statistics.total_vehicles || 1)) * 100}%`}}></div>
+                <div className="flex-1 bg-green-200 h-2 rounded" style={{width: `${((statistics.risk_distribution?.low ?? 0) / (statistics.total_vehicles || 1)) * 100}%`}}></div>
               </div>
               <p className="text-xs text-gray-500 mt-1">
-                C:{statistics.risk_distribution.critical} H:{statistics.risk_distribution.high} M:{statistics.risk_distribution.medium} L:{statistics.risk_distribution.low}
+                C:{statistics.risk_distribution?.critical ?? 0} H:{statistics.risk_distribution?.high ?? 0} M:{statistics.risk_distribution?.medium ?? 0} L:{statistics.risk_distribution?.low ?? 0}
               </p>
             </div>
           </div>

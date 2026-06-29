@@ -22,6 +22,7 @@ const TrackingPage = lazy(() => import('./pages/TrackingPage'));
 const RealtimeDashboardPage = lazy(() => import('./pages/RealtimeDashboardPage'));
 const VehiclesPage = lazy(() => import('./pages/VehiclesPage'));
 const VehicleMileagePage = lazy(() => import('./pages/VehicleMileagePage'));
+const DriverMileagePage = lazy(() => import('./pages/DriverMileagePage'));
 const ClientsPage = lazy(() => import('./pages/ClientsPage'));
 const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'));
 const ReportsPage = lazy(() => import('./pages/ReportsPage'));
@@ -66,9 +67,24 @@ const IoTAlertsPage = lazy(() => import('./pages/IoTAlertsPage'));
 
 // File Management Page (Phase 16.2)
 const FilesPage = lazy(() => import('./pages/FilesPage'));
+const TemplateManagementPage = lazy(() => import('./pages/TemplateManagementPage'));
 
 // Chat Page (Phase 16.3)
 const ChatPage = lazy(() => import('./pages/ChatPage'));
+
+// Public Tracking Page (no auth required)
+const PublicTrackingPage = lazy(() => import('./pages/PublicTrackingPage'));
+
+// Driver Pages
+const DriverDispatchesPage = lazy(() => import('./pages/DriverDispatchesPage'));
+
+// Guest Delivery Page (no auth required)
+const GuestDeliveryPage = lazy(() => import('./pages/GuestDeliveryPage'));
+
+// Location Room Pages
+const LocationRoomsPage = lazy(() => import('./pages/LocationRoomsPage'));
+const DriverRoomPage = lazy(() => import('./pages/DriverRoomPage'));
+const ClientRoomPage = lazy(() => import('./pages/ClientRoomPage'));
 
 // Protected Route Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -95,9 +111,19 @@ const App: React.FC = () => {
   useEffect(() => {
     checkAuth();
     
-    // Initialize PWA features
-    registerServiceWorker();
-    requestNotificationPermission();
+    // PWA 기능은 페이지 로드 완료 후 등록 (초기 로딩 차단 방지)
+    const initPWA = () => {
+      registerServiceWorker();
+      // 알림 권한은 사용자 인터랙션 후 요청 (auto-request 제거)
+      // requestNotificationPermission();
+    };
+
+    if (document.readyState === 'complete') {
+      // 이미 로드 완료된 경우 다음 틱에 실행
+      setTimeout(initPWA, 2000);
+    } else {
+      window.addEventListener('load', () => setTimeout(initPWA, 2000), { once: true });
+    }
   }, [checkAuth]);
 
   // Setup WebSocket connection for real-time updates (OPTIONAL - only if needed)
@@ -176,6 +202,12 @@ const App: React.FC = () => {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<SignupPage />} />
             <Route path="/tracking/:trackingNumber" element={<TrackingPage />} />
+            <Route path="/track/:trackingNumber" element={<PublicTrackingPage />} />
+            <Route path="/guest/delivery/:token" element={<GuestDeliveryPage />} />
+
+            {/* Location Room Public Routes (no auth) */}
+            <Route path="/room/driver/:driverToken" element={<DriverRoomPage />} />
+            <Route path="/room/client/:clientToken" element={<ClientRoomPage />} />
 
             {/* Protected Routes */}
             <Route
@@ -215,6 +247,30 @@ const App: React.FC = () => {
               element={
                 <LayoutWrapper>
                   <DispatchesPage />
+                </LayoutWrapper>
+              }
+            />
+            <Route
+              path="/driver/dispatches"
+              element={
+                <LayoutWrapper>
+                  <DriverDispatchesPage />
+                </LayoutWrapper>
+              }
+            />
+            <Route
+              path="/location-rooms"
+              element={
+                <LayoutWrapper>
+                  <LocationRoomsPage />
+                </LayoutWrapper>
+              }
+            />
+            <Route
+              path="/template-management"
+              element={
+                <LayoutWrapper>
+                  <TemplateManagementPage />
                 </LayoutWrapper>
               }
             />
@@ -427,6 +483,14 @@ const App: React.FC = () => {
               }
             />
             <Route
+              path="/driver-mileage"
+              element={
+                <LayoutWrapper>
+                  <DriverMileagePage />
+                </LayoutWrapper>
+              }
+            />
+            <Route
               path="/ml-predictions"
               element={
                 <LayoutWrapper>
@@ -501,6 +565,14 @@ const App: React.FC = () => {
               element={
                 <LayoutWrapper>
                   <ChatPage />
+                </LayoutWrapper>
+              }
+            />
+            <Route
+              path="/template-management"
+              element={
+                <LayoutWrapper>
+                  <TemplateManagementPage />
                 </LayoutWrapper>
               }
             />

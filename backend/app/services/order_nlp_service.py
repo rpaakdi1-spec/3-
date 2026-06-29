@@ -23,17 +23,22 @@ class OrderNLPService:
         
         # 온도대 키워드 매핑
         self.temp_keywords = {
+            '냉동칸': TemperatureZone.FROZEN,
             '냉동': TemperatureZone.FROZEN,
             '동결': TemperatureZone.FROZEN,
             '프로즌': TemperatureZone.FROZEN,
             'frozen': TemperatureZone.FROZEN,
+            '냉장칸': TemperatureZone.REFRIGERATED,
             '냉장': TemperatureZone.REFRIGERATED,
+            '저온칸': TemperatureZone.REFRIGERATED,
             '저온': TemperatureZone.REFRIGERATED,
             '칠드': TemperatureZone.REFRIGERATED,
             'chilled': TemperatureZone.REFRIGERATED,
             'refrigerated': TemperatureZone.REFRIGERATED,
+            '상온칸': TemperatureZone.AMBIENT,
             '상온': TemperatureZone.AMBIENT,
             'ambient': TemperatureZone.AMBIENT,
+            '실온칸': TemperatureZone.AMBIENT,
             '실온': TemperatureZone.AMBIENT,
         }
     

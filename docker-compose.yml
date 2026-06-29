@@ -141,26 +141,29 @@ services:
       start_period: 40s
     restart: unless-stopped
 
-  # Frontend
+  # Frontend (nginx가 80/443을 담당하므로 외부 포트 노출 안 함)
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: uvis-frontend
-    ports:
-      - "${FRONTEND_PORT:-80}:80"
+    expose:
+      - "80"
     networks:
       - uvis-network
     restart: unless-stopped
 
-  # Nginx 리버스 프록시 (선택사항 - HTTPS용)
+  # Nginx 리버스 프록시 (HTTPS)
   nginx:
     image: nginx:alpine
     container_name: uvis-nginx
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./uploads:/app/uploads:ro
+      - certbot_webroot:/var/www/certbot:ro
     ports:
+      - "80:80"
       - "443:443"
     depends_on:
       - frontend
@@ -168,8 +171,6 @@ services:
     networks:
       - uvis-network
     restart: unless-stopped
-    profiles:
-      - https
 
   # Prometheus (모니터링)
   prometheus:
@@ -226,4 +227,6 @@ volumes:
   prometheus_data:
     driver: local
   grafana_data:
+    driver: local
+  certbot_webroot:
     driver: local

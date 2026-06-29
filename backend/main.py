@@ -82,7 +82,10 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
+    # redirect_slashes=False 제거:
+    # FastAPI의 기본 307 trailing-slash redirect를 허용하되,
+    # nginx proxy_redirect 로 Location 헤더를 http→https로 재작성함
 )
 
 # Configure CORS
@@ -169,12 +172,13 @@ async def internal_error_handler(request, exc):
 
 # Import and include routers
 # from app.api import auth, clients, vehicles, orders, dispatches, tracking, uvis, redispatch, notices, purchase_orders, band_messages, uvis_gps, analytics, delivery_tracking, traffic, monitoring, cache
-from app.api import auth, clients, vehicles, orders, dispatches, tracking, uvis, redispatch, notices, purchase_orders, band_messages, uvis_gps, delivery_tracking, traffic, monitoring, cache, emergency, ml_training, ai_chat, ai_usage, ml_dispatch, ab_test, recurring_orders, order_templates, driver_schedules, urgent_dispatches, notifications, temperature_monitoring, temperature_analytics, billing, vehicle_maintenance, ml_predictions, telemetry, dispatch_optimization, analytics, mobile, dispatch_monitoring, ml_autolearning, files, chat, chat_ws, semi_auto_dispatch, vehicle_mileage, driver_mileage
+from app.api import auth, clients, vehicles, drivers, orders, dispatches, tracking, uvis, redispatch, notices, purchase_orders, band_messages, uvis_gps, delivery_tracking, traffic, monitoring, cache, emergency, ml_training, ai_chat, ai_usage, ml_dispatch, ab_test, recurring_orders, order_templates, driver_schedules, urgent_dispatches, notifications, temperature_monitoring, temperature_analytics, billing, vehicle_maintenance, ml_predictions, telemetry, dispatch_optimization, analytics, mobile, dispatch_monitoring, ml_autolearning, files, chat, chat_ws, semi_auto_dispatch, vehicle_mileage, driver_mileage, dispatch_templates, dispatch_documents, guest_delivery, location_rooms
 from app.api.v1 import reports, realtime_monitoring, ml_models, fcm_notifications, performance, security, websocket, mobile_enhanced, billing_enhanced
 from app.api.v1.endpoints import dispatch_rules, employees
 app.include_router(auth.router, prefix=f"{settings.API_PREFIX}/auth", tags=["Authentication"])
 app.include_router(clients.router, prefix=f"{settings.API_PREFIX}/clients", tags=["Clients"])
 app.include_router(vehicles.router, prefix=f"{settings.API_PREFIX}/vehicles", tags=["Vehicles"])
+app.include_router(drivers.router, prefix=f"{settings.API_PREFIX}/drivers", tags=["Drivers"])
 app.include_router(orders.router, prefix=f"{settings.API_PREFIX}/orders", tags=["Orders"])
 app.include_router(order_templates.router, prefix=f"{settings.API_PREFIX}/order-templates", tags=["Order Templates"])
 app.include_router(recurring_orders.router, prefix=f"{settings.API_PREFIX}/recurring-orders", tags=["Recurring Orders"])
@@ -228,6 +232,10 @@ app.include_router(chat_ws.router, prefix=f"{settings.API_PREFIX}/ws", tags=["Ch
 app.include_router(semi_auto_dispatch.router, prefix=f"{settings.API_PREFIX}/semi-auto-dispatch", tags=["Semi-Auto Dispatch"])  # Semi-automatic dispatch with AI assistance
 app.include_router(vehicle_mileage.router, prefix=f"{settings.API_PREFIX}/vehicle-mileage", tags=["Vehicle Mileage"])  # GPS-based daily mileage tracking
 app.include_router(driver_mileage.router, prefix=f"{settings.API_PREFIX}/driver-mileage", tags=["Driver Mileage"])  # Driver-based daily mileage tracking
+app.include_router(dispatch_templates.router, prefix=f"{settings.API_PREFIX}/dispatch-form", tags=["Dispatch Form Templates"])  # Batch dispatch form template management
+app.include_router(dispatch_documents.router, prefix=f"{settings.API_PREFIX}/dispatch", tags=["Dispatch Documents & Tracking"])  # Customer tracking with document upload
+app.include_router(guest_delivery.router, prefix=f"{settings.API_PREFIX}", tags=["Guest Delivery"])  # Guest delivery without registration
+app.include_router(location_rooms.router, prefix=f"{settings.API_PREFIX}", tags=["Location Rooms"])  # Independent location sharing rooms
 
 # Mount static files for uploads
 import os

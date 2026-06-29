@@ -120,7 +120,11 @@ async def manual_dispatch_with_selected_vehicle(
                 detail="차량을 찾을 수 없습니다"
             )
         
-        if not vehicle.assigned_driver_id:
+        # 차량에 배정된 운전자 찾기
+        from app.models.driver import Driver
+        driver = db.query(Driver).filter(Driver.vehicle_id == vehicle_id).first()
+        
+        if not driver:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="차량에 배정된 운전자가 없습니다"
@@ -130,7 +134,7 @@ async def manual_dispatch_with_selected_vehicle(
         dispatch = Dispatch(
             order_id=order_id,
             vehicle_id=vehicle_id,
-            driver_id=vehicle.assigned_driver_id,
+            driver_id=driver.id,
             status='pending',
             assigned_at=datetime.utcnow(),
             assigned_by=current_user.id,

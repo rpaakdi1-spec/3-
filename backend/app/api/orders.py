@@ -27,7 +27,25 @@ def get_orders(
     order_date: Optional[date] = None,
     db: Session = Depends(get_db)
 ):
-    """주문 목록 조회"""
+    """주문 목록 조회 (Redis 캐시 60초, 필터 없을 때만)"""
+    import hashlib, json
+
+    # 필터가 없는 기본 조회만 캐싱 (skip=0, limit=100)
+    use_cache = (skip == 0 and limit == 100 and not status and not temperature_zone and not order_date)
+    cache = None
+    cache_key = None
+
+    if use_cache:
+        try:
+            from app.services.cache_service import cache_service
+            cache_key = "orders:list:default"
+            cached = cache_service.get(cache_key)
+            if cached:
+                logger.debug("Orders list served from cache")
+                return OrderListResponse(**cached)
+        except Exception as e:
+            logger.warning(f"Cache read error: {e}")
+
     query = db.query(Order)
     
     if status:
@@ -89,6 +107,16 @@ def get_orders(
         }
         items_dict.append(order_dict)
     
+    result = {"total": total, "items": items_dict}
+
+    # 기본 조회만 캐시 저장 (60초)
+    if use_cache and cache_key:
+        try:
+            from app.services.cache_service import cache_service
+            cache_service.set(cache_key, result, ttl=60)
+        except Exception as e:
+            logger.warning(f"Cache write error: {e}")
+
     return OrderListResponse(total=total, items=items_dict)
 
 
@@ -202,32 +230,38 @@ async def create_order(order_data: OrderCreate, db: Session = Depends(get_db)):
         if not pickup_client:
             raise HTTPException(status_code=404, detail="상차 거래처를 찾을 수 없습니다")
     elif order_data.pickup_address:
-        full_address = f"{order_data.pickup_address} {order_data.pickup_address_detail or ''}".strip()
-        
-        # 고정 좌표가 있는 경우
-        if order_data.pickup_address in FIXED_COORDINATES:
-            latitude, longitude = FIXED_COORDINATES[order_data.pickup_address]
-            order_dict['pickup_latitude'] = latitude
-            order_dict['pickup_longitude'] = longitude
-            logger.info(f"✅ Using fixed coordinates for pickup: {order_data.pickup_address} -> ({latitude}, {longitude})")
+        # 좌표가 이미 제공된 경우 지오코딩 스킵
+        if order_data.pickup_latitude and order_data.pickup_longitude:
+            logger.info(f"✅ 상차지 좌표 이미 제공됨: {order_data.pickup_address} -> ({order_data.pickup_latitude}, {order_data.pickup_longitude})")
+            order_dict['pickup_latitude'] = order_data.pickup_latitude
+            order_dict['pickup_longitude'] = order_data.pickup_longitude
         else:
-            # Naver 지오코딩 사용
-            try:
-                naver_service = NaverMapService()
-                result = await naver_service.geocode_address(full_address)
-                
-                if result and len(result) == 3:
-                    latitude, longitude, error = result
-                    if latitude and longitude:
-                        order_dict['pickup_latitude'] = latitude
-                        order_dict['pickup_longitude'] = longitude
-                        logger.info(f"Geocoded pickup address: {full_address} -> ({latitude}, {longitude})")
+            full_address = f"{order_data.pickup_address} {order_data.pickup_address_detail or ''}".strip()
+            
+            # 고정 좌표가 있는 경우
+            if order_data.pickup_address in FIXED_COORDINATES:
+                latitude, longitude = FIXED_COORDINATES[order_data.pickup_address]
+                order_dict['pickup_latitude'] = latitude
+                order_dict['pickup_longitude'] = longitude
+                logger.info(f"✅ Using fixed coordinates for pickup: {order_data.pickup_address} -> ({latitude}, {longitude})")
+            else:
+                # Naver 지오코딩 사용
+                try:
+                    naver_service = NaverMapService()
+                    result = await naver_service.geocode_address(full_address)
+                    
+                    if result and len(result) == 3:
+                        latitude, longitude, error = result
+                        if latitude and longitude:
+                            order_dict['pickup_latitude'] = latitude
+                            order_dict['pickup_longitude'] = longitude
+                            logger.info(f"Geocoded pickup address: {full_address} -> ({latitude}, {longitude})")
+                        else:
+                            logger.warning(f"Failed to geocode pickup address: {full_address}, error: {error}")
                     else:
-                        logger.warning(f"Failed to geocode pickup address: {full_address}, error: {error}")
-                else:
-                    logger.warning(f"Geocoding returned None for pickup address: {full_address}")
-            except Exception as e:
-                logger.error(f"Error during pickup geocoding: {str(e)}")
+                        logger.warning(f"Geocoding returned None for pickup address: {full_address}")
+                except Exception as e:
+                    logger.error(f"Error during pickup geocoding: {str(e)}")
     else:
         raise HTTPException(status_code=400, detail="상차 거래처 ID 또는 주소를 입력해주세요")
     
@@ -236,32 +270,38 @@ async def create_order(order_data: OrderCreate, db: Session = Depends(get_db)):
         if not delivery_client:
             raise HTTPException(status_code=404, detail="하차 거래처를 찾을 수 없습니다")
     elif order_data.delivery_address:
-        full_address = f"{order_data.delivery_address} {order_data.delivery_address_detail or ''}".strip()
-        
-        # 고정 좌표가 있는 경우
-        if order_data.delivery_address in FIXED_COORDINATES:
-            latitude, longitude = FIXED_COORDINATES[order_data.delivery_address]
-            order_dict['delivery_latitude'] = latitude
-            order_dict['delivery_longitude'] = longitude
-            logger.info(f"✅ Using fixed coordinates for delivery: {order_data.delivery_address} -> ({latitude}, {longitude})")
+        # 좌표가 이미 제공된 경우 지오코딩 스킵
+        if order_data.delivery_latitude and order_data.delivery_longitude:
+            logger.info(f"✅ 하차지 좌표 이미 제공됨: {order_data.delivery_address} -> ({order_data.delivery_latitude}, {order_data.delivery_longitude})")
+            order_dict['delivery_latitude'] = order_data.delivery_latitude
+            order_dict['delivery_longitude'] = order_data.delivery_longitude
         else:
-            # Naver 지오코딩 사용
-            try:
-                naver_service = NaverMapService()
-                result = await naver_service.geocode_address(full_address)
-                
-                if result and len(result) == 3:
-                    latitude, longitude, error = result
-                    if latitude and longitude:
-                        order_dict['delivery_latitude'] = latitude
-                        order_dict['delivery_longitude'] = longitude
-                        logger.info(f"Geocoded delivery address: {full_address} -> ({latitude}, {longitude})")
+            full_address = f"{order_data.delivery_address} {order_data.delivery_address_detail or ''}".strip()
+            
+            # 고정 좌표가 있는 경우
+            if order_data.delivery_address in FIXED_COORDINATES:
+                latitude, longitude = FIXED_COORDINATES[order_data.delivery_address]
+                order_dict['delivery_latitude'] = latitude
+                order_dict['delivery_longitude'] = longitude
+                logger.info(f"✅ Using fixed coordinates for delivery: {order_data.delivery_address} -> ({latitude}, {longitude})")
+            else:
+                # Naver 지오코딩 사용
+                try:
+                    naver_service = NaverMapService()
+                    result = await naver_service.geocode_address(full_address)
+                    
+                    if result and len(result) == 3:
+                        latitude, longitude, error = result
+                        if latitude and longitude:
+                            order_dict['delivery_latitude'] = latitude
+                            order_dict['delivery_longitude'] = longitude
+                            logger.info(f"Geocoded delivery address: {full_address} -> ({latitude}, {longitude})")
+                        else:
+                            logger.warning(f"Failed to geocode delivery address: {full_address}, error: {error}")
                     else:
-                        logger.warning(f"Failed to geocode delivery address: {full_address}, error: {error}")
-                else:
-                    logger.warning(f"Geocoding returned None for delivery address: {full_address}")
-            except Exception as e:
-                logger.error(f"Error during delivery geocoding: {str(e)}")
+                        logger.warning(f"Geocoding returned None for delivery address: {full_address}")
+                except Exception as e:
+                    logger.error(f"Error during delivery geocoding: {str(e)}")
     else:
         raise HTTPException(status_code=400, detail="하차 거래처 ID 또는 주소를 입력해주세요")
     
@@ -540,6 +580,51 @@ def parse_batch_dispatch(
     
     logger.info(f"📝 배치 배차 파싱 시작...")
     
+    # 0. 주소 별칭 → 실제 주소 매핑 함수
+    from app.models.client import Client
+    
+    def resolve_address(address_or_alias: str) -> str:
+        """거래처명이나 별칭을 실제 주소로 변환"""
+        if not address_or_alias:
+            return address_or_alias
+        
+        # 이미 실제 주소인 경우 (예: "서울", "경기", "충청" 등이 포함되어 있으면)
+        address_keywords = ["서울", "경기", "인천", "부산", "대구", "광주", "대전", "울산", "세종", 
+                           "충북", "충남", "전북", "전남", "경북", "경남", "강원", "제주",
+                           "구", "시", "군", "읍", "면", "동", "로", "길"]
+        if any(keyword in address_or_alias for keyword in address_keywords):
+            return address_or_alias
+        
+        # 거래처명으로 검색 (예: "목우촌", "목우촌 물류센터")
+        # 공백과 특수문자 제거하고 검색
+        search_name = address_or_alias.replace(" ", "").replace("물류센터", "").replace("센터", "")
+        
+        client = db.query(Client).filter(
+            Client.name.ilike(f"%{search_name}%")
+        ).first()
+        
+        if client:
+            # address 컬럼 사용
+            real_address = client.address
+            if real_address:
+                logger.info(f"📍 주소 변환: '{address_or_alias}' → '{real_address}'")
+                return real_address
+        
+        # 하드코딩된 매핑 (DB에 없는 경우 대비)
+        address_map = {
+            "목우촌": "전북 김제시 금산면 용산리 9-13",
+            "목우촌 물류센터": "전북 김제시 금산면 용산리 9-13",
+            "목우촌물류센터": "전북 김제시 금산면 용산리 9-13",
+        }
+        
+        for alias, real_addr in address_map.items():
+            if alias in address_or_alias:
+                logger.info(f"📍 주소 변환 (하드코딩): '{address_or_alias}' → '{real_addr}'")
+                return real_addr
+        
+        # 변환 실패 시 원본 반환
+        return address_or_alias
+    
     # 1. 템플릿 자동 감지
     template = None
     templates = db.query(DispatchTemplate).filter(
@@ -563,7 +648,7 @@ def parse_batch_dispatch(
             "time_pattern": r"(\d{1,2}):(\d{2})",
             "product_pattern": r"식육|육가공",
             "tonnage_pattern": r"(\d+(?:\.\d+)?)톤",
-            "temperature_keywords": {"냉동": "FROZEN", "냉장": "REFRIGERATED"},
+            "temperature_keywords": {"냉동칸": "FROZEN", "냉동": "FROZEN", "냉장칸": "REFRIGERATED", "냉장": "REFRIGERATED", "(칸)": "MIXED", "칸": "MIXED"},
             "default_temperature": "REFRIGERATED",
             "pallet_calculation": {"18": 18, "11": 16, "5": 10, "default_multiplier": 2},
             "delivery_time_offset_hours": 4,
@@ -585,6 +670,32 @@ def parse_batch_dispatch(
         if not delivery_address and template.default_delivery_address:
             delivery_address = template.default_delivery_address
             logger.info(f"📍 템플릿 하차지 사용: {delivery_address}")
+    
+    # 주소 별칭 → 실제 주소 변환
+    pickup_address = resolve_address(pickup_address)
+    delivery_address = resolve_address(delivery_address)
+    
+    # 주소 → 좌표 변환 (DB의 clients 테이블에서 조회)
+    pickup_lat, pickup_lng = None, None
+    delivery_lat, delivery_lng = None, None
+    
+    # 상차지 좌표 조회 (clients 테이블에서)
+    if pickup_address:
+        pickup_client = db.query(Client).filter(
+            Client.address.ilike(f"%{pickup_address[:20]}%")  # 주소 일부로 검색
+        ).first()
+        if pickup_client and pickup_client.latitude and pickup_client.longitude:
+            pickup_lat, pickup_lng = pickup_client.latitude, pickup_client.longitude
+            logger.info(f"📍 상차지 좌표 (DB): {pickup_address[:30]}... → ({pickup_lat}, {pickup_lng})")
+    
+    # 하차지 좌표 조회 (clients 테이블에서)
+    if delivery_address:
+        delivery_client = db.query(Client).filter(
+            Client.address.ilike(f"%{delivery_address[:20]}%")  # 주소 일부로 검색
+        ).first()
+        if delivery_client and delivery_client.latitude and delivery_client.longitude:
+            delivery_lat, delivery_lng = delivery_client.latitude, delivery_client.longitude
+            logger.info(f"📍 하차지 좌표 (DB): {delivery_address[:30]}... → ({delivery_lat}, {delivery_lng})")
     
     orders = []
     today = date.today()
@@ -636,26 +747,93 @@ def parse_batch_dispatch(
     notes_template = parsing_rules.get('notes_template', '자동 파싱: {client_name} 배차')
     
     for line in lines:
-        # 시간 / 품목톤수(온도) 형식 파싱
-        # 명확한 그룹 구조: 시간(비캡처), 품목(캡처), 톤수(캡처), 온도(캡처)
-        # time_pattern을 분해해서 사용
+        # 시간 / 차량정보 형식 파싱
+        # 패턴 1: 시간 / 품목톤수(온도) - 예: "13:00 / 식육18톤(냉동)"
+        # 패턴 2: 시간 / 온도붙임팔레트 - 예: "08:30 / 냉동16p"
+        # 패턴 3: 시간 / 온도 / 팔렛수p - 예: "16:00 / 냉동 / 16p" (템플릿 불러오기 형식)
+        
         simple_time_pattern = r'(\d{1,2}):(\d{2})'  # 캡처: 시, 분
-        full_pattern = rf'{simple_time_pattern}\s*/\s*({product_pattern}){tonnage_pattern}(?:\(([^)]+)\))?'
-        match = re.search(full_pattern, line)
+        
+        # 패턴 1: 품목 + 톤수 + (온도)
+        pattern1 = rf'{simple_time_pattern}\s*/\s*({product_pattern}){tonnage_pattern}(?:\(([^)]+)\))?'
+        match1 = re.search(pattern1, line)
+        
+        # 패턴 2: 온도 + 팔레트수 + "p" 또는 "P" 또는 "팔레트" - 예: "냉동16p", "냉장칸18P", "(칸)16p", "칸16p"
+        pattern2 = rf'{simple_time_pattern}\s*/\s*(냉동칸|냉동|냉장칸|냉장|\(칸\)|칸)?(\d+)(?:[pP]|팔레트)'
+        match2 = re.search(pattern2, line)
+        
+        # 패턴 3: 시간 / 온도 / 팔렛수p (슬래시 구분 — 템플릿 불러오기 형식)
+        # 온도: 냉동, 냉장, 냉동/냉장, 상온
+        pattern3 = rf'{simple_time_pattern}\s*/\s*(냉동/냉장|냉동|냉장|상온)\s*/\s*(\d+)[pP]?'
+        match3 = re.search(pattern3, line)
+        
+        # 패턴 우선순위: 1 > 3 > 2
+        match = match1 or match3 or match2
+        
+        if match1:
+            # 패턴 1 매칭: 품목 + 톤수
+            hour = int(match1.group(1))
+            minute = int(match1.group(2))
+            product_name = match1.group(3)
+            tonnage = float(match1.group(4))
+            temp_indicator = match1.group(5) if len(match1.groups()) >= 5 else None
+            pallet_count_explicit = None  # 톤수로 계산할 것
+
+        elif match3:
+            # 패턴 3 매칭: 시간 / 온도 / 팔렛수p (템플릿 불러오기 형식)
+            # group(1): 시, group(2): 분, group(3): 온도문자열, group(4): 팔렛수
+            hour = int(match3.group(1))
+            minute = int(match3.group(2))
+            temp_indicator = match3.group(3)   # "냉동", "냉장", "냉동/냉장", "상온"
+            pallet_count_explicit = int(match3.group(4))
+
+            # 온도 → 품목명
+            temp_product_map = {
+                "냉동": "냉동식품", "냉장": "냉장식품",
+                "냉동/냉장": "냉동/냉장식품", "상온": "상온식품",
+            }
+            product_name = temp_product_map.get(temp_indicator, "일반식품")
+
+            # 팔렛수 → 톤수 역산
+            if pallet_count_explicit >= 18:
+                tonnage = 18.0
+            elif pallet_count_explicit >= 16:
+                tonnage = 11.0
+            elif pallet_count_explicit >= 10:
+                tonnage = 5.0
+            else:
+                tonnage = max(1.0, pallet_count_explicit / 2.0)
+            
+        elif match2:
+            # 패턴 2 매칭: 온도 + 팔레트수
+            hour = int(match2.group(1))
+            minute = int(match2.group(2))
+            temp_indicator = match2.group(3)  # 냉동 or 냉장 or (칸)
+            pallet_count_explicit = int(match2.group(4))
+            
+            # 온도 지시자에 따른 품목명 설정
+            if temp_indicator in ("냉동", "냉동칸"):
+                product_name = "냉동식품"
+            elif temp_indicator in ("냉장", "냉장칸"):
+                product_name = "냉장식품"
+            elif temp_indicator in ("(칸)", "칸"):
+                product_name = "냉동/냉장식품"
+            else:
+                product_name = "일반식품"
+            
+            # 팔레트 수로 톤수 역계산
+            if pallet_count_explicit >= 18:
+                tonnage = 18.0
+            elif pallet_count_explicit >= 16:
+                tonnage = 11.0
+            elif pallet_count_explicit >= 10:
+                tonnage = 5.0
+            else:
+                tonnage = pallet_count_explicit / 2.0
+        else:
+            continue
         
         if match:
-            # 명확한 그룹 매핑
-            # group(1): 시 (hour)
-            # group(2): 분 (minute)
-            # group(3): 품목 (product_name)
-            # group(4): 톤수 (tonnage)
-            # group(5): 온도 (temp_indicator)
-            hour = int(match.group(1))
-            minute = int(match.group(2))
-            product_name = match.group(3)
-            tonnage = float(match.group(4))
-            temp_indicator = match.group(5) if len(match.groups()) >= 5 else None
-            
             # 시간
             pickup_time = datetime_time(hour, minute)
             
@@ -671,10 +849,28 @@ def parse_batch_dispatch(
             # 온도대 결정 (템플릿 규칙 사용)
             temperature_zone_str = default_temperature
             if temp_indicator:
-                for keyword, temp_enum in temperature_keywords.items():
-                    if keyword in temp_indicator:
-                        temperature_zone_str = temp_enum
-                        break
+                # 한글 온도명 → TemperatureZone 직접 매핑 (패턴3 대응)
+                direct_map = {
+                    "냉동칸": "FROZEN",
+                    "냉동": "FROZEN",
+                    "냉장칸": "REFRIGERATED",
+                    "냉장": "REFRIGERATED",
+                    "냉동/냉장": "MIXED",
+                    "상온칸": "AMBIENT",
+                    "상온": "AMBIENT",
+                    "(칸)": "MIXED",
+                    "칸": "MIXED",
+                }
+                if temp_indicator in direct_map:
+                    temperature_zone_str = direct_map[temp_indicator]
+                elif temp_indicator in temperature_keywords:
+                    temperature_zone_str = temperature_keywords[temp_indicator]
+                else:
+                    # 부분 매칭 fallback
+                    for keyword, temp_enum in temperature_keywords.items():
+                        if keyword in temp_indicator:
+                            temperature_zone_str = temp_enum
+                            break
             
             # TemperatureZone enum 변환
             try:
@@ -683,23 +879,45 @@ def parse_batch_dispatch(
                 temperature_zone = TemperatureZone.REFRIGERATED
             
             # 팔레트 수 계산 (템플릿 규칙 사용)
-            pallet_count = None
-            # 정확한 톤수 매칭 먼저 시도
-            for ton_str, pallets in pallet_calc.items():
-                if ton_str == "default_multiplier":
-                    continue
-                try:
-                    ton_threshold = float(ton_str)
+            # pallet_count_explicit가 있으면 그것을 사용 (패턴 2에서 직접 지정)
+            if pallet_count_explicit is not None:
+                pallet_count = pallet_count_explicit
+            else:
+                pallet_count = None
+                
+                # 목우촌 배차 팔레트 계산 규칙 (내림차순 적용)
+                # 18톤 → 18팔레트
+                # 11톤 → 16팔레트
+                # 5톤 → 10팔레트
+                # 3.5톤 → 6팔레트 (수정)
+                # 2.5톤 → 4팔레트 (수정)
+                # 1톤 → 2팔레트
+                # 그 외: tonnage × default_multiplier (기본 2)
+                
+                # 톤수 기준을 내림차순 정렬하여 정확한 매칭
+                ton_rules = []
+                for ton_str, pallets in pallet_calc.items():
+                    if ton_str == "default_multiplier":
+                        continue
+                    try:
+                        ton_threshold = float(ton_str)
+                        ton_rules.append((ton_threshold, pallets))
+                    except (ValueError, TypeError):
+                        continue
+                
+                # 내림차순 정렬 (큰 톤수부터 체크)
+                ton_rules.sort(reverse=True, key=lambda x: x[0])
+                
+                # 톤수에 맞는 팔레트 수 찾기
+                for ton_threshold, pallets in ton_rules:
                     if tonnage >= ton_threshold:
                         pallet_count = pallets
                         break
-                except (ValueError, TypeError):
-                    continue
-            
-            # 매칭 안 되면 default_multiplier 사용
-            if pallet_count is None:
-                multiplier = pallet_calc.get('default_multiplier', 2)
-                pallet_count = max(1, int(tonnage * multiplier))
+                
+                # 매칭 안 되면 default_multiplier 사용
+                if pallet_count is None:
+                    multiplier = pallet_calc.get('default_multiplier', 2)
+                    pallet_count = max(1, int(tonnage * multiplier))
             
             # 중량 (톤 → kg)
             weight_kg = tonnage * 1000
@@ -721,6 +939,10 @@ def parse_batch_dispatch(
                 'temperature_zone': temperature_zone.value,
                 'pickup_address': pickup_address or f"{client_name} 본사",
                 'delivery_address': delivery_address,
+                'pickup_latitude': pickup_lat,
+                'pickup_longitude': pickup_lng,
+                'delivery_latitude': delivery_lat,
+                'delivery_longitude': delivery_lng,
                 'pallet_count': pallet_count,
                 'weight_kg': weight_kg,
                 'product_name': f"{product_name} {int(tonnage)}톤",

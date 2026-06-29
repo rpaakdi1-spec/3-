@@ -23,6 +23,6 @@ README.md
 .DS_Store
 Thumbs.db
 
-# Build output (will be built in container)
-dist
+# Build output - dist는 pre-built 배포 전략으로 git에 포함되므로 제외하지 않음
+# dist
 build

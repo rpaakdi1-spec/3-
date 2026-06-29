@@ -78,6 +78,7 @@ class Dispatch(Base, IDMixin, TimestampMixin):
     temperature_alerts = relationship("TemperatureAlert", back_populates="dispatch")
     invoice_line_items = relationship("InvoiceLineItem", back_populates="dispatch")
     settlement_items = relationship("DriverSettlementItem", back_populates="dispatch")
+    guest_tokens = relationship("GuestDeliveryToken", back_populates="dispatch")
     
     def __repr__(self):
         return f"<Dispatch(number={self.dispatch_number}, date={self.dispatch_date}, vehicle_id={self.vehicle_id})>"
