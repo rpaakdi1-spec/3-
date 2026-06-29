@@ -122,13 +122,9 @@ interface CenterPreset {
 }
 
 const CENTER_PRESETS: CenterPreset[] = [
-  { name: '김해센터', address: '경남 김해시 주촌면 골든루트로 80-16', lat: 35.2412, lng: 128.8301 },
-  { name: '광주센터', address: '광주 북구 삼소로 148', lat: 35.1740, lng: 126.8420 },
-  { name: '전주센터', address: '전북 전주시 덕진구 팔복로 56', lat: 35.8579, lng: 127.1025 },
-  { name: '부산센터', address: '부산 강서구 녹산산단335로 7', lat: 35.0960, lng: 128.8570 },
-  { name: '서울센터', address: '서울 강동구 올림픽로 623', lat: 37.5497, lng: 127.1495 },
-  { name: '대구센터', address: '대구 북구 노원로 82', lat: 35.8870, lng: 128.5890 },
-  { name: '대전센터', address: '대전 유성구 산업로 154', lat: 36.3540, lng: 127.3290 },
+  { name: '김해센터', address: '경남 김해시 주촌면 덕암리 996', lat: 35.2582466391984, lng: 128.826287948375 },
+  { name: '광주센터', address: '광주 북구 삼소로 266', lat: 35.2381314867669, lng: 126.862985418619 },
+  { name: '전주센터', address: '전북 완주군 이서면 콩쥐팥쥐로 1010', lat: 35.8202964260438, lng: 127.010263722198 },
 ];
 
 const STATUS_CONFIG: { [key: string]: { label: string; dot: string; badge: string } } = {
@@ -705,7 +701,7 @@ const LocationRoomsPage: React.FC = () => {
                 <div className="bg-blue-50 rounded-xl p-3 space-y-2">
                   <p className="text-sm font-semibold text-blue-700 flex items-center gap-1.5">
                     <MapPin size={14} /> 상차지
-                    <span className="text-xs font-normal text-blue-500">(반경 300m 진입·이탈 시 자동기록)</span>
+                    <span className="text-xs font-normal text-blue-500">(반경 1km 진입·이탈 시 자동기록)</span>
                   </p>
                   {/* 센터 선택 드롭다운 */}
                   <div className="relative">
@@ -795,7 +791,7 @@ const LocationRoomsPage: React.FC = () => {
                 <div className="bg-orange-50 rounded-xl p-3 space-y-2">
                   <p className="text-sm font-semibold text-orange-700 flex items-center gap-1.5">
                     <MapPin size={14} /> 하차지
-                    <span className="text-xs font-normal text-orange-500">(반경 300m 진입·이탈 시 자동기록)</span>
+                    <span className="text-xs font-normal text-orange-500">(반경 1km 진입·이탈 시 자동기록)</span>
                   </p>
                   {/* 센터 선택 드롭다운 */}
                   <div className="relative">
@@ -1107,7 +1103,7 @@ const LocationRoomsPage: React.FC = () => {
                     <div className="bg-gray-50 px-4 py-2 flex items-center gap-2">
                       <Clock size={14} className="text-gray-500" />
                       <span className="text-sm font-semibold text-gray-700">운행 타임라인</span>
-                      <span className="text-xs text-gray-400 ml-auto">반경 300m 자동기록</span>
+                      <span className="text-xs text-gray-400 ml-auto">반경 1km 자동기록</span>
                     </div>
                     <div className="p-3 space-y-2">
                       {/* 상차지 */}

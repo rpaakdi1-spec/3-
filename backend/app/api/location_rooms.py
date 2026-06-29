@@ -507,7 +507,7 @@ async def driver_update_location(
             room.driver_joined_at = datetime.now()
 
     # ── Geofence 체크 (상차지 / 하차지) ─────────────────────────
-    GEOFENCE_RADIUS_M = 300  # 반경 300m
+    GEOFENCE_RADIUS_M = 1000  # 반경 1km
 
     lat, lng = location.latitude, location.longitude
     now = datetime.now()
