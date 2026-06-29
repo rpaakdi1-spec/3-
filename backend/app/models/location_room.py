@@ -168,6 +168,62 @@ class LocationRoom(Base, IDMixin, TimestampMixin):
         comment="완료 처리 시각"
     )
 
+    # ── 상차지 정보 ──────────────────────────────────────────
+    loading_name: Mapped[Optional[str]] = mapped_column(
+        String(200), nullable=True, comment="상차지 명칭 (예: 김해센터)"
+    )
+    loading_address: Mapped[Optional[str]] = mapped_column(
+        String(500), nullable=True, comment="상차지 주소"
+    )
+    loading_lat: Mapped[Optional[float]] = mapped_column(
+        Float, nullable=True, comment="상차지 위도"
+    )
+    loading_lng: Mapped[Optional[float]] = mapped_column(
+        Float, nullable=True, comment="상차지 경도"
+    )
+
+    # ── 하차지 정보 (복수 가능, 최초 1개만 자동체크) ────────
+    unloading_name: Mapped[Optional[str]] = mapped_column(
+        String(200), nullable=True, comment="하차지 명칭 (예: 광주저온)"
+    )
+    unloading_address: Mapped[Optional[str]] = mapped_column(
+        String(500), nullable=True, comment="하차지 주소"
+    )
+    unloading_lat: Mapped[Optional[float]] = mapped_column(
+        Float, nullable=True, comment="하차지 위도"
+    )
+    unloading_lng: Mapped[Optional[float]] = mapped_column(
+        Float, nullable=True, comment="하차지 경도"
+    )
+
+    # ── 운행 타임라인 자동기록 ────────────────────────────────
+    # 상차지 도착: 차량이 상차지 반경(geofence) 내로 최초 진입한 시각
+    arrived_at_loading: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True, comment="상차지 도착 시각"
+    )
+    # 상차지 출차: 차량이 상차지 반경을 벗어난 시각 (상차 완료)
+    departed_loading: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True, comment="상차지 출차 시각"
+    )
+    # 하차지 도착: 차량이 하차지 반경 내로 최초 진입한 시각
+    arrived_at_unloading: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True, comment="하차지 도착 시각"
+    )
+    # 하차지 출차(하차 완료): 차량이 하차지 반경을 벗어난 시각
+    departed_unloading: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True, comment="하차지 출차(완료) 시각"
+    )
+
+    # geofence 내부 여부 (중복 트리거 방지용 내부 플래그)
+    _in_loading_zone: Mapped[bool] = mapped_column(
+        "in_loading_zone", Boolean, default=False, nullable=False,
+        comment="현재 상차지 반경 내 여부"
+    )
+    _in_unloading_zone: Mapped[bool] = mapped_column(
+        "in_unloading_zone", Boolean, default=False, nullable=False,
+        comment="현재 하차지 반경 내 여부"
+    )
+
     # GPS 최근 위치 (빠른 조회용 캐시)
     last_latitude: Mapped[Optional[float]] = mapped_column(
         Float,
@@ -215,6 +271,17 @@ class LocationRoom(Base, IDMixin, TimestampMixin):
     def __repr__(self):
         return f"<LocationRoom {self.room_code}: {self.title} [{self.status}]>"
 
+    @staticmethod
+    def haversine_m(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+        """두 좌표 사이의 거리(미터) 계산 (Haversine)"""
+        import math
+        R = 6_371_000  # 지구 반지름(m)
+        phi1, phi2 = math.radians(lat1), math.radians(lat2)
+        dphi = math.radians(lat2 - lat1)
+        dlam = math.radians(lng2 - lng1)
+        a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlam / 2) ** 2
+        return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
     @property
     def is_expired(self) -> bool:
         if self.expires_at is None:
@@ -232,7 +299,17 @@ class LocationRoom(Base, IDMixin, TimestampMixin):
         vehicle_plate: Optional[str] = None,
         client_name: Optional[str] = None,
         hours_valid: Optional[int] = 48,
-        notes: Optional[str] = None
+        notes: Optional[str] = None,
+        # 상차지
+        loading_name: Optional[str] = None,
+        loading_address: Optional[str] = None,
+        loading_lat: Optional[float] = None,
+        loading_lng: Optional[float] = None,
+        # 하차지
+        unloading_name: Optional[str] = None,
+        unloading_address: Optional[str] = None,
+        unloading_lat: Optional[float] = None,
+        unloading_lng: Optional[float] = None,
     ) -> "LocationRoom":
         """새 방 생성"""
         expires_at = None
@@ -252,7 +329,17 @@ class LocationRoom(Base, IDMixin, TimestampMixin):
             client_token=generate_client_token(),
             expires_at=expires_at,
             created_by=created_by,
-            notes=notes
+            notes=notes,
+            loading_name=loading_name,
+            loading_address=loading_address,
+            loading_lat=loading_lat,
+            loading_lng=loading_lng,
+            unloading_name=unloading_name,
+            unloading_address=unloading_address,
+            unloading_lat=unloading_lat,
+            unloading_lng=unloading_lng,
+            _in_loading_zone=False,
+            _in_unloading_zone=False,
         )
 
 

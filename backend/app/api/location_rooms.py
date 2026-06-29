@@ -14,6 +14,7 @@ from sqlalchemy import desc
 from typing import Optional, List
 from datetime import datetime
 from pydantic import BaseModel
+import math
 import os
 import hashlib
 
@@ -46,6 +47,16 @@ class RoomCreateRequest(BaseModel):
     client_name: Optional[str] = None
     hours_valid: Optional[int] = 48
     notes: Optional[str] = None
+    # 상차지
+    loading_name: Optional[str] = None
+    loading_address: Optional[str] = None
+    loading_lat: Optional[float] = None
+    loading_lng: Optional[float] = None
+    # 하차지
+    unloading_name: Optional[str] = None
+    unloading_address: Optional[str] = None
+    unloading_lat: Optional[float] = None
+    unloading_lng: Optional[float] = None
 
 
 class RoomCreateResponse(BaseModel):
@@ -182,7 +193,15 @@ async def create_room(
         vehicle_plate=req.vehicle_plate,
         client_name=req.client_name,
         hours_valid=req.hours_valid,
-        notes=req.notes
+        notes=req.notes,
+        loading_name=req.loading_name,
+        loading_address=req.loading_address,
+        loading_lat=req.loading_lat,
+        loading_lng=req.loading_lng,
+        unloading_name=req.unloading_name,
+        unloading_address=req.unloading_address,
+        unloading_lat=req.unloading_lat,
+        unloading_lng=req.unloading_lng,
     )
     db.add(room)
     db.commit()
@@ -316,6 +335,21 @@ async def get_room_detail(
         "expires_at": _fmt(room.expires_at),
         "created_at": _fmt(room.created_at),
         "notes": room.notes,
+        # 상차지
+        "loading_name": room.loading_name,
+        "loading_address": room.loading_address,
+        "loading_lat": room.loading_lat,
+        "loading_lng": room.loading_lng,
+        # 하차지
+        "unloading_name": room.unloading_name,
+        "unloading_address": room.unloading_address,
+        "unloading_lat": room.unloading_lat,
+        "unloading_lng": room.unloading_lng,
+        # 운행 타임라인
+        "arrived_at_loading": _fmt(room.arrived_at_loading),
+        "departed_loading": _fmt(room.departed_loading),
+        "arrived_at_unloading": _fmt(room.arrived_at_unloading),
+        "departed_unloading": _fmt(room.departed_unloading),
         "documents": documents,
         "location_history": location_history,
         "driver_url": _build_driver_url(request, room.driver_token),
@@ -471,6 +505,46 @@ async def driver_update_location(
         room.status = RoomStatus.ACTIVE
         if not room.driver_joined_at:
             room.driver_joined_at = datetime.now()
+
+    # ── Geofence 체크 (상차지 / 하차지) ─────────────────────────
+    GEOFENCE_RADIUS_M = 300  # 반경 300m
+
+    lat, lng = location.latitude, location.longitude
+    now = datetime.now()
+
+    # 상차지 체크
+    if room.loading_lat and room.loading_lng:
+        dist_loading = LocationRoom.haversine_m(lat, lng, room.loading_lat, room.loading_lng)
+        in_zone = dist_loading <= GEOFENCE_RADIUS_M
+        was_in_zone = room._in_loading_zone
+
+        if in_zone and not was_in_zone:
+            # 상차지 진입
+            room._in_loading_zone = True
+            if not room.arrived_at_loading:
+                room.arrived_at_loading = now
+        elif not in_zone and was_in_zone:
+            # 상차지 이탈 → 출차
+            room._in_loading_zone = False
+            if room.arrived_at_loading and not room.departed_loading:
+                room.departed_loading = now
+
+    # 하차지 체크
+    if room.unloading_lat and room.unloading_lng:
+        dist_unloading = LocationRoom.haversine_m(lat, lng, room.unloading_lat, room.unloading_lng)
+        in_zone = dist_unloading <= GEOFENCE_RADIUS_M
+        was_in_zone = room._in_unloading_zone
+
+        if in_zone and not was_in_zone:
+            # 하차지 진입
+            room._in_unloading_zone = True
+            if not room.arrived_at_unloading:
+                room.arrived_at_unloading = now
+        elif not in_zone and was_in_zone:
+            # 하차지 이탈 → 하차 완료
+            room._in_unloading_zone = False
+            if room.arrived_at_unloading and not room.departed_unloading:
+                room.departed_unloading = now
 
     db.commit()
 
@@ -825,4 +899,92 @@ async def get_gps_available_dates(
         "vehicle_plate": room.vehicle_plate,
         "vehicle_id": vehicle.id if vehicle else None,
         "dates": available_dates    # ["20260320", "20260319", ...]
+    }
+
+
+# ===================== 실시간모니터링 차량 목록 (방 생성 시 차량 선택용) =====================
+
+@router.get(
+    "/rooms/vehicles/monitoring-list",
+    summary="실시간모니터링 차량 목록 조회 (방 생성용)",
+    tags=["Location Rooms"]
+)
+async def get_monitoring_vehicles(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    실시간모니터링에 등록된 활성 차량 목록을 반환합니다.
+    방 생성 시 차량 선택 드롭다운에 사용합니다.
+    최근 GPS 수신 정보도 함께 반환합니다.
+    """
+    from sqlalchemy import func
+    from app.models.vehicle import VehicleStatus
+
+    vehicles = db.query(Vehicle).filter(
+        Vehicle.status == VehicleStatus.ACTIVE
+    ).order_by(Vehicle.plate_number).all()
+
+    # 각 차량의 최근 GPS 로그 조회 (오늘 날짜)
+    today = datetime.utcnow().strftime("%Y%m%d")
+    result = []
+    for v in vehicles:
+        latest_gps = db.query(VehicleGPSLog).filter(
+            VehicleGPSLog.vehicle_id == v.id,
+            VehicleGPSLog.bi_date == today
+        ).order_by(desc(VehicleGPSLog.bi_time)).first()
+
+        result.append({
+            "id": v.id,
+            "plate_number": v.plate_number,
+            "vehicle_type": v.vehicle_type.value if hasattr(v.vehicle_type, 'value') else str(v.vehicle_type),
+            "driver_name": v.driver_name,
+            "last_gps_time": latest_gps.bi_time if latest_gps else None,
+            "last_lat": latest_gps.latitude if latest_gps else None,
+            "last_lng": latest_gps.longitude if latest_gps else None,
+            "last_speed": latest_gps.speed_kmh if latest_gps else None,
+            "is_engine_on": latest_gps.is_engine_on if latest_gps else None,
+        })
+
+    return {"total": len(result), "items": result}
+
+
+# ===================== 운행 타임라인 수동 기록 (관리자 수동 체크용) =====================
+
+class TimelineManualPatch(BaseModel):
+    field: str   # arrived_at_loading | departed_loading | arrived_at_unloading | departed_unloading
+    time: Optional[str] = None  # ISO datetime string, None이면 현재시각
+
+
+@router.patch(
+    "/rooms/{room_id}/timeline",
+    summary="운행 타임라인 수동 기록 (관리자)",
+    tags=["Location Rooms"]
+)
+async def patch_room_timeline(
+    room_id: int,
+    body: TimelineManualPatch,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """관리자가 운행 타임라인 시각을 수동으로 기록/수정합니다."""
+    room = db.query(LocationRoom).filter(LocationRoom.id == room_id).first()
+    if not room:
+        raise HTTPException(status_code=404, detail="방을 찾을 수 없습니다.")
+
+    allowed_fields = {
+        "arrived_at_loading", "departed_loading",
+        "arrived_at_unloading", "departed_unloading"
+    }
+    if body.field not in allowed_fields:
+        raise HTTPException(status_code=400, detail=f"유효하지 않은 필드: {body.field}")
+
+    ts = datetime.now() if body.time is None else datetime.fromisoformat(body.time)
+    setattr(room, body.field, ts)
+    db.commit()
+
+    return {
+        "status": "success",
+        "field": body.field,
+        "value": ts.isoformat()
     }

@@ -63,6 +63,21 @@ interface RoomDetail {
   location_history: any[];
   driver_url: string;
   client_url: string;
+  // 상차지
+  loading_name?: string;
+  loading_address?: string;
+  loading_lat?: number;
+  loading_lng?: number;
+  // 하차지
+  unloading_name?: string;
+  unloading_address?: string;
+  unloading_lat?: number;
+  unloading_lng?: number;
+  // 운행 타임라인
+  arrived_at_loading?: string;
+  departed_loading?: string;
+  arrived_at_unloading?: string;
+  departed_unloading?: string;
 }
 
 interface CreateForm {
@@ -74,6 +89,28 @@ interface CreateForm {
   client_name: string;
   hours_valid: number;
   notes: string;
+  // 상차지
+  loading_name: string;
+  loading_address: string;
+  loading_lat: string;
+  loading_lng: string;
+  // 하차지
+  unloading_name: string;
+  unloading_address: string;
+  unloading_lat: string;
+  unloading_lng: string;
+}
+
+interface MonitoringVehicle {
+  id: number;
+  plate_number: string;
+  vehicle_type: string;
+  driver_name?: string;
+  last_gps_time?: string;
+  last_lat?: number;
+  last_lng?: number;
+  last_speed?: number;
+  is_engine_on?: boolean;
 }
 
 const STATUS_CONFIG: { [key: string]: { label: string; dot: string; badge: string } } = {
@@ -102,7 +139,18 @@ const LocationRoomsPage: React.FC = () => {
     client_name: '',
     hours_valid: 48,
     notes: '',
+    loading_name: '',
+    loading_address: '',
+    loading_lat: '',
+    loading_lng: '',
+    unloading_name: '',
+    unloading_address: '',
+    unloading_lat: '',
+    unloading_lng: '',
   });
+  const [monitoringVehicles, setMonitoringVehicles] = useState<MonitoringVehicle[]>([]);
+  const [vehiclesLoading, setVehiclesLoading] = useState(false);
+  const [showVehiclePicker, setShowVehiclePicker] = useState(false);
 
   // 방 상세 모달
   const [selectedRoom, setSelectedRoom] = useState<RoomDetail | null>(null);
@@ -121,6 +169,24 @@ const LocationRoomsPage: React.FC = () => {
 
   // 생성 성공 결과
   const [createdRoom, setCreatedRoom] = useState<any | null>(null);
+
+  // 실시간모니터링 차량 목록 불러오기
+  const loadMonitoringVehicles = async () => {
+    setVehiclesLoading(true);
+    try {
+      const res = await apiClient.get('/rooms/vehicles/monitoring-list');
+      setMonitoringVehicles(res.data?.items ?? []);
+    } catch {
+      setMonitoringVehicles([]);
+    } finally {
+      setVehiclesLoading(false);
+    }
+  };
+
+  const handleSelectVehicle = (v: MonitoringVehicle) => {
+    setCreateForm(p => ({ ...p, vehicle_plate: v.plate_number, driver_name: p.driver_name || v.driver_name || '' }));
+    setShowVehiclePicker(false);
+  };
 
   const fetchRooms = useCallback(async () => {
     try {
@@ -166,7 +232,7 @@ const LocationRoomsPage: React.FC = () => {
     }
     setCreating(true);
     try {
-      const res = await apiClient.post('/rooms', {
+      const body: any = {
         title: createForm.title,
         description: createForm.description || undefined,
         driver_name: createForm.driver_name || undefined,
@@ -175,7 +241,19 @@ const LocationRoomsPage: React.FC = () => {
         client_name: createForm.client_name || undefined,
         hours_valid: createForm.hours_valid,
         notes: createForm.notes || undefined,
-      });
+      };
+      // 상차지
+      if (createForm.loading_name) body.loading_name = createForm.loading_name;
+      if (createForm.loading_address) body.loading_address = createForm.loading_address;
+      if (createForm.loading_lat) body.loading_lat = parseFloat(createForm.loading_lat);
+      if (createForm.loading_lng) body.loading_lng = parseFloat(createForm.loading_lng);
+      // 하차지
+      if (createForm.unloading_name) body.unloading_name = createForm.unloading_name;
+      if (createForm.unloading_address) body.unloading_address = createForm.unloading_address;
+      if (createForm.unloading_lat) body.unloading_lat = parseFloat(createForm.unloading_lat);
+      if (createForm.unloading_lng) body.unloading_lng = parseFloat(createForm.unloading_lng);
+
+      const res = await apiClient.post('/rooms', body);
       setCreatedRoom(res.data);
       fetchRooms();
     } catch (err: any) {
@@ -272,10 +350,14 @@ const LocationRoomsPage: React.FC = () => {
   const resetCreateForm = () => {
     setCreateForm({
       title: '', description: '', driver_name: '', driver_phone: '',
-      vehicle_plate: '', client_name: '', hours_valid: 48, notes: ''
+      vehicle_plate: '', client_name: '', hours_valid: 48, notes: '',
+      loading_name: '', loading_address: '', loading_lat: '', loading_lng: '',
+      unloading_name: '', unloading_address: '', unloading_lat: '', unloading_lng: '',
     });
     setCreatedRoom(null);
     setShowCreate(false);
+    setShowVehiclePicker(false);
+    setMonitoringVehicles([]);
   };
 
   const getFullUrl = (path: string) => {
@@ -298,7 +380,7 @@ const LocationRoomsPage: React.FC = () => {
           <p className="text-gray-500 text-sm mt-1">배차와 독립적으로 방을 만들어 기사 위치를 고객사에 공유합니다</p>
         </div>
         <button
-          onClick={() => { setShowCreate(true); setCreatedRoom(null); }}
+          onClick={() => { setShowCreate(true); setCreatedRoom(null); loadMonitoringVehicles(); }}
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors shadow-sm"
         >
           <Plus size={18} />
@@ -490,7 +572,8 @@ const LocationRoomsPage: React.FC = () => {
               </div>
             ) : (
               // 방 생성 폼
-              <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+              <div className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+                {/* 방 제목 */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     방 제목 <span className="text-red-500">*</span>
@@ -499,11 +582,69 @@ const LocationRoomsPage: React.FC = () => {
                     type="text"
                     value={createForm.title}
                     onChange={e => setCreateForm(p => ({ ...p, title: e.target.value }))}
-                    placeholder="예: 2026-03-13 서울→부산 냉동운송"
+                    placeholder="예: 2026-06-29 김해→광주 냉동운송"
                     className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
 
+                {/* 차량 선택 (실시간모니터링 연동) */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    차량 선택 <span className="text-xs text-gray-400">(실시간모니터링에서 불러오기)</span>
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={createForm.vehicle_plate}
+                      onChange={e => setCreateForm(p => ({ ...p, vehicle_plate: e.target.value }))}
+                      placeholder="차량번호 직접 입력 또는 아래서 선택"
+                      className="flex-1 px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowVehiclePicker(p => !p)}
+                      className="px-3 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-sm font-medium transition-colors flex items-center gap-1"
+                    >
+                      <Truck size={14} />
+                      {vehiclesLoading ? '로딩...' : '선택'}
+                    </button>
+                  </div>
+                  {/* 차량 목록 드롭다운 */}
+                  {showVehiclePicker && (
+                    <div className="mt-1 border border-gray-200 rounded-xl overflow-hidden bg-white shadow-lg max-h-48 overflow-y-auto">
+                      {vehiclesLoading ? (
+                        <div className="flex items-center justify-center py-6">
+                          <Loader2 size={18} className="animate-spin text-blue-500 mr-2" />
+                          <span className="text-sm text-gray-500">차량 목록 로딩 중...</span>
+                        </div>
+                      ) : monitoringVehicles.length === 0 ? (
+                        <div className="py-4 text-center text-sm text-gray-400">등록된 활성 차량이 없습니다</div>
+                      ) : (
+                        monitoringVehicles.map(v => (
+                          <button
+                            key={v.id}
+                            type="button"
+                            onClick={() => handleSelectVehicle(v)}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-blue-50 transition-colors text-left border-b border-gray-50 last:border-0"
+                          >
+                            <div className={`w-2 h-2 rounded-full flex-shrink-0 ${v.is_engine_on ? 'bg-green-400' : 'bg-gray-300'}`} />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-800">{v.plate_number}</p>
+                              <p className="text-xs text-gray-500">{v.vehicle_type} {v.driver_name ? `· ${v.driver_name}` : ''}</p>
+                            </div>
+                            {v.last_gps_time && (
+                              <span className="text-xs text-gray-400 flex-shrink-0">
+                                {v.last_gps_time.slice(0,2)}:{v.last_gps_time.slice(2,4)} · {v.last_speed ?? 0}km/h
+                              </span>
+                            )}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* 기사 정보 */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">기사 이름</label>
@@ -525,28 +666,125 @@ const LocationRoomsPage: React.FC = () => {
                       className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">차량 번호</label>
-                    <input
-                      type="text"
-                      value={createForm.vehicle_plate}
-                      onChange={e => setCreateForm(p => ({ ...p, vehicle_plate: e.target.value }))}
-                      placeholder="12가 3456"
-                      className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">고객사명</label>
-                    <input
-                      type="text"
-                      value={createForm.client_name}
-                      onChange={e => setCreateForm(p => ({ ...p, client_name: e.target.value }))}
-                      placeholder="(주)냉동유통"
-                      className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
+                </div>
+
+                {/* 고객사명 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">고객사명</label>
+                  <input
+                    type="text"
+                    value={createForm.client_name}
+                    onChange={e => setCreateForm(p => ({ ...p, client_name: e.target.value }))}
+                    placeholder="(주)냉동유통"
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                {/* 상차지 */}
+                <div className="bg-blue-50 rounded-xl p-3 space-y-2">
+                  <p className="text-sm font-semibold text-blue-700 flex items-center gap-1.5">
+                    <MapPin size={14} /> 상차지 정보
+                    <span className="text-xs font-normal text-blue-500">(입력 시 도착/출차 시각 자동기록)</span>
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">명칭</label>
+                      <input
+                        type="text"
+                        value={createForm.loading_name}
+                        onChange={e => setCreateForm(p => ({ ...p, loading_name: e.target.value }))}
+                        placeholder="예: 김해센터"
+                        className="w-full px-2.5 py-2 border border-blue-200 bg-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">주소</label>
+                      <input
+                        type="text"
+                        value={createForm.loading_address}
+                        onChange={e => setCreateForm(p => ({ ...p, loading_address: e.target.value }))}
+                        placeholder="경남 김해시 주촌면..."
+                        className="w-full px-2.5 py-2 border border-blue-200 bg-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">위도 (Lat)</label>
+                      <input
+                        type="number"
+                        step="0.000001"
+                        value={createForm.loading_lat}
+                        onChange={e => setCreateForm(p => ({ ...p, loading_lat: e.target.value }))}
+                        placeholder="35.123456"
+                        className="w-full px-2.5 py-2 border border-blue-200 bg-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">경도 (Lng)</label>
+                      <input
+                        type="number"
+                        step="0.000001"
+                        value={createForm.loading_lng}
+                        onChange={e => setCreateForm(p => ({ ...p, loading_lng: e.target.value }))}
+                        placeholder="128.654321"
+                        className="w-full px-2.5 py-2 border border-blue-200 bg-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      />
+                    </div>
                   </div>
                 </div>
 
+                {/* 하차지 */}
+                <div className="bg-orange-50 rounded-xl p-3 space-y-2">
+                  <p className="text-sm font-semibold text-orange-700 flex items-center gap-1.5">
+                    <MapPin size={14} /> 하차지 정보
+                    <span className="text-xs font-normal text-orange-500">(입력 시 도착/출차 시각 자동기록)</span>
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">명칭</label>
+                      <input
+                        type="text"
+                        value={createForm.unloading_name}
+                        onChange={e => setCreateForm(p => ({ ...p, unloading_name: e.target.value }))}
+                        placeholder="예: 광주저온"
+                        className="w-full px-2.5 py-2 border border-orange-200 bg-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">주소</label>
+                      <input
+                        type="text"
+                        value={createForm.unloading_address}
+                        onChange={e => setCreateForm(p => ({ ...p, unloading_address: e.target.value }))}
+                        placeholder="광주 북구 삼소로..."
+                        className="w-full px-2.5 py-2 border border-orange-200 bg-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">위도 (Lat)</label>
+                      <input
+                        type="number"
+                        step="0.000001"
+                        value={createForm.unloading_lat}
+                        onChange={e => setCreateForm(p => ({ ...p, unloading_lat: e.target.value }))}
+                        placeholder="35.123456"
+                        className="w-full px-2.5 py-2 border border-orange-200 bg-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">경도 (Lng)</label>
+                      <input
+                        type="number"
+                        step="0.000001"
+                        value={createForm.unloading_lng}
+                        onChange={e => setCreateForm(p => ({ ...p, unloading_lng: e.target.value }))}
+                        placeholder="126.654321"
+                        className="w-full px-2.5 py-2 border border-orange-200 bg-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 유효 시간 */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">유효 시간</label>
                   <select
@@ -562,6 +800,7 @@ const LocationRoomsPage: React.FC = () => {
                   </select>
                 </div>
 
+                {/* 메모 */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">메모 (내부용)</label>
                   <textarea
@@ -764,6 +1003,90 @@ const LocationRoomsPage: React.FC = () => {
                   <div><span className="text-gray-500">위치 기록</span><br /><strong>{selectedRoom.location_history.length}건</strong></div>
                 </div>
 
+                {/* ── 운행 타임라인 ── */}
+                {(selectedRoom.loading_name || selectedRoom.unloading_name) && (
+                  <div className="rounded-xl border border-gray-200 overflow-hidden">
+                    <div className="bg-gray-50 px-4 py-2 flex items-center gap-2">
+                      <Clock size={14} className="text-gray-500" />
+                      <span className="text-sm font-semibold text-gray-700">운행 타임라인</span>
+                      <span className="text-xs text-gray-400 ml-auto">반경 300m 자동기록</span>
+                    </div>
+                    <div className="p-3 space-y-2">
+                      {/* 상차지 */}
+                      {selectedRoom.loading_name && (
+                        <div className="flex items-start gap-3">
+                          <div className="flex flex-col items-center mt-1">
+                            <div className={`w-3 h-3 rounded-full border-2 ${selectedRoom.arrived_at_loading ? 'bg-blue-500 border-blue-500' : 'bg-white border-gray-300'}`} />
+                            <div className="w-0.5 h-6 bg-gray-200" />
+                            <div className={`w-3 h-3 rounded-full border-2 ${selectedRoom.departed_loading ? 'bg-blue-500 border-blue-500' : 'bg-white border-gray-300'}`} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold text-blue-700 mb-0.5">📦 상차지: {selectedRoom.loading_name}</p>
+                            {selectedRoom.loading_address && <p className="text-xs text-gray-400 mb-1">{selectedRoom.loading_address}</p>}
+                            <div className="flex gap-4 text-xs">
+                              <TimelineCell
+                                label="도착"
+                                time={selectedRoom.arrived_at_loading}
+                                roomId={selectedRoom.id}
+                                field="arrived_at_loading"
+                                onPatch={(updated) => setSelectedRoom(p => p ? { ...p, ...updated } : p)}
+                              />
+                              <TimelineCell
+                                label="출차"
+                                time={selectedRoom.departed_loading}
+                                roomId={selectedRoom.id}
+                                field="departed_loading"
+                                onPatch={(updated) => setSelectedRoom(p => p ? { ...p, ...updated } : p)}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 이동 구간 표시 */}
+                      {selectedRoom.loading_name && selectedRoom.unloading_name && (
+                        <div className="flex items-center gap-2 pl-5 text-xs text-gray-400">
+                          <div className="flex-1 border-t border-dashed border-gray-200" />
+                          <Truck size={12} />
+                          <span>이동 중</span>
+                          <div className="flex-1 border-t border-dashed border-gray-200" />
+                        </div>
+                      )}
+
+                      {/* 하차지 */}
+                      {selectedRoom.unloading_name && (
+                        <div className="flex items-start gap-3">
+                          <div className="flex flex-col items-center mt-1">
+                            <div className={`w-3 h-3 rounded-full border-2 ${selectedRoom.arrived_at_unloading ? 'bg-orange-500 border-orange-500' : 'bg-white border-gray-300'}`} />
+                            <div className="w-0.5 h-6 bg-gray-200" />
+                            <div className={`w-3 h-3 rounded-full border-2 ${selectedRoom.departed_unloading ? 'bg-green-500 border-green-500' : 'bg-white border-gray-300'}`} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold text-orange-700 mb-0.5">🏭 하차지: {selectedRoom.unloading_name}</p>
+                            {selectedRoom.unloading_address && <p className="text-xs text-gray-400 mb-1">{selectedRoom.unloading_address}</p>}
+                            <div className="flex gap-4 text-xs">
+                              <TimelineCell
+                                label="도착"
+                                time={selectedRoom.arrived_at_unloading}
+                                roomId={selectedRoom.id}
+                                field="arrived_at_unloading"
+                                onPatch={(updated) => setSelectedRoom(p => p ? { ...p, ...updated } : p)}
+                              />
+                              <TimelineCell
+                                label="하차완료"
+                                time={selectedRoom.departed_unloading}
+                                roomId={selectedRoom.id}
+                                field="departed_unloading"
+                                onPatch={(updated) => setSelectedRoom(p => p ? { ...p, ...updated } : p)}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* 현재 위치 */}
                 {selectedRoom.last_latitude && (
                   <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-sm">
@@ -940,3 +1263,60 @@ const LinkShareCard: React.FC<LinkShareCardProps> = ({ title, subtitle, url, col
 };
 
 export default LocationRoomsPage;
+
+// ====== TimelineCell 서브컴포넌트 ======
+// 타임라인 셀: 시각 표시 + 미기록 시 "지금 기록" 버튼
+
+interface TimelineCellProps {
+  label: string;
+  time?: string;
+  roomId: number;
+  field: string;
+  onPatch: (updated: Record<string, string>) => void;
+}
+
+const TimelineCell: React.FC<TimelineCellProps> = ({ label, time, roomId, field, onPatch }) => {
+  const [patching, setPatching] = useState(false);
+
+  const handlePatch = async () => {
+    if (patching) return;
+    if (!window.confirm(`"${label}" 시각을 지금으로 기록하시겠습니까?`)) return;
+    setPatching(true);
+    try {
+      const res = await apiClient.patch(`/rooms/${roomId}/timeline`, { field });
+      onPatch({ [field]: res.data.value });
+    } catch {
+      alert('기록에 실패했습니다.');
+    } finally {
+      setPatching(false);
+    }
+  };
+
+  if (time) {
+    return (
+      <div className="flex flex-col">
+        <span className="text-gray-400">{label}</span>
+        <span className="font-semibold text-gray-800">
+          {new Date(time).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
+        </span>
+        <span className="text-gray-400 text-xs">
+          {new Date(time).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col">
+      <span className="text-gray-400">{label}</span>
+      <button
+        onClick={handlePatch}
+        disabled={patching}
+        className="mt-0.5 px-2 py-0.5 bg-gray-100 hover:bg-blue-100 text-gray-500 hover:text-blue-600 rounded text-xs transition-colors flex items-center gap-1 w-fit"
+      >
+        {patching ? <Loader2 size={10} className="animate-spin" /> : <Clock size={10} />}
+        {patching ? '기록 중...' : '지금 기록'}
+      </button>
+    </div>
+  );
+};
