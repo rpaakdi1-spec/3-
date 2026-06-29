@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api/v1';
-const NAVER_CLIENT_ID = import.meta.env.VITE_NAVER_MAP_CLIENT_ID || 'oimsa0yj4k';
+const NAVER_CLIENT_ID = import.meta.env.VITE_NAVER_MAP_KEY_ID || import.meta.env.VITE_NAVER_MAP_CLIENT_ID || 'oimsa0yj4k';
 
 interface LocationPoint {
   latitude: number;
@@ -184,7 +184,7 @@ const ClientRoomPage: React.FC = () => {
       if (!script) {
         const s = document.createElement('script');
         s.id = 'naver-map-script';
-        s.src = `https://openapi.map.naver.com/openapi/v3/maps.js?ncpClientId=${NAVER_CLIENT_ID}`;
+        s.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${NAVER_CLIENT_ID}`;
         s.onload = initMap;
         document.head.appendChild(s);
       } else {

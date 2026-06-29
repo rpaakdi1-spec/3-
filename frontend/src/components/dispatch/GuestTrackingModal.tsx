@@ -75,7 +75,7 @@ const GuestTrackingModal: React.FC<GuestTrackingModalProps> = ({ token, onClose 
   const routeMarkers = useRef<any[]>([]);
   const pathPolyline = useRef<any>(null);
 
-  const NAVER_CLIENT_ID = (import.meta as any).env?.VITE_NAVER_MAP_CLIENT_ID || 'oimsa0yj4k';
+  const NAVER_CLIENT_ID = (import.meta as any).env?.VITE_NAVER_MAP_KEY_ID || (import.meta as any).env?.VITE_NAVER_MAP_CLIENT_ID || 'oimsa0yj4k';
 
   // 추적 데이터 조회
   const fetchTrackingData = useCallback(async () => {
@@ -124,7 +124,7 @@ const GuestTrackingModal: React.FC<GuestTrackingModalProps> = ({ token, onClose 
       } else {
         // 이미 스크립트가 로딩 중이면 onload 콜백 추가
         const existingScript = document.querySelector(
-          'script[src*="openapi.map.naver.com"]'
+          'script[src*="oapi.map.naver.com"]'
         ) as HTMLScriptElement | null;
 
         if (existingScript) {
@@ -135,7 +135,7 @@ const GuestTrackingModal: React.FC<GuestTrackingModalProps> = ({ token, onClose 
           };
         } else {
           const script = document.createElement('script');
-          script.src = `https://openapi.map.naver.com/openapi/v3/maps.js?ncpClientId=${NAVER_CLIENT_ID}`;
+          script.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${NAVER_CLIENT_ID}`;
           script.async = true;
           script.onload = () => setTimeout(init, 100);
           document.head.appendChild(script);
