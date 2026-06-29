@@ -75,7 +75,7 @@ const GuestTrackingModal: React.FC<GuestTrackingModalProps> = ({ token, onClose 
   const routeMarkers = useRef<any[]>([]);
   const pathPolyline = useRef<any>(null);
 
-  const NAVER_CLIENT_ID = (import.meta as any).env?.VITE_NAVER_MAP_KEY_ID || (import.meta as any).env?.VITE_NAVER_MAP_CLIENT_ID || 'oimsa0yj4k';
+  const NAVER_CLIENT_ID = (import.meta as any).env?.VITE_NAVER_MAP_KEY_ID || (import.meta as any).env?.VITE_NAVER_MAP_CLIENT_ID || 'pkciiaux61';
 
   // 추적 데이터 조회
   const fetchTrackingData = useCallback(async () => {
