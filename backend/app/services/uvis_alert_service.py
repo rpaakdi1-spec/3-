@@ -436,10 +436,16 @@ class UVISAlertService:
                 all_alerts.extend(speed_alerts)
                 
                 # 엔진 상태 변화 알림
-                previous_gps = db.query(VehicleGPSLog).filter(
-                    VehicleGPSLog.tid_id == vehicle.uvis_device_id,
-                    VehicleGPSLog.id < gps_log.id
-                ).order_by(VehicleGPSLog.created_at.desc()).first()
+                # gps_log.id가 None이면(flush 전) created_at 기준으로 이전 로그 조회
+                if gps_log.id is not None:
+                    previous_gps = db.query(VehicleGPSLog).filter(
+                        VehicleGPSLog.tid_id == vehicle.uvis_device_id,
+                        VehicleGPSLog.id < gps_log.id
+                    ).order_by(VehicleGPSLog.created_at.desc()).first()
+                else:
+                    previous_gps = db.query(VehicleGPSLog).filter(
+                        VehicleGPSLog.tid_id == vehicle.uvis_device_id
+                    ).order_by(VehicleGPSLog.created_at.desc()).first()
                 
                 engine_alerts = cls.check_engine_status_change(
                     gps_log, previous_gps, vehicle
