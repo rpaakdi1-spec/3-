@@ -293,6 +293,7 @@ async def sync_uvis_vehicles(db: Session = Depends(get_db)):
         created_count = 0
         updated_count = 0
         reactivated_count = 0
+        plate_changed_count = 0
         failed = []
 
         for item in gps_data:
@@ -306,6 +307,7 @@ async def sync_uvis_vehicles(db: Session = Depends(get_db)):
                 # 건별 SAVEPOINT: 한 건이 실패해도 앞서 처리한 건은 유지된다
                 # (db.rollback()은 커밋 전의 모든 건을 되돌리므로 사용하지 않는다)
                 outcome = None  # "created" | "updated" | "reactivated"
+                plate_changed = False
                 with db.begin_nested():
                     # 1순위: uvis_device_id로 찾기
                     vehicle = db.query(Vehicle).filter(
@@ -322,6 +324,21 @@ async def sync_uvis_vehicles(db: Session = Depends(get_db)):
                         # 기존 차량 업데이트 — uvis_device_id 연결 + enabled 설정
                         vehicle.uvis_device_id = tid_id
                         vehicle.uvis_enabled = True
+                        # UVIS의 차량번호가 바뀐 경우(단말기 이전/번호판 변경) 최신 번호로 갱신
+                        # 단, 같은 번호를 다른 차량이 이미 쓰고 있으면 UNIQUE 충돌이므로 건너뛰고 보고
+                        if vehicle.plate_number != cm_number:
+                            conflict = db.query(Vehicle).filter(
+                                Vehicle.plate_number == cm_number,
+                                Vehicle.id != vehicle.id
+                            ).first()
+                            if conflict:
+                                raise ValueError(
+                                    f"차량번호 '{cm_number}'을(를) 이미 다른 차량(코드 {conflict.code})이 사용 중이라 "
+                                    f"'{vehicle.plate_number}' → '{cm_number}' 변경 불가"
+                                )
+                            logger.info(f"차량번호 갱신: {vehicle.plate_number} → {cm_number} (TID {tid_id})")
+                            vehicle.plate_number = cm_number
+                            plate_changed = True
                         # 삭제(소프트 삭제)된 차량도 UVIS에 존재하면 목록에 다시 보이도록 복구
                         outcome = "updated"
                         if not vehicle.is_active:
@@ -362,11 +379,13 @@ async def sync_uvis_vehicles(db: Session = Depends(get_db)):
                     updated_count += 1
                     if outcome == "reactivated":
                         reactivated_count += 1
+                    if plate_changed:
+                        plate_changed_count += 1
 
             except Exception as e:
                 # 해당 건의 SAVEPOINT만 롤백되었으므로 다음 건 계속 처리
                 logger.error(f"차량 동기화 실패 (TID: {tid_id}, 차량번호: {cm_number}): {e}")
-                failed.append(f"{cm_number}({tid_id})")
+                failed.append(f"{cm_number}({tid_id}): {e}" if isinstance(e, ValueError) else f"{cm_number}({tid_id})")
                 continue
 
         db.commit()
@@ -374,7 +393,7 @@ async def sync_uvis_vehicles(db: Session = Depends(get_db)):
         logger.info(
             f"UVIS 차량 동기화 완료: {synced_count}건 처리 "
             f"({created_count}건 생성, {updated_count}건 업데이트, "
-            f"{reactivated_count}건 복구, {len(failed)}건 실패)"
+            f"{reactivated_count}건 복구, {plate_changed_count}건 차량번호 변경, {len(failed)}건 실패)"
         )
         
         return {
@@ -384,6 +403,7 @@ async def sync_uvis_vehicles(db: Session = Depends(get_db)):
             "created": created_count,
             "updated": updated_count,
             "reactivated": reactivated_count,
+            "plate_changed": plate_changed_count,
             "failed": len(failed),
             "failed_items": failed
         }

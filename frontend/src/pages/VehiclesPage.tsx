@@ -333,6 +333,7 @@ const VehiclesPage: React.FC = () => {
       if (result.success) {
         const extra = [
           result.reactivated ? `복구 ${result.reactivated}건` : '',
+          result.plate_changed ? `차량번호 변경 ${result.plate_changed}건` : '',
           result.failed ? `실패 ${result.failed}건` : '',
         ].filter(Boolean).join(', ');
         toast.success(`UVIS 차량 ${result.synced}건 동기화 완료 (신규 ${result.created}건, 업데이트 ${result.updated}건${extra ? ', ' + extra : ''})`);
