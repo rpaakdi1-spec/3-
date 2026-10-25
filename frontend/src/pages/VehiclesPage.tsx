@@ -83,7 +83,15 @@ const VehiclesPage: React.FC = () => {
       const vehiclesList = response.data.items || [];
       
       // Fetch drivers from Employee API to check assignment status
-      const driversFromAPI = await employeeAPI.getDriverPool({ only_available: false });
+      // (기사 목록 조회가 실패해도 차량 목록은 표시되어야 하므로 별도 try/catch 처리)
+      let driversFromAPI: any[] = [];
+      let driversLoaded = true;
+      try {
+        driversFromAPI = await employeeAPI.getDriverPool({ only_available: false });
+      } catch (driverError) {
+        console.error('Failed to fetch driver pool (차량 목록은 계속 표시):', driverError);
+        driversLoaded = false;
+      }
       
       // Update vehicle status based on driver assignment
       const vehiclesWithStatus = vehiclesList.map((vehicle: Vehicle) => {
@@ -94,7 +102,9 @@ const VehiclesPage: React.FC = () => {
         
         // Adjust status based on driver assignment
         let adjustedStatus = vehicle.status;
-        if (!assignedDriver) {
+        if (!driversLoaded) {
+          // 기사 정보를 못 불러온 경우 상태를 임의로 바꾸지 않음
+        } else if (!assignedDriver) {
           // No driver assigned → 운행불가
           adjustedStatus = "운행불가";
         } else if (vehicle.status === "운행불가") {
@@ -321,7 +331,11 @@ const VehiclesPage: React.FC = () => {
       const result = response.data;
       
       if (result.success) {
-        toast.success(`UVIS 차량 ${result.synced}건 동기화 완료 (신규 ${result.created}건, 업데이트 ${result.updated}건)`);
+        const extra = [
+          result.reactivated ? `복구 ${result.reactivated}건` : '',
+          result.failed ? `실패 ${result.failed}건` : '',
+        ].filter(Boolean).join(', ');
+        toast.success(`UVIS 차량 ${result.synced}건 동기화 완료 (신규 ${result.created}건, 업데이트 ${result.updated}건${extra ? ', ' + extra : ''})`);
         fetchVehicles();
       } else {
         toast.error(result.message || 'UVIS 동기화에 실패했습니다');
