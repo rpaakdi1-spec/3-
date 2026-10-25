@@ -19,8 +19,12 @@ class OrderBase(BaseModel):
     # 거래처 선택 방식 2: 주소로 직접 입력
     pickup_address: Optional[str] = Field(None, max_length=500, description="상차 주소")
     pickup_address_detail: Optional[str] = Field(None, max_length=200, description="상차 상세주소")
+    pickup_latitude: Optional[float] = Field(None, description="상차 위도")
+    pickup_longitude: Optional[float] = Field(None, description="상차 경도")
     delivery_address: Optional[str] = Field(None, max_length=500, description="하차 주소")
     delivery_address_detail: Optional[str] = Field(None, max_length=200, description="하차 상세주소")
+    delivery_latitude: Optional[float] = Field(None, description="하차 위도")
+    delivery_longitude: Optional[float] = Field(None, description="하차 경도")
     
     pallet_count: int = Field(..., gt=0, description="팔레트 수")
     weight_kg: Optional[float] = Field(None, ge=0, description="중량(kg)")  # Allow 0 for backward compatibility
@@ -88,6 +92,14 @@ class OrderUpdate(BaseModel):
     temperature_zone: Optional[TemperatureZone] = None
     pickup_client_id: Optional[int] = None
     delivery_client_id: Optional[int] = None
+    pickup_address: Optional[str] = Field(None, max_length=500)
+    pickup_address_detail: Optional[str] = Field(None, max_length=200)
+    pickup_latitude: Optional[float] = None
+    pickup_longitude: Optional[float] = None
+    delivery_address: Optional[str] = Field(None, max_length=500)
+    delivery_address_detail: Optional[str] = Field(None, max_length=200)
+    delivery_latitude: Optional[float] = None
+    delivery_longitude: Optional[float] = None
     pallet_count: Optional[int] = Field(None, gt=0)
     weight_kg: Optional[float] = Field(None, ge=0)
     volume_cbm: Optional[float] = Field(None, ge=0)

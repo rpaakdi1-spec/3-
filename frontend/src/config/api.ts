@@ -14,10 +14,14 @@ export const API_CONFIG = {
   BILLING_URL: '/api/v1/billing/enhanced',
   
   // IoT Sensor API (별도 서버)
-  IOT_URL: import.meta.env.VITE_IOT_API_URL || 'http://localhost:8001',
+  IOT_URL: import.meta.env.VITE_IOT_API_URL || '/api/v1/iot',
   
   // WebSocket URL
-  WS_URL: import.meta.env.VITE_WS_URL || 'ws://localhost:8000/ws',
+  // HTTPS환경: wss://, HTTP환경: ws:// 자동 선택
+  WS_URL: import.meta.env.VITE_WS_URL || 
+    (typeof window !== 'undefined' && window.location.protocol === 'https:'
+      ? `wss://${typeof window !== 'undefined' ? window.location.host : 'localhost'}/ws`
+      : 'ws://localhost:8000/ws'),
   
   // Request timeout (ms)
   TIMEOUT: 30000,

@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>발주서 이미지 테스트</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+        }
+        .image-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .image-item {
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 10px;
+            background: #fafafa;
+        }
+        .image-item img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+        .image-status {
+            margin-top: 10px;
+            padding: 8px;
+            border-radius: 4px;
+            text-align: center;
+            font-weight: bold;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .loading {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .log {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .log-entry {
+            padding: 4px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .log-success {
+            color: #28a745;
+        }
+        .log-error {
+            color: #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📦 발주서 다중 이미지 로딩 테스트</h1>
+        
+        <div id="info" style="padding: 15px; background: #e7f3ff; border-radius: 4px; margin-bottom: 20px;">
+            <strong>테스트 발주서:</strong> ID 8 (5개 이미지)<br>
+            <strong>이미지 경로:</strong> /uploads/purchase_orders/test_[color].jpg
+        </div>
+
+        <div class="image-grid" id="imageGrid"></div>
+        
+        <div class="log" id="log">
+            <strong>로그:</strong><br>
+        </div>
+    </div>
+
+    <script>
+        const images = [
+            { name: '빨강', url: '/uploads/purchase_orders/test_red.jpg' },
+            { name: '초록', url: '/uploads/purchase_orders/test_green.jpg' },
+            { name: '파랑', url: '/uploads/purchase_orders/test_blue.jpg' },
+            { name: '노랑', url: '/uploads/purchase_orders/test_yellow.jpg' },
+            { name: '보라', url: '/uploads/purchase_orders/test_purple.jpg' }
+        ];
+
+        const grid = document.getElementById('imageGrid');
+        const logDiv = document.getElementById('log');
+
+        function addLog(message, type = 'info') {
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        addLog('테스트 시작', 'info');
+
+        images.forEach((imageInfo, index) => {
+            const item = document.createElement('div');
+            item.className = 'image-item';
+            item.id = `image-${index}`;
+            
+            const img = document.createElement('img');
+            img.src = imageInfo.url;
+            img.alt = imageInfo.name;
+            
+            const status = document.createElement('div');
+            status.className = 'image-status loading';
+            status.textContent = '로딩 중...';
+            status.id = `status-${index}`;
+            
+            const info = document.createElement('div');
+            info.style.marginTop = '5px';
+            info.style.fontSize = '12px';
+            info.style.color = '#666';
+            info.innerHTML = `<strong>${imageInfo.name}</strong><br>${imageInfo.url}`;
+            
+            img.onload = function() {
+                status.className = 'image-status success';
+                status.textContent = '✅ 로딩 성공';
+                addLog(`✅ ${imageInfo.name} 이미지 로딩 성공: ${imageInfo.url}`, 'success');
+            };
+            
+            img.onerror = function() {
+                status.className = 'image-status error';
+                status.textContent = '❌ 로딩 실패';
+                addLog(`❌ ${imageInfo.name} 이미지 로딩 실패: ${imageInfo.url}`, 'error');
+                addLog(`   전체 URL: ${window.location.origin}${imageInfo.url}`, 'error');
+                
+                // 이미지를 숨기고 에러 메시지 표시
+                img.style.display = 'none';
+            };
+            
+            item.appendChild(img);
+            item.appendChild(status);
+            item.appendChild(info);
+            grid.appendChild(item);
+        });
+
+        // 전체 통계
+        setTimeout(() => {
+            const successCount = document.querySelectorAll('.image-status.success').length;
+            const errorCount = document.querySelectorAll('.image-status.error').length;
+            addLog(`\n=== 테스트 결과 ===`, 'info');
+            addLog(`성공: ${successCount}개, 실패: ${errorCount}개`, 'info');
+        }, 5000);
+    </script>
+</body>
+</html>

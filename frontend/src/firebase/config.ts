@@ -1,37 +1,42 @@
 /**
  * Firebase 설정 및 초기화
+ * VITE_FIREBASE_* 환경변수가 없으면 Firebase를 비활성화 (에러 없이 graceful 처리)
  */
 
 import { initializeApp, FirebaseApp } from 'firebase/app';
 import { getMessaging, Messaging } from 'firebase/messaging';
 
-// Firebase 설정 (환경변수에서 가져오기)
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || '',
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || '',
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || '',
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || '',
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '',
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || '',
 };
 
-// Firebase 앱 초기화
+// projectId / apiKey / appId 중 하나라도 없으면 Firebase 완전 비활성화
+export const isFirebaseConfigured = !!(
+  firebaseConfig.projectId &&
+  firebaseConfig.apiKey &&
+  firebaseConfig.appId
+);
+
 let firebaseApp: FirebaseApp | null = null;
 let messaging: Messaging | null = null;
 
-try {
-  firebaseApp = initializeApp(firebaseConfig);
-  console.log('✅ Firebase App initialized');
+if (isFirebaseConfigured) {
+  try {
+    firebaseApp = initializeApp(firebaseConfig);
 
-  // Firebase Messaging 초기화 (브라우저 지원 확인)
-  if ('Notification' in window && 'serviceWorker' in navigator) {
-    messaging = getMessaging(firebaseApp);
-    console.log('✅ Firebase Messaging initialized');
-  } else {
-    console.warn('⚠️ Browser does not support notifications or service workers');
+    if (typeof window !== 'undefined' && 'Notification' in window && 'serviceWorker' in navigator) {
+      messaging = getMessaging(firebaseApp);
+    }
+  } catch {
+    // 초기화 실패 시 조용히 비활성화
+    firebaseApp = null;
+    messaging = null;
   }
-} catch (error) {
-  console.error('❌ Firebase initialization failed:', error);
 }
 
 export { firebaseApp, messaging };

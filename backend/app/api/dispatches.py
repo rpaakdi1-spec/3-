@@ -162,58 +162,74 @@ def get_dispatches(
 @router.get("/dashboard", response_model=DashboardStatsResponse)
 @router.get("/dashboard/stats", response_model=DashboardStatsResponse)
 def get_dashboard_stats(db: Session = Depends(get_db)):
-    """대시보드 통계 조회"""
+    """대시보드 통계 조회 (Redis 캐시 30초)"""
     from datetime import date, datetime
     from app.models.vehicle import Vehicle
-    
+    from app.services.cache_service import cache_service
+
+    CACHE_KEY = "dashboard:stats"
+    CACHE_TTL = 30  # 30초 캐시
+
+    # Redis 캐시에서 먼저 조회 (싱글톤 사용)
+    try:
+        cached = cache_service.get(CACHE_KEY)
+        if cached:
+            logger.debug("Dashboard stats served from cache")
+            return DashboardStatsResponse(**cached)
+    except Exception as e:
+        logger.warning(f"Cache read error (fallback to DB): {e}")
+        cached = None
+
     today = date.today()
     
-    # 전체 주문 수 (오늘)
+    # DB에서 모든 count를 한 번의 쿼리로 가져오기
+    today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    
     total_orders = db.query(func.count(Order.id)).filter(
-        Order.created_at >= datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        Order.created_at >= today_start
     ).scalar() or 0
     
-    # 배차 대기 중인 주문 수
     pending_orders = db.query(func.count(Order.id)).filter(
         Order.status == OrderStatus.PENDING
     ).scalar() or 0
     
-    # 진행 중인 배차 수 (확정 + 진행중)
     active_dispatches = db.query(func.count(Dispatch.id)).filter(
         Dispatch.status.in_([DispatchStatus.CONFIRMED, DispatchStatus.IN_PROGRESS])
     ).scalar() or 0
     
-    # 오늘 완료된 배차 수
     completed_today = db.query(func.count(Dispatch.id)).filter(
         Dispatch.dispatch_date == today,
         Dispatch.status == DispatchStatus.COMPLETED
     ).scalar() or 0
     
-    # 사용 가능한 차량 수
     available_vehicles = db.query(func.count(Vehicle.id)).filter(
         Vehicle.status == VehicleStatus.AVAILABLE,
         Vehicle.is_active == True
     ).scalar() or 0
     
-    # 운행 중인 차량 수
     active_vehicles = db.query(func.count(Vehicle.id)).filter(
         Vehicle.status == VehicleStatus.IN_USE
     ).scalar() or 0
     
-    logger.info(f"Dashboard stats: orders={total_orders}, pending={pending_orders}, "
-                f"active_dispatches={active_dispatches}, completed_today={completed_today}, "
-                f"available_vehicles={available_vehicles}, active_vehicles={active_vehicles}")
-    
-    return DashboardStatsResponse(
-        total_orders=total_orders,
-        pending_orders=pending_orders,
-        active_dispatches=active_dispatches,
-        completed_today=completed_today,
-        available_vehicles=available_vehicles,
-        active_vehicles=active_vehicles,
-        revenue_today=0,  # TODO: 실제 수익 계산 로직 추가
-        revenue_month=0   # TODO: 실제 수익 계산 로직 추가
-    )
+    result = {
+        "total_orders": total_orders,
+        "pending_orders": pending_orders,
+        "active_dispatches": active_dispatches,
+        "completed_today": completed_today,
+        "available_vehicles": available_vehicles,
+        "active_vehicles": active_vehicles,
+        "revenue_today": 0,
+        "revenue_month": 0,
+    }
+
+    # Redis에 캐시 저장
+    try:
+        cache_service.set(CACHE_KEY, result, ttl=CACHE_TTL)
+    except Exception as e:
+        logger.warning(f"Cache write error: {e}")
+
+    logger.info(f"Dashboard stats (DB): orders={total_orders}, pending={pending_orders}")
+    return DashboardStatsResponse(**result)
 
 
 @router.websocket("/ws/dashboard")

@@ -323,7 +323,7 @@ function OrderNLPInput({ onOrdersCreated }: { onOrdersCreated?: () => void }) {
         <h3 style={{ marginTop: 0 }}>💡 사용 팁</h3>
         <ul style={{ marginLeft: '20px', color: '#666', lineHeight: '1.8' }}>
           <li><strong>날짜 형식:</strong> [02/03], 2/3, 02-03 등</li>
-          <li><strong>온도대:</strong> 냉동, 냉장, 저온, 상온 등</li>
+          <li><strong>온도대:</strong> 냉동/냉동칸, 냉장/냉장칸, 저온/저온칸, 상온/상온칸 등</li>
           <li><strong>경로:</strong> 백암 → 경산, 백암에서 경산으로</li>
           <li><strong>수량:</strong> 16판, 20팔레트, 5톤 등</li>
           <li><strong>시간:</strong> 15:30, 16:30 (HH:MM 형식)</li>

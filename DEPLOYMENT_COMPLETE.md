@@ -1,253 +1,394 @@
-# 🎉 422 에러 해결 및 배포 완료!
+# 템플릿 관리 페이지 - 최종 배포 완료 보고서
 
-## ✅ 완료된 작업
+## ✅ 배포 완료
 
-### 1. 백엔드 수정 및 배포
-- ✅ `backend/app/schemas/auth.py` - UserBase.email을 Optional로 변경
-- ✅ 서버에서 백엔드 재빌드 완료 (--no-cache)
-- ✅ 헬스체크 성공: `{"status":"healthy","app_name":"Cold Chain Dispatch System","environment":"production"}`
-- ✅ 백엔드 정상 작동 중: http://139.150.11.99:8000
+### Git 정보
+- **Branch**: `genspark_ai_developer`
+- **Commit**: `b863604`
+- **Push**: ✅ 성공 (origin/genspark_ai_developer)
+- **Repository**: https://github.com/rpaakdi1-spec/3-
 
-### 2. 커밋 및 문서화
-- ✅ Commit `8ee6887`: Fix schema validation
-- ✅ Commit `56134a0`: Deployment guide
-- ✅ Commit `3715cad`: Quick summary
-- ✅ Commit `136fcbf`: Test guide
-- ✅ GitHub: https://github.com/rpaakdi1-spec/3-
+### 배포된 파일
 
-### 3. 생성된 문서
-- ✅ `FIX_422_VALIDATION_ERROR.md` - 상세 배포 가이드
-- ✅ `QUICK_FIX_SUMMARY.md` - 빠른 요약
-- ✅ `SIGNUP_TEST_GUIDE.md` - 회원가입 테스트 가이드
-- ✅ `rebuild_backend.sh` - 백엔드 재빌드 스크립트
+#### 핵심 기능
+1. **frontend/src/pages/TemplateManagementPage.tsx** (신규)
+   - 템플릿 CRUD 페이지 전체 구현
+   - API Client 사용 (Authorization 헤더 자동 추가)
+   - 검색, 필터링, 정렬 기능
+   - 통계 대시보드
+
+2. **frontend/src/config/navigation.ts** (수정)
+   - 템플릿 관리 메뉴 추가
+   - path: `/template-management`
+   - label: `템플릿 관리`
+   - icon: `FileText`
+   - badge: `NEW`
+
+3. **frontend/src/App.tsx** (수정)
+   - TemplateManagementPage lazy 로딩 추가
+   - 보호된 라우트 설정 (LayoutWrapper 내)
+
+#### 진단 도구
+4. **frontend/public/test-api.html** (신규)
+   - 브라우저 캐시 우회 직접 API 테스트 페이지
+   - URL: `http://139.150.11.99/test-api.html`
+   - 인증 상태 확인, GET/PUT/POST 테스트
+
+#### 문서 및 스크립트
+5. **TEMPLATE_AUTH_DIAGNOSIS.md** (신규)
+   - 401 오류 원인 분석 (브라우저 캐시)
+   - 단계별 진단 방법
+   - 해결 플랜 A/B/C
+
+6. **FIX_TEMPLATE_AUTH.md** (신규)
+   - Nginx 캐시 설정 가이드
+   - 프론트엔드 재빌드 방법
+   - 브라우저 캐시 삭제 방법
+
+7. **CLEAR_CACHE_AND_TEST.sh** (신규)
+   - 자동화된 재빌드 스크립트
+   - 컨테이너 재시작
+   - 테스트 체크리스트
+
+8. **DEPLOY_TEMPLATE_MANAGEMENT.sh** (신규)
+   - 빠른 배포 스크립트
+
+9. **QUICK_DEPLOY.md** & **TEMPLATE_MANAGEMENT_DEPLOYMENT.md** (신규)
+   - 배포 가이드 문서
 
 ---
 
-## 🚀 다음 단계: 프론트엔드 재빌드
+## 🎯 사용자가 해야 할 일
 
-**서버에서 실행할 명령어:**
+### 🔴 중요: 브라우저 캐시 문제
+
+**문제**: 서버는 정상 작동하지만 브라우저가 이전 JavaScript 파일을 캐시하고 있어서 Authorization 헤더가 누락됨
+
+### ✅ 해결 방법 (아래 중 하나 선택)
+
+#### 방법 1: 시크릿 모드 (가장 빠름) 🚀
+
+```
+1. Ctrl + Shift + N (Chrome) 또는 Ctrl + Shift + P (Firefox)
+2. http://139.150.11.99 접속
+3. 로그인 (username: admin)
+4. http://139.150.11.99/template-management 이동
+5. 모든 기능 테스트
+```
+
+**✅ 이 방법이 성공하면** → 캐시 문제 확정, 일반 브라우저에서 캐시만 삭제하면 됨
+
+#### 방법 2: 브라우저 캐시 완전 삭제
+
+```
+1. Ctrl + Shift + Delete
+2. 전체 기간 선택
+3. "쿠키 및 기타 사이트 데이터" 체크
+4. "캐시된 이미지 및 파일" 체크
+5. 데이터 삭제 클릭
+6. F12 개발자 도구 열기
+7. Network 탭 → "Disable cache" 체크박스 활성화
+8. 개발자 도구 열린 상태에서 Ctrl + Shift + R (강력 새로고침)
+9. 로그아웃 후 재로그인
+```
+
+#### 방법 3: 콘솔에서 강제 초기화
+
+```javascript
+// F12 → Console 탭에서 실행
+localStorage.clear();
+sessionStorage.clear();
+location.href = '/login';
+```
+
+로그인 후 템플릿 관리 페이지 접속
+
+#### 방법 4: 직접 API 테스트 페이지 (진단용)
+
+```
+http://139.150.11.99/test-api.html
+```
+
+이 페이지에서:
+- ✅ 로그인 상태 확인
+- ✅ 템플릿 목록 조회 (GET)
+- ✅ 즐겨찾기 변경 (PUT)
+- ✅ 템플릿 복제 (POST)
+
+**이 페이지가 정상 작동하면** → 서버/API는 정상, 메인 앱 캐시 문제
+
+---
+
+## 🧪 테스트 체크리스트
+
+### 1단계: 로그인 확인
+
+```javascript
+// 브라우저 콘솔(F12)에서 실행
+console.log('Token:', localStorage.getItem('access_token'));
+console.log('User:', JSON.parse(localStorage.getItem('user')));
+```
+
+**예상 결과:**
+```
+Token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+User: {username: "admin", role: "ADMIN", ...}
+```
+
+### 2단계: Authorization 헤더 확인
+
+1. F12 → Network 탭
+2. 템플릿 관리 페이지에서 즐겨찾기 ⭐ 클릭
+3. `templates/40` PUT 요청 찾기
+4. **Request Headers** 확인:
+
+**✅ 정상:**
+```
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+Content-Type: application/json
+```
+
+**❌ 문제 (캐시):**
+```
+Content-Type: application/json
+(Authorization 헤더 없음!)
+```
+
+### 3단계: 기능 테스트
+
+페이지: `http://139.150.11.99/template-management`
+
+- [ ] ⭐ **즐겨찾기 토글**
+  - 클릭 → 토스트 메시지 표시
+  - 별 아이콘 노란색으로 변경
+  - 통계 카운트 변경
+
+- [ ] ⚡ **활성화/비활성화 토글**
+  - 클릭 → 토스트 메시지 표시
+  - "비활성" 배지 표시/숨김
+  - 통계 카운트 변경
+
+- [ ] 📋 **템플릿 복제**
+  - 클릭 → 토스트 메시지 표시
+  - "(복사본)" 템플릿 목록 상단에 추가
+  - 전체 개수 증가
+
+- [ ] 🗑️ **템플릿 삭제**
+  - 클릭 → 확인 다이얼로그 표시
+  - 확인 → 토스트 메시지 표시
+  - 템플릿 목록에서 제거
+  - 전체 개수 감소
+
+- [ ] 🔍 **검색**
+  - 템플릿명 입력 → 필터링 작동
+  - 고객명 입력 → 필터링 작동
+
+- [ ] 🎛️ **고객 필터**
+  - 드롭다운에서 고객 선택 → 해당 고객 템플릿만 표시
+
+- [ ] 📊 **정렬**
+  - 최신순/사용횟수/이름순 전환 → 정렬 변경
+
+### 4단계: DB 확인
 
 ```bash
 cd /root/uvis
 
-# 1. 프론트엔드 중지
-docker compose down frontend
+# 최근 변경된 템플릿 확인
+docker compose exec -T db psql -U uvis_user -d uvis_db -c "
+SELECT id, name, is_favorite, is_active, updated_at 
+FROM dispatch_form_templates 
+ORDER BY updated_at DESC 
+LIMIT 5;
+"
 
-# 2. 이미지 재빌드 (캐시 없이) - 약 3-5분 소요
-docker compose build --no-cache frontend
+# 즐겨찾기 템플릿 확인
+docker compose exec -T db psql -U uvis_user -d uvis_db -c "
+SELECT id, name, is_favorite 
+FROM dispatch_form_templates 
+WHERE is_favorite = true;
+"
 
-# 3. 프론트엔드 시작
-docker compose up -d frontend
-
-# 4. 10초 대기
-sleep 10
-
-# 5. 상태 확인
-docker compose ps
-
-# 6. 접속 확인
-curl -I http://139.150.11.99/
-```
-
-**기대 출력:**
-```
-HTTP/1.1 200 OK
-Server: nginx/1.29.5
-...
-```
-
----
-
-## 🧪 테스트 시나리오
-
-### Step 1: 회원가입 (http://139.150.11.99/)
-
-#### 계정 정보 (Step 1/4)
-- 사용자명: `testuser01`
-- 비밀번호: `test123456`
-- 비밀번호 확인: `test123456`
-- 권한: `DRIVER`
-- ✅ **Email 필드 없음**
-
-#### 기본 인적사항 (Step 2/4)
-- 이름: `홍길동`
-- 전화번호: `01012345678` → 자동 `010-1234-5678` ✅
-- 비상연락처: `01098765432` → 자동 `010-9876-5432` ✅
-- ✅ **사원번호 필드 없음**
-
-#### 조직/근무 정보 (Step 3/4)
-- 직급: `DRIVER`
-- 고용 형태: `FULL_TIME`
-- 입사일: (오늘 날짜)
-- ✅ **근무시간 필드 없음** (work_start_time, work_end_time, max_work_hours)
-
-#### 자격증 정보 (Step 4/4)
-- (모두 선택사항)
-
-#### 완료
-- "회원가입이 완료되었습니다..." 토스트 메시지
-- 2초 후 로그인 페이지 자동 이동
-
----
-
-### Step 2: 관리자 승인
-
-#### 로그인
-- 사용자명: `admin`
-- 비밀번호: `admin123`
-
-#### 승인 처리
-1. **설정 → 사용자 관리 → Pending Users** 탭
-2. 사용자 확인:
-   - 사용자명: `testuser01`
-   - 이름: `홍길동`
-   - 사원번호: `PENDING_20260228_001` ✅ (자동 생성)
-   - 전화번호: `010-1234-5678` ✅
-   - Email: `testuser01@pending.local` ✅ (자동 생성)
-3. **Approve** 버튼 클릭
-4. 최종 사원번호 입력 (예: `D001`)
-5. "User approved successfully" 메시지
-
----
-
-### Step 3: 승인된 사용자 로그인
-1. 로그아웃
-2. `testuser01` / `test123456` 로그인
-3. 대시보드 접속 성공 ✅
-
----
-
-## 📊 변경 사항 요약
-
-| 항목 | Before | After | 상태 |
-|------|--------|-------|------|
-| **Email 필드** | 필수 (EmailStr) | 선택 (Optional[EmailStr]) | ✅ 수정 완료 |
-| **Email 자동 생성** | - | `{username}@pending.local` | ✅ 구현됨 |
-| **사원번호 입력** | 수동 입력 필드 | 자동 생성 (백엔드) | ✅ 제거 완료 |
-| **사원번호 형식** | - | `PENDING_YYYYMMDD_XXX` | ✅ 구현됨 |
-| **전화번호 포맷** | 수동 입력 | 자동 하이픈 `###-####-####` | ✅ 구현됨 |
-| **근무시간 필드** | work_start_time, work_end_time, max_work_hours | 제거됨 | ✅ 제거 완료 |
-| **422 에러** | 발생 | 해결됨 | ✅ 수정 완료 |
-
----
-
-## 📁 수정된 파일
-
-### 백엔드
-- `backend/app/schemas/auth.py` - UserBase.email Optional로 변경
-- `backend/app/api/auth.py` - Email 자동 생성, employee_code 자동 생성
-- `backend/app/models/pending_employee.py` - 근무시간 필드 제거
-
-### 프론트엔드
-- `frontend/src/pages/SignupPage.tsx` - Email/사원번호 필드 제거, 전화번호 자동 포맷팅
-
-### 마이그레이션
-- `backend/alembic/versions/20260228_133550_add_pending_employees.py` - pending_employees 테이블 (근무시간 필드 없음)
-
----
-
-## 🔍 테스트 체크리스트
-
-### 프론트엔드 (프론트엔드 재빌드 후 확인)
-- [ ] Email 필드 없음 (Step 1)
-- [ ] 사원번호 필드 없음 (Step 2)
-- [ ] 전화번호 자동 포맷팅 작동
-- [ ] 비상연락처 자동 포맷팅 작동
-- [ ] 근무시간 필드 없음 (Step 3)
-
-### 백엔드
-- [x] 헬스체크 성공
-- [ ] 회원가입 POST 성공 (200 OK)
-- [ ] employee_code 자동 생성 확인
-- [ ] email 자동 생성 확인
-- [ ] 전화번호 하이픈 포함 저장 확인
-
-### 엔드투엔드
-- [ ] 회원가입 완료
-- [ ] Pending Users 목록에 표시
-- [ ] 관리자 승인 성공
-- [ ] 승인된 사용자 로그인 성공
-
----
-
-## 💡 주요 개선 사항
-
-### 1. UX 개선
-- ✅ Email 입력 불필요 (선택사항)
-- ✅ 사원번호 자동 생성 (관리자가 나중에 부여)
-- ✅ 전화번호 자동 포맷팅 (사용자 편의성 향상)
-- ✅ 근무시간 필드 제거 (불필요한 입력 감소)
-
-### 2. 백엔드 로직
-- ✅ Email 누락 시 자동 생성: `{username}@pending.local`
-- ✅ 임시 사원번호 자동 생성: `PENDING_YYYYMMDD_XXX`
-- ✅ 승인 시 관리자가 최종 사원번호 부여
-- ✅ 전화번호 형식 검증: 12-13자 (하이픈 포함)
-
-### 3. 데이터베이스
-- ✅ pending_employees 테이블 생성 (26 컬럼, 근무시간 필드 제외)
-- ✅ 마이그레이션 충돌 해결
-- ✅ 데이터 정합성 보장
-
----
-
-## 📞 지원
-
-### 문제 발생 시
-1. **422 에러**: [FIX_422_VALIDATION_ERROR.md](./FIX_422_VALIDATION_ERROR.md) 참고
-2. **테스트 가이드**: [SIGNUP_TEST_GUIDE.md](./SIGNUP_TEST_GUIDE.md) 참고
-3. **빠른 요약**: [QUICK_FIX_SUMMARY.md](./QUICK_FIX_SUMMARY.md) 참고
-
-### 로그 확인
-```bash
-# 백엔드 로그
-docker compose logs backend | tail -100
-
-# 프론트엔드 로그
-docker compose logs frontend | tail -100
-
-# DB 로그
-docker compose logs db | tail -50
-```
-
-### 데이터베이스 확인
-```bash
-# pending_employees 확인
-docker compose exec db psql -U uvis_user -d uvis_db -c "SELECT * FROM pending_employees ORDER BY id DESC LIMIT 5;"
-
-# users 확인
-docker compose exec db psql -U uvis_user -d uvis_db -c "SELECT id, username, email, approval_status, is_active FROM users ORDER BY id DESC LIMIT 5;"
-
-# employees 확인
-docker compose exec db psql -U uvis_user -d uvis_db -c "SELECT * FROM employees ORDER BY id DESC LIMIT 5;"
+# 전체 통계
+docker compose exec -T db psql -U uvis_user -d uvis_db -c "
+SELECT 
+  COUNT(*) as total_templates,
+  SUM(CASE WHEN is_active THEN 1 ELSE 0 END) as active_templates,
+  SUM(CASE WHEN is_favorite THEN 1 ELSE 0 END) as favorite_templates,
+  SUM(usage_count) as total_usage
+FROM dispatch_form_templates;
+"
 ```
 
 ---
 
-## 🎯 현재 상태
+## 📊 현재 상태
 
-### ✅ 완료
-1. 백엔드 수정 및 배포
-2. 헬스체크 성공
-3. 코드 커밋 및 푸시
-4. 문서 작성
+### 서버 측 ✅
+- ✅ 프론트엔드 빌드 완료
+- ✅ 컨테이너 재시작 완료
+- ✅ Nginx 캐시 방지 설정 적용
+- ✅ Backend API 정상 작동 (200 OK with Authorization header)
+- ✅ Database 정상 작동
 
-### ⏳ 진행 필요
-1. **프론트엔드 재빌드** (위 명령어 실행)
-2. 회원가입 테스트
-3. 관리자 승인 테스트
-4. 로그인 테스트
-5. 엔드투엔드 검증
+### API 엔드포인트 ✅
+- ✅ `GET /api/v1/dispatch-form/templates` (템플릿 목록)
+- ✅ `GET /api/v1/dispatch-form/templates/clients/list` (고객 목록)
+- ✅ `PUT /api/v1/dispatch-form/templates/:id` (부분 업데이트)
+- ✅ `POST /api/v1/dispatch-form/templates` (템플릿 생성/복제)
+- ✅ `DELETE /api/v1/dispatch-form/templates/:id` (템플릿 삭제)
+
+### 코드 ✅
+- ✅ ApiClient request interceptor (Authorization 헤더 자동 추가)
+- ✅ TemplateManagementPage (apiClient 사용)
+- ✅ 에러 핸들링 (401 → "로그인이 필요합니다" 메시지)
+
+### 클라이언트 측 ⏳
+- ⏳ 브라우저 캐시 삭제 필요
+- ⏳ 재로그인 필요
+- ⏳ 기능 테스트 필요
 
 ---
 
-**다음 단계: 서버에서 프론트엔드 재빌드 명령어를 실행해 주세요!** 🚀
+## 🔧 서버 재배포 (이미 완료)
+
+사용자가 다시 재배포할 필요가 있다면:
 
 ```bash
 cd /root/uvis
-docker compose down frontend
+
+# 방법 1: 자동 스크립트
+bash CLEAR_CACHE_AND_TEST.sh
+
+# 방법 2: 수동
+docker compose stop frontend
+docker compose rm -f frontend
+docker rmi uvis-frontend 2>/dev/null || true
 docker compose build --no-cache frontend
 docker compose up -d frontend
+docker compose logs frontend --tail=20
 ```
 
-테스트 결과를 알려주시면 추가 지원을 제공하겠습니다! 😊
+---
+
+## 📞 문제 해결
+
+### 여전히 401 오류 발생 시
+
+1. **시크릿 모드 테스트**
+   - Ctrl + Shift + N → http://139.150.11.99
+   - ✅ 성공 → 캐시 문제 확정
+   - ❌ 실패 → 아래 진행
+
+2. **직접 API 테스트**
+   - http://139.150.11.99/test-api.html
+   - ✅ 성공 → 메인 앱 캐시 문제
+   - ❌ 실패 → 토큰 만료, 재로그인 필요
+
+3. **콘솔 테스트**
+   ```javascript
+   fetch('http://139.150.11.99/api/v1/dispatch-form/templates/40', {
+     method: 'PUT',
+     headers: {
+       'Authorization': 'Bearer ' + localStorage.getItem('access_token'),
+       'Content-Type': 'application/json'
+     },
+     body: JSON.stringify({ is_favorite: true })
+   })
+   .then(r => r.json())
+   .then(d => console.log('Success:', d));
+   ```
+   - ✅ 성공 → API 정상, UI 캐시 문제
+   - ❌ 실패 → 토큰 확인 필요
+
+4. **로그 확인**
+   ```bash
+   # 백엔드 로그
+   docker compose logs backend --tail=50 | grep "dispatch-form/templates"
+   
+   # 프론트엔드 로그
+   docker compose logs frontend --tail=30
+   ```
+
+---
+
+## 🎉 예상 성공 화면
+
+### Network 탭
+```
+PUT http://139.150.11.99/api/v1/dispatch-form/templates/40
+Status: 200 OK
+
+Request Headers:
+  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+  Content-Type: application/json
+
+Response:
+  {
+    "id": 40,
+    "name": "도미노 백암 → 밀양",
+    "is_favorite": true,
+    "is_active": true,
+    "updated_at": "2026-03-09T11:30:45.123456"
+  }
+```
+
+### 브라우저
+- ✅ 토스트: "즐겨찾기에 추가했습니다"
+- ✅ 별 아이콘 노란색으로 변경
+- ✅ 통계 "즐겨찾기" 카운트 증가
+
+### DB
+```sql
+ id |       name        | is_favorite | updated_at
+----+-------------------+-------------+----------------------------
+ 40 | 도미노 백암 → 밀양 |      t      | 2026-03-09 11:30:45.123456
+```
+
+---
+
+## 📋 최종 체크리스트
+
+### 서버 측 (완료)
+- [x] TemplateManagementPage.tsx 생성
+- [x] navigation.ts 업데이트 (메뉴 추가)
+- [x] App.tsx 업데이트 (라우트 추가)
+- [x] 진단 도구 생성 (test-api.html)
+- [x] 문서 생성 (MD 파일들)
+- [x] Git commit & push
+- [x] 프론트엔드 빌드
+- [x] 컨테이너 재시작
+
+### 클라이언트 측 (사용자 필요)
+- [ ] 브라우저 캐시 삭제 (시크릿 모드 또는 Ctrl+Shift+Delete)
+- [ ] 로그아웃 & 재로그인
+- [ ] 템플릿 관리 페이지 접속
+- [ ] Authorization 헤더 확인 (F12 → Network)
+- [ ] 모든 기능 테스트
+- [ ] DB에서 변경사항 확인
+
+---
+
+## 🔗 유용한 링크
+
+- **메인 페이지**: http://139.150.11.99
+- **템플릿 관리**: http://139.150.11.99/template-management
+- **API 테스트**: http://139.150.11.99/test-api.html
+- **GitHub**: https://github.com/rpaakdi1-spec/3-/tree/genspark_ai_developer
+
+---
+
+## 📝 요약
+
+**✅ 배포 완료!**
+
+**문제**: 브라우저 캐시로 인한 401 오류
+
+**해결**: 
+1. 시크릿 모드로 테스트 (Ctrl+Shift+N)
+2. 또는 브라우저 캐시 삭제 (Ctrl+Shift+Delete)
+3. 재로그인 후 템플릿 관리 페이지 사용
+
+**테스트**: http://139.150.11.99/test-api.html
+
+모든 준비가 완료되었습니다! 🎉

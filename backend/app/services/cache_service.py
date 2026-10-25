@@ -20,17 +20,23 @@ class CacheService:
     """Advanced Redis Caching Service"""
     
     def __init__(self):
-        redis_kwargs = {
-            "host": settings.REDIS_HOST,
-            "port": settings.REDIS_PORT,
-            "db": 0,
-            "decode_responses": True
-        }
-        # Only add password if it's not empty
-        if settings.REDIS_PASSWORD:
-            redis_kwargs["password"] = settings.REDIS_PASSWORD
-        
-        self.redis_client = redis.Redis(**redis_kwargs)
+        try:
+            pool = redis.ConnectionPool(
+                host=settings.REDIS_HOST,
+                port=settings.REDIS_PORT,
+                db=0,
+                decode_responses=True,
+                max_connections=20,
+                socket_connect_timeout=2,
+                socket_timeout=2,
+                **({"password": settings.REDIS_PASSWORD} if settings.REDIS_PASSWORD else {})
+            )
+            self.redis_client = redis.Redis(connection_pool=pool)
+            self.redis_client.ping()  # Verify connection on startup
+            logger.info("Redis cache connected successfully")
+        except Exception as e:
+            logger.warning(f"Redis connection failed: {e}. Cache disabled.")
+            self.redis_client = None
         self.default_ttl = 300  # 5 minutes
     
     def _generate_key(self, prefix: str, *args, **kwargs) -> str:
@@ -41,6 +47,8 @@ class CacheService:
     
     def get(self, key: str) -> Optional[Any]:
         """Get value from cache"""
+        if not self.redis_client:
+            return None
         try:
             value = self.redis_client.get(key)
             if value:
@@ -57,6 +65,8 @@ class CacheService:
         ttl: Optional[int] = None
     ) -> bool:
         """Set value in cache"""
+        if not self.redis_client:
+            return False
         try:
             ttl = ttl or self.default_ttl
             serialized = json.dumps(value, default=str)
@@ -68,6 +78,8 @@ class CacheService:
     
     def delete(self, key: str) -> bool:
         """Delete key from cache"""
+        if not self.redis_client:
+            return False
         try:
             self.redis_client.delete(key)
             return True
@@ -77,6 +89,8 @@ class CacheService:
     
     def delete_pattern(self, pattern: str) -> int:
         """Delete all keys matching pattern"""
+        if not self.redis_client:
+            return 0
         try:
             keys = self.redis_client.keys(pattern)
             if keys:
@@ -88,6 +102,8 @@ class CacheService:
     
     def exists(self, key: str) -> bool:
         """Check if key exists"""
+        if not self.redis_client:
+            return False
         try:
             return self.redis_client.exists(key) > 0
         except Exception as e:
@@ -96,6 +112,8 @@ class CacheService:
     
     def ttl(self, key: str) -> int:
         """Get remaining TTL for key"""
+        if not self.redis_client:
+            return -1
         try:
             return self.redis_client.ttl(key)
         except Exception as e:
@@ -104,6 +122,8 @@ class CacheService:
     
     def flush_all(self) -> bool:
         """Flush all cache (use with caution)"""
+        if not self.redis_client:
+            return False
         try:
             self.redis_client.flushdb()
             logger.warning("Cache flushed!")
@@ -166,11 +186,16 @@ class CacheService:
     
     def get_cache_stats(self) -> dict:
         """Get cache statistics"""
+        if not self.redis_client:
+            return {"enabled": False, "connected": False, "error": "Redis client not initialized"}
         try:
+            self.redis_client.ping()  # Test connection
             info = self.redis_client.info("stats")
             memory = self.redis_client.info("memory")
             
             return {
+                "enabled": True,
+                "connected": True,
                 "total_keys": self.redis_client.dbsize(),
                 "hits": info.get("keyspace_hits", 0),
                 "misses": info.get("keyspace_misses", 0),
@@ -187,7 +212,7 @@ class CacheService:
             }
         except Exception as e:
             logger.error(f"Error getting cache stats: {e}")
-            return {}
+            return {"enabled": True, "connected": False, "error": str(e)}
     
     def _calculate_hit_rate(self, hits: int, misses: int) -> float:
         """Calculate cache hit rate"""

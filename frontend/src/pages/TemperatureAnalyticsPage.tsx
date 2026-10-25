@@ -91,11 +91,11 @@ const TemperatureAnalyticsPage: React.FC = () => {
       
       // Load top performers
       const topRes = await apiClient.get(`/temperature-analytics/top-performers?days=${selectedDays}&limit=5`);
-      setTopPerformers(topRes.data.top_performers);
+      setTopPerformers(Array.isArray(topRes.data?.top_performers) ? topRes.data.top_performers : []);
       
       // Load worst performers
       const worstRes = await apiClient.get(`/temperature-analytics/worst-performers?days=${selectedDays}&limit=5`);
-      setWorstPerformers(worstRes.data.worst_performers);
+      setWorstPerformers(Array.isArray(worstRes.data?.worst_performers) ? worstRes.data.worst_performers : []);
       
     } catch (error) {
       console.error('Failed to load analytics:', error);
@@ -297,7 +297,7 @@ const TemperatureAnalyticsPage: React.FC = () => {
         
         {expandedSection === 'insights' && (
           <div className="mt-4 space-y-2">
-            {summary.key_insights.map((insight, index) => (
+            {(summary.key_insights ?? []).map((insight, index) => (
               <div key={index} className="flex items-start gap-2 p-3 bg-gray-50 rounded-lg">
                 <div className="text-lg mt-0.5">
                   {insight.startsWith('✅') ? '✅' : insight.startsWith('⚠️') ? '⚠️' : insight.startsWith('🚨') ? '🚨' : '📊'}
@@ -393,7 +393,7 @@ const TemperatureAnalyticsPage: React.FC = () => {
                       </span>
                     </td>
                     <td className="py-3 px-4 text-sm text-gray-600">
-                      {performer.recommendations[0]}
+                      {performer.recommendations?.[0] ?? '양호'}
                     </td>
                   </tr>
                 ))}
@@ -444,7 +444,7 @@ const TemperatureAnalyticsPage: React.FC = () => {
                       </span>
                     </td>
                     <td className="py-3 px-4 text-sm text-gray-600">
-                      {performer.recommendations[0]}
+                      {performer.recommendations?.[0] ?? '점검 필요'}
                     </td>
                   </tr>
                 ))}

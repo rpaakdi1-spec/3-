@@ -152,9 +152,12 @@ class ExcelUploadService:
             
             # Convert vehicle_type
             df['vehicle_type'] = df['vehicle_type'].replace({
+                '냉동칸': VehicleType.FROZEN,
                 '냉동': VehicleType.FROZEN,
+                '냉장칸': VehicleType.REFRIGERATED,
                 '냉장': VehicleType.REFRIGERATED,
                 '겸용': VehicleType.DUAL,
+                '상온칸': VehicleType.AMBIENT,
                 '상온': VehicleType.AMBIENT
             })
             
@@ -242,8 +245,11 @@ class ExcelUploadService:
             
             # Convert temperature_zone
             df['temperature_zone'] = df['temperature_zone'].replace({
+                '냉동칸': TemperatureZone.FROZEN,
                 '냉동': TemperatureZone.FROZEN,
+                '냉장칸': TemperatureZone.REFRIGERATED,
                 '냉장': TemperatureZone.REFRIGERATED,
+                '상온칸': TemperatureZone.AMBIENT,
                 '상온': TemperatureZone.AMBIENT
             })
             

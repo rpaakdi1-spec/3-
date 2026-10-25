@@ -2,9 +2,30 @@
 <html lang="ko">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>냉동·냉장 배차 시스템</title>
+    <meta name="description" content="냉동·냉장 화물 배차 관리 시스템" />
+    <meta name="theme-color" content="#2563eb" />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-32x32.png" />
+
+    <!-- PWA Icons -->
+    <link rel="apple-touch-icon" sizes="192x192" href="/icon-192x192.png" />
+    <link rel="apple-touch-icon" sizes="512x512" href="/icon-512x512.png" />
+    <link rel="manifest" href="/manifest.json" />
+
+    <!-- 성능 힌트: DNS 프리패치 및 프리커넥트 -->
+    <link rel="dns-prefetch" href="//www.rhkdtls.cloud" />
+    <link rel="preconnect" href="https://www.rhkdtls.cloud" crossorigin />
+
+    <!-- 초기 페이지 빠른 렌더링을 위한 인라인 스타일 -->
+    <style>
+      body { margin: 0; background: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+      #root { min-height: 100vh; }
+    </style>
   </head>
   <body>
     <div id="root"></div>

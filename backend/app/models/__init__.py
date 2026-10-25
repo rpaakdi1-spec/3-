@@ -42,9 +42,12 @@ from .mobile_photo import MobilePhoto, NotificationPreferences, MobileSession
 # Import simulation models BEFORE dispatch_rule to avoid circular dependency
 from .simulation import RuleSimulation, SimulationComparison, SimulationTemplate
 from .dispatch_rule import DispatchRule, RuleConstraint, RuleExecutionLog, OptimizationConfig
-from .dispatch_template import DispatchTemplate
+from .dispatch_template import DispatchTemplate, DispatchFormTemplate
 from .vehicle_daily_mileage import VehicleDailyMileage
 from .driver_daily_mileage import DriverDailyMileage
+from .dispatch_document import DispatchDocument, DispatchTracking, DocumentType, DocumentStage
+from .guest_delivery_token import GuestDeliveryToken
+from .location_room import LocationRoom, RoomLocation, RoomDocument, RoomStatus, RoomDocumentType, RoomDocumentStage
 
 __all__ = [
     "Base",
@@ -136,8 +139,21 @@ __all__ = [
     "RuleExecutionLog",
     "OptimizationConfig",
     "DispatchTemplate",
+    "DispatchFormTemplate",
     "VehicleDailyMileage",
     "DriverDailyMileage",
+    "DispatchDocument",
+    "DispatchTracking",
+    "DocumentType",
+    "DocumentStage",
+    "GuestDeliveryToken",
+    # Location Rooms
+    "LocationRoom",
+    "RoomLocation",
+    "RoomDocument",
+    "RoomStatus",
+    "RoomDocumentType",
+    "RoomDocumentStage",
 ]
 
 # Phase 16.3: Chat models

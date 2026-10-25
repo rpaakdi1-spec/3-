@@ -323,6 +323,7 @@ class UvisGPSService:
                     )
                     
                     self.db.add(gps_log)
+                    self.db.flush()  # id 채번 후 alert 처리
                     saved_count += 1
                     
                     # 알림 처리 (GPS 로그 저장 후)

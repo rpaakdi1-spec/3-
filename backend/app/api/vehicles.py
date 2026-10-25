@@ -292,65 +292,100 @@ async def sync_uvis_vehicles(db: Session = Depends(get_db)):
         synced_count = 0
         created_count = 0
         updated_count = 0
-        
+        reactivated_count = 0
+        failed = []
+
         for item in gps_data:
-            try:
-                tid_id = item.get("TID_ID")
-                cm_number = item.get("CM_NUMBER")
-                
-                if not tid_id or not cm_number:
-                    continue
-                
-                # 기존 차량 찾기
-                vehicle = db.query(Vehicle).filter(
-                    Vehicle.uvis_device_id == tid_id
-                ).first()
-                
-                if vehicle:
-                    # 기존 차량 업데이트 - 차량번호만 덮어쓰기
-                    vehicle.plate_number = cm_number
-                    updated_count += 1
-                else:
-                    # 새 차량 생성
-                    # 차량번호로 코드 생성
-                    code = f"V{cm_number.replace('-', '').replace(' ', '')}"
-                    
-                    # 코드 중복 체크
-                    existing_code = db.query(Vehicle).filter(Vehicle.code == code).first()
-                    if existing_code:
-                        code = f"{code}_{tid_id[:4]}"
-                    
-                    vehicle = Vehicle(
-                        code=code,
-                        plate_number=cm_number,
-                        vehicle_type=VehicleType.FROZEN,  # 기본값: 냉동
-                        uvis_device_id=tid_id,
-                        uvis_enabled=True,
-                        max_pallets=20,  # 기본값
-                        max_weight_kg=5000.0,  # 기본값
-                        tonnage=5.0,  # 기본값
-                        status=VehicleStatus.AVAILABLE,
-                        is_active=True
-                    )
-                    db.add(vehicle)
-                    created_count += 1
-                
-                synced_count += 1
-                
-            except Exception as e:
-                logger.error(f"차량 동기화 실패 (TID: {item.get('TID_ID')}): {e}")
+            tid_id = str(item.get("TID_ID") or "").strip()
+            cm_number = str(item.get("CM_NUMBER") or "").strip()
+
+            if not tid_id or not cm_number:
                 continue
-        
+
+            try:
+                # 건별 SAVEPOINT: 한 건이 실패해도 앞서 처리한 건은 유지된다
+                # (db.rollback()은 커밋 전의 모든 건을 되돌리므로 사용하지 않는다)
+                outcome = None  # "created" | "updated" | "reactivated"
+                with db.begin_nested():
+                    # 1순위: uvis_device_id로 찾기
+                    vehicle = db.query(Vehicle).filter(
+                        Vehicle.uvis_device_id == tid_id
+                    ).first()
+
+                    # 2순위: plate_number로 찾기 (uvis_device_id 미등록 차량 대응)
+                    if not vehicle:
+                        vehicle = db.query(Vehicle).filter(
+                            Vehicle.plate_number == cm_number
+                        ).first()
+
+                    if vehicle:
+                        # 기존 차량 업데이트 — uvis_device_id 연결 + enabled 설정
+                        vehicle.uvis_device_id = tid_id
+                        vehicle.uvis_enabled = True
+                        # 삭제(소프트 삭제)된 차량도 UVIS에 존재하면 목록에 다시 보이도록 복구
+                        outcome = "updated"
+                        if not vehicle.is_active:
+                            vehicle.is_active = True
+                            outcome = "reactivated"
+                    else:
+                        # 신규 차량 생성
+                        base_code = f"V{cm_number.replace('-', '').replace(' ', '')}"
+                        code = base_code
+                        # 코드 중복 시 TID 앞 4자리, 그래도 중복이면 TID 전체 붙이기
+                        if db.query(Vehicle).filter(Vehicle.code == code).first():
+                            code = f"{base_code}_{tid_id[:4]}"
+                        if db.query(Vehicle).filter(Vehicle.code == code).first():
+                            code = f"{base_code}_{tid_id}"
+
+                        vehicle = Vehicle(
+                            code=code,
+                            plate_number=cm_number,
+                            vehicle_type=VehicleType.FROZEN,
+                            uvis_device_id=tid_id,
+                            uvis_enabled=True,
+                            max_pallets=20,
+                            max_weight_kg=5000.0,
+                            tonnage=5.0,
+                            status=VehicleStatus.AVAILABLE,
+                            is_active=True
+                        )
+                        db.add(vehicle)
+                        outcome = "created"
+
+                    db.flush()  # 건별 flush로 중복 조기 감지
+
+                # SAVEPOINT가 성공한 뒤에만 집계
+                synced_count += 1
+                if outcome == "created":
+                    created_count += 1
+                else:
+                    updated_count += 1
+                    if outcome == "reactivated":
+                        reactivated_count += 1
+
+            except Exception as e:
+                # 해당 건의 SAVEPOINT만 롤백되었으므로 다음 건 계속 처리
+                logger.error(f"차량 동기화 실패 (TID: {tid_id}, 차량번호: {cm_number}): {e}")
+                failed.append(f"{cm_number}({tid_id})")
+                continue
+
         db.commit()
         
-        logger.info(f"UVIS 차량 동기화 완료: {synced_count}건 처리 ({created_count}건 생성, {updated_count}건 업데이트)")
+        logger.info(
+            f"UVIS 차량 동기화 완료: {synced_count}건 처리 "
+            f"({created_count}건 생성, {updated_count}건 업데이트, "
+            f"{reactivated_count}건 복구, {len(failed)}건 실패)"
+        )
         
         return {
             "success": True,
             "message": f"UVIS 차량 {synced_count}건 동기화 완료",
             "synced": synced_count,
             "created": created_count,
-            "updated": updated_count
+            "updated": updated_count,
+            "reactivated": reactivated_count,
+            "failed": len(failed),
+            "failed_items": failed
         }
         
     except Exception as e:

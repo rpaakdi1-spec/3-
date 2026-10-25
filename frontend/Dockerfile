@@ -1,31 +1,19 @@
-# Build stage
-FROM node:18-alpine AS builder
-
-WORKDIR /app
-
-# 의존성 설치
-COPY package*.json ./
-RUN npm install
-
-# 소스 복사 및 빌드
-COPY . .
-ENV NODE_ENV=production
-RUN npm run build
-
-# Production stage
+# ─────────────────────────────────────────────
+# Pre-built: dist/는 CI/로컬에서 빌드 후 git에 포함
+# 서버에서는 npm install / vite build 없이 nginx만 실행
+# → 빌드 시간: ~200s → ~3s
+# ─────────────────────────────────────────────
 FROM nginx:alpine
 
 LABEL maintainer="UVIS Team"
 LABEL description="UVIS Logistics Frontend"
 
-# 빌드 결과물 복사
-COPY --from=builder /app/dist /usr/share/nginx/html
+# 사전 빌드된 정적 파일 복사
+COPY dist/ /usr/share/nginx/html/
 
 # Nginx 설정 복사
 COPY nginx.conf /etc/nginx/nginx.conf
 
-# 포트 노출
 EXPOSE 80
 
-# Nginx 실행
 CMD ["nginx", "-g", "daemon off;"]

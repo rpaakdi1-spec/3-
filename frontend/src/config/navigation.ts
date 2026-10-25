@@ -2,7 +2,7 @@ import {
   Home, Package, Truck, Users, Building2, BarChart3, Settings, Radio, Calendar,
   Brain, Zap, MessageSquare, DollarSign, Activity, Thermometer, Wrench, Calculator,
   Clock, CheckSquare, Bell, Download, ListChecks, MoreHorizontal, FileText, Folder,
-  TrendingUp, ClipboardList, Target, UserCheck, UsersRound
+  TrendingUp, ClipboardList, Target, UserCheck, UsersRound, Upload, MapPin, Share2
 } from 'lucide-react';
 import { LucideIcon } from 'lucide-react';
 
@@ -26,6 +26,16 @@ export const navigationConfig: MenuItem[] = [
     mobileVisible: true 
   },
   
+  // 🚚 기사 (DRIVER role only)
+  { 
+    path: '/driver/dispatches', 
+    label: '내 배차', 
+    icon: Truck, 
+    roles: ['DRIVER'], 
+    mobileVisible: true,
+    isNew: true
+  },
+  
   // 📦 운영 관리
   {
     path: '/operations',
@@ -36,6 +46,7 @@ export const navigationConfig: MenuItem[] = [
       { path: '/orders', label: '주문 관리', icon: Package, roles: ['ADMIN', 'DISPATCHER'] },
       { path: '/calendar', label: '오더 캘린더', icon: Calendar, roles: ['ADMIN', 'DISPATCHER'] },
       { path: '/dispatches', label: '배차 관리', icon: Truck, roles: ['ADMIN', 'DISPATCHER'] },
+      { path: '/template-management', label: '템플릿 관리', icon: FileText, roles: ['ADMIN', 'DISPATCHER'], isNew: true },
       { path: '/dispatch-rules', label: '배차 규칙 관리', icon: ListChecks, roles: ['ADMIN', 'DISPATCHER'] },
       { path: '/vehicles', label: '차량 관리', icon: Truck, roles: ['ADMIN', 'DISPATCHER'] },
       { path: '/vehicle-driver-management', label: '차량-운전자 배정', icon: UserCheck, roles: ['ADMIN', 'DISPATCHER'], isNew: true },
@@ -83,7 +94,8 @@ export const navigationConfig: MenuItem[] = [
     roles: ['ADMIN', 'DISPATCHER'],
     children: [
       { path: '/maintenance', label: '차량 유지보수', icon: Wrench, roles: ['ADMIN', 'DISPATCHER'] },
-      { path: '/vehicle-mileage', label: '주행거리 관리', icon: TrendingUp, roles: ['ADMIN', 'DISPATCHER'], isNew: true },
+      { path: '/vehicle-mileage', label: '차량별 주행거리', icon: TrendingUp, roles: ['ADMIN', 'DISPATCHER'], isNew: true },
+      { path: '/driver-mileage', label: '운전자별 주행거리', icon: UserCheck, roles: ['ADMIN', 'DISPATCHER'], isNew: true },
       { path: '/ml-predictions', label: 'AI 예측 정비', icon: Brain, roles: ['ADMIN', 'DISPATCHER'] },
       { path: '/telemetry', label: '실시간 텔레메트리', icon: Activity, roles: ['ADMIN', 'DISPATCHER'] }
     ]
@@ -115,6 +127,15 @@ export const navigationConfig: MenuItem[] = [
       { path: '/chat', label: '실시간 채팅', icon: MessageSquare, roles: ['ADMIN', 'DISPATCHER'], isNew: true, mobileVisible: true },
       { path: '/files', label: '파일 관리', icon: FileText, roles: ['ADMIN', 'DISPATCHER'], isNew: true, mobileVisible: true }
     ]
+  },
+  
+  // 📍 위치공유 방 (배차 독립)
+  {
+    path: '/location-rooms',
+    label: '위치공유 방',
+    icon: MapPin,
+    roles: ['ADMIN', 'DISPATCHER'],
+    isNew: true
   },
   
   // ⚙️ 설정

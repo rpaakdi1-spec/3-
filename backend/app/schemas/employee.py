@@ -64,9 +64,9 @@ class EmployeeBase(BaseModel):
     forklift_certificate_expiry_date: Optional[date] = Field(None, description="지게차 자격증 만료일")
     
     base_salary: Optional[int] = Field(None, ge=0, description="기본급")
-    meal_allowance: int = Field(0, ge=0, description="식대")
-    transportation_allowance: int = Field(0, ge=0, description="교통비")
-    hazard_allowance: int = Field(0, ge=0, description="위험수당")
+    meal_allowance: Optional[int] = Field(None, ge=0, description="식대")
+    transportation_allowance: Optional[int] = Field(None, ge=0, description="교통비")
+    hazard_allowance: Optional[int] = Field(None, ge=0, description="위험수당")
     bank_name: Optional[str] = Field(None, max_length=50, description="은행명")
     account_number: Optional[str] = Field(None, max_length=50, description="계좌번호")
     account_holder: Optional[str] = Field(None, max_length=100, description="예금주")

@@ -8,6 +8,7 @@
 4. 사용자가 최종 선택
 """
 import logging
+import math
 from typing import Dict, List, Optional
 from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
@@ -22,6 +23,32 @@ from app.services.naver_map_service import NaverMapService
 from app.services.uvis_gps_service import UvisGPSService
 
 logger = logging.getLogger(__name__)
+
+
+def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """
+    두 좌표 간의 직선 거리 계산 (Haversine 공식)
+    Returns: 거리 (km)
+    """
+    # 지구 반지름 (km)
+    R = 6371.0
+    
+    # 라디안으로 변환
+    lat1_rad = math.radians(lat1)
+    lon1_rad = math.radians(lon1)
+    lat2_rad = math.radians(lat2)
+    lon2_rad = math.radians(lon2)
+    
+    # 차이 계산
+    dlat = lat2_rad - lat1_rad
+    dlon = lon2_rad - lon1_rad
+    
+    # Haversine 공식
+    a = math.sin(dlat / 2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon / 2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    
+    distance = R * c
+    return distance
 
 
 class SemiAutoDispatchService:
@@ -77,13 +104,9 @@ class SemiAutoDispatchService:
             
             logger.info(f"🔍 배차 가능 차량 조회 시작: 주문 #{order_id}")
             
-            # 2. 실시간 GPS 데이터 수집 (AI 배차 시점에 최신 데이터 가져오기)
-            try:
-                logger.info("📡 UVIS API에서 실시간 GPS 데이터 수집 중...")
-                gps_data = await self.uvis_gps_service.get_vehicle_gps_data()
-                logger.info(f"✅ GPS 데이터 {len(gps_data)}건 수집 완료")
-            except Exception as gps_error:
-                logger.warning(f"⚠️ GPS 데이터 수집 실패 (기존 데이터 사용): {gps_error}")
+            # 2. GPS 데이터는 백그라운드 스케줄러가 5분마다 자동 수집
+            # 여기서는 DB에 저장된 최근 데이터를 바로 사용 (응답 속도 최적화)
+            logger.info("📡 DB에 저장된 최신 GPS 데이터 사용 (스케줄러가 5분마다 자동 수집)")
             
             # 3. 모든 활성 차량 조회
             # 3. 모든 활성 차량 조회
@@ -143,13 +166,13 @@ class SemiAutoDispatchService:
         차량의 현재 위치 가져오기 (우선순위: GPS > 차고지)
         Returns: (latitude, longitude) or None
         """
-        # 1순위: 최신 GPS 위치 (최근 6시간 이내) - 실시간 수집 후 최신 데이터 사용
+        # 1순위: 최신 GPS 위치 (최근 10분 이내) - 스케줄러가 5분마다 수집
         now_utc = datetime.now(timezone.utc)
         latest_gps = self.db.query(VehicleGPSLog).filter(
             VehicleGPSLog.vehicle_id == vehicle.id,
             VehicleGPSLog.latitude.isnot(None),
             VehicleGPSLog.longitude.isnot(None),
-            VehicleGPSLog.created_at >= now_utc - timedelta(hours=6)
+            VehicleGPSLog.created_at >= now_utc - timedelta(minutes=10)  # 6시간 → 10분으로 변경
         ).order_by(desc(VehicleGPSLog.created_at)).first()
         
         if latest_gps and latest_gps.latitude and latest_gps.longitude:
@@ -216,25 +239,47 @@ class SemiAutoDispatchService:
                 if vehicle_location:
                     vehicle_lat, vehicle_lng = vehicle_location
                     
-                    # 네이버 맵 API로 차량 위치에서 픽업지까지 거리 계산
-                    distance_data = await self.map_service.calculate_distance_and_duration(
+                    # 1단계: 직선 거리로 빠른 필터링 (Haversine 공식)
+                    straight_distance_km = haversine_distance(
                         vehicle_lat, vehicle_lng,
                         order.pickup_latitude, order.pickup_longitude
                     )
                     
-                    if distance_data and distance_data.get("distance_km") is not None:
-                        distance_km = distance_data["distance_km"]
-                        estimated_arrival_min = distance_data.get("duration_minutes", 30)
+                    # 직선 거리가 max_distance_km * 1.5보다 크면 즉시 제외
+                    # (도로 거리는 직선 거리의 1.3~1.5배 정도)
+                    if straight_distance_km > max_distance_km * 1.5:
+                        logger.debug(f"차량 {vehicle.plate_number}: 직선 거리 {straight_distance_km:.1f}km로 제외")
+                        return None
+                    
+                    # 2단계: 직선 거리가 가까우면 네이버 맵 API로 정확한 거리 계산
+                    # 단, 직선 거리가 매우 가까우면 (20km 이내) 네이버 맵 API 사용
+                    # 그 외에는 직선 거리 * 1.3으로 추정
+                    if straight_distance_km <= 20:
+                        # 네이버 맵 API로 정확한 도로 거리 계산
+                        distance_data = await self.map_service.calculate_distance_and_duration(
+                            vehicle_lat, vehicle_lng,
+                            order.pickup_latitude, order.pickup_longitude
+                        )
                         
-                        if distance_km <= max_distance_km:
-                            reasons.append(f"📍 현재 위치에서 상차지까지 {distance_km:.1f}km (약 {estimated_arrival_min}분)")
+                        if distance_data and distance_data.get("distance_km") is not None:
+                            distance_km = distance_data["distance_km"]
+                            estimated_arrival_min = distance_data.get("duration_minutes", 30)
                         else:
-                            warnings.append(f"⚠️ 현재 위치에서 상차지까지 {distance_km:.1f}km (최대거리 {max_distance_km}km 초과)")
-                            return None  # 거리 범위 초과
+                            # API 실패 시 직선 거리 * 1.3으로 추정
+                            distance_km = straight_distance_km * 1.3
+                            estimated_arrival_min = int(distance_km / 40 * 60)  # 평균 40km/h 가정
+                            warnings.append("⚠️ 거리 계산 실패 (추정값 사용)")
                     else:
-                        # 거리 계산 실패 시에도 기본값 유지
-                        warnings.append("⚠️ 거리 계산 실패 (기본값 사용)")
-                        reasons.append(f"📍 상차지: {order.pickup_address or '위치 정보 없음'}")
+                        # 직선 거리가 멀면 네이버 API 호출 생략, 직선 거리 * 1.3으로 추정
+                        distance_km = straight_distance_km * 1.3
+                        estimated_arrival_min = int(distance_km / 60 * 60)  # 평균 60km/h 가정
+                        logger.debug(f"차량 {vehicle.plate_number}: 직선 거리 기반 추정 {distance_km:.1f}km")
+                    
+                    if distance_km <= max_distance_km:
+                        reasons.append(f"📍 현재 위치에서 상차지까지 {distance_km:.1f}km (약 {estimated_arrival_min}분)")
+                    else:
+                        warnings.append(f"⚠️ 현재 위치에서 상차지까지 {distance_km:.1f}km (최대거리 {max_distance_km}km 초과)")
+                        return None  # 거리 범위 초과
                 else:
                     # 차량 위치 정보 없음 - 기본값 유지
                     warnings.append("⚠️ 차량 위치 정보 없음 (기본값 사용)")
@@ -260,22 +305,42 @@ class SemiAutoDispatchService:
                     # 하차 위치와 픽업 위치 거리 계산 필요
                     if current_dispatch.delivery_latitude and current_dispatch.delivery_longitude:
                         if order.pickup_latitude and order.pickup_longitude:
-                            # 네이버 맵 API로 거리 계산
-                            distance_data = await self.map_service.calculate_distance_and_duration(
+                            # 1단계: 직선 거리로 빠른 필터링
+                            straight_distance_km = haversine_distance(
                                 current_dispatch.delivery_latitude, current_dispatch.delivery_longitude,
                                 order.pickup_latitude, order.pickup_longitude
                             )
                             
-                            if distance_data and distance_data.get("distance_km") is not None:
-                                distance_km = distance_data["distance_km"]
-                                estimated_arrival_min = distance_data.get("duration_minutes", 30)
+                            # 직선 거리가 너무 멀면 즉시 제외
+                            if straight_distance_km > max_distance_km * 1.5:
+                                logger.debug(f"차량 {vehicle.plate_number}: 하차-픽업 직선 거리 {straight_distance_km:.1f}km로 제외")
+                                return None
+                            
+                            # 2단계: 가까우면 정확한 거리 계산, 멀면 추정
+                            if straight_distance_km <= 20:
+                                # 네이버 맵 API로 거리 계산
+                                distance_data = await self.map_service.calculate_distance_and_duration(
+                                    current_dispatch.delivery_latitude, current_dispatch.delivery_longitude,
+                                    order.pickup_latitude, order.pickup_longitude
+                                )
                                 
-                                if distance_km <= max_distance_km:
-                                    score += 15
-                                    reasons.append(f"📍 하차지에서 픽업지까지 {distance_km:.1f}km")
+                                if distance_data and distance_data.get("distance_km") is not None:
+                                    distance_km = distance_data["distance_km"]
+                                    estimated_arrival_min = distance_data.get("duration_minutes", 30)
                                 else:
-                                    warnings.append(f"⚠️ 하차지에서 픽업지까지 {distance_km:.1f}km (범위 초과)")
-                                    return None
+                                    distance_km = straight_distance_km * 1.3
+                                    estimated_arrival_min = int(distance_km / 40 * 60)
+                            else:
+                                # 멀면 추정값 사용 (네이버 API 호출 생략)
+                                distance_km = straight_distance_km * 1.3
+                                estimated_arrival_min = int(distance_km / 60 * 60)
+                            
+                            if distance_km <= max_distance_km:
+                                score += 15
+                                reasons.append(f"📍 하차지에서 픽업지까지 {distance_km:.1f}km")
+                            else:
+                                warnings.append(f"⚠️ 하차지에서 픽업지까지 {distance_km:.1f}km (범위 초과)")
+                                return None
                 else:
                     return None  # 시간이 맞지 않음
             else:

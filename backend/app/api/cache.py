@@ -29,7 +29,7 @@ async def get_cache_stats(
     - **히트/미스 횟수**
     """
     try:
-        stats = cache_service.get_stats()
+        stats = cache_service.get_cache_stats()
         return {
             "success": True,
             "stats": stats
@@ -46,7 +46,7 @@ async def cache_health_check():
     
     Redis 연결 상태 확인
     """
-    stats = cache_service.get_stats()
+    stats = cache_service.get_cache_stats()
     
     if not stats.get("enabled"):
         return {
@@ -153,7 +153,7 @@ async def get_cache_key(
     """
     try:
         value = cache_service.get(key)
-        ttl = cache_service.get_ttl(key)
+        ttl = cache_service.ttl(key)
         
         if value is None:
             return {
@@ -246,7 +246,7 @@ async def test_cache(
         read_value = cache_service.get(test_key)
         
         # 3. TTL 확인
-        ttl = cache_service.get_ttl(test_key)
+        ttl = cache_service.ttl(test_key)
         
         # 4. 캐시 삭제
         delete_success = cache_service.delete(test_key)

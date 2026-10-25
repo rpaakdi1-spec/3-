@@ -5,11 +5,12 @@ import Loading from '../components/common/Loading';
 import apiClient from '../api/client';
 import { Dispatch } from '../types';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import { Truck, Navigation, Clock, CheckCircle, Trash2, Edit2, X, Package, MapPin, AlertCircle, Filter, Search, Calendar } from 'lucide-react';
+import { Truck, Navigation, Clock, CheckCircle, Trash2, Edit2, X, Package, MapPin, AlertCircle, Filter, Search, Calendar, Link2, Copy, QrCode, UserPlus, Radio } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 import toast from 'react-hot-toast';
 import { useResponsive } from '../hooks/useResponsive';
 import { MobileDispatchCard } from '../components/mobile/MobileDispatchCard';
+import GuestTrackingModal from '../components/dispatch/GuestTrackingModal';
 
 const DispatchesPage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -18,7 +19,19 @@ const DispatchesPage: React.FC = () => {
   const [selectedDispatch, setSelectedDispatch] = useState<Dispatch | null>(null);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [showModal, setShowModal] = useState(false);
+  const [trackingNumber, setTrackingNumber] = useState<string | null>(null);
+  const [generatingTracking, setGeneratingTracking] = useState(false);
+  const [guestToken, setGuestToken] = useState<string | null>(null);
+  const [generatingGuest, setGeneratingGuest] = useState(false);
+  const [showTrackingModal, setShowTrackingModal] = useState(false);
+  const [trackingModalToken, setTrackingModalToken] = useState<string | null>(null);
   const { isMobile } = useResponsive();
+
+  // 차량 추적 모달 열기
+  const openTrackingModal = (token: string) => {
+    setTrackingModalToken(token);
+    setShowTrackingModal(true);
+  };
 
   // Filter states
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -114,6 +127,102 @@ const DispatchesPage: React.FC = () => {
       fetchDispatches();
     } catch (error) {
       toast.error('일괄 삭제에 실패했습니다');
+    }
+  };
+
+  const generateTrackingNumber = async (dispatchId: number) => {
+    setGeneratingTracking(true);
+    try {
+      const response = await apiClient.post('/dispatch/tracking/generate', {
+        dispatch_id: dispatchId
+      });
+      
+      const newTrackingNumber = response.data.tracking_number;
+      setTrackingNumber(newTrackingNumber);
+      
+      // 추적 URL 생성
+      const trackingUrl = `${window.location.origin}/track/${newTrackingNumber}`;
+      
+      // 클립보드에 복사
+      try {
+        await navigator.clipboard.writeText(trackingUrl);
+        toast.success(
+          `🔗 추적 번호가 생성되었습니다!\n${newTrackingNumber}\n\nURL이 클립보드에 복사되었습니다.`,
+          { duration: 5000 }
+        );
+      } catch (clipboardError) {
+        toast.success(
+          `🔗 추적 번호: ${newTrackingNumber}`,
+          { duration: 5000 }
+        );
+      }
+    } catch (error: any) {
+      console.error('추적 번호 생성 실패:', error);
+      toast.error(error.response?.data?.detail || '추적 번호 생성에 실패했습니다');
+    } finally {
+      setGeneratingTracking(false);
+    }
+  };
+
+  const copyTrackingUrl = async () => {
+    if (!trackingNumber) return;
+    
+    const trackingUrl = `${window.location.origin}/track/${trackingNumber}`;
+    try {
+      await navigator.clipboard.writeText(trackingUrl);
+      toast.success('추적 URL이 클립보드에 복사되었습니다!');
+    } catch (error) {
+      toast.error('클립보드 복사에 실패했습니다');
+    }
+  };
+
+  // 게스트 토큰 생성 (1회용 링크)
+  const generateGuestToken = async (dispatchId: number) => {
+    if (generatingGuest) return;
+    
+    setGeneratingGuest(true);
+    try {
+      const response = await apiClient.post('/guest/delivery/create-token', {
+        dispatch_id: dispatchId,
+        hours_valid: 24
+      });
+      
+      const token = response.data.token;
+      setGuestToken(token);
+      
+      // 게스트 URL 생성
+      const guestUrl = `${window.location.origin}/guest/delivery/${token}`;
+      
+      // 클립보드에 복사
+      try {
+        await navigator.clipboard.writeText(guestUrl);
+        toast.success(
+          `🚚 기사 전용 링크가 생성되었습니다!\n\n링크가 클립보드에 복사되었습니다.\n유효기간: 24시간`,
+          { duration: 6000 }
+        );
+      } catch (clipboardError) {
+        toast.success(
+          `🚚 기사 전용 링크가 생성되었습니다!\n유효기간: 24시간`,
+          { duration: 6000 }
+        );
+      }
+    } catch (error: any) {
+      console.error('게스트 토큰 생성 실패:', error);
+      toast.error(error.response?.data?.detail || '기사 링크 생성에 실패했습니다');
+    } finally {
+      setGeneratingGuest(false);
+    }
+  };
+
+  const copyGuestUrl = async () => {
+    if (!guestToken) return;
+    
+    const guestUrl = `${window.location.origin}/guest/delivery/${guestToken}`;
+    try {
+      await navigator.clipboard.writeText(guestUrl);
+      toast.success('기사 전용 링크가 클립보드에 복사되었습니다!');
+    } catch (error) {
+      toast.error('클립보드 복사에 실패했습니다');
     }
   };
 
@@ -242,7 +351,7 @@ const DispatchesPage: React.FC = () => {
   );
   }
 
-  return (<div className="space-y-6">
+  return (<><div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between">
           <div>
@@ -506,6 +615,8 @@ const DispatchesPage: React.FC = () => {
                   }}
                   onClick={() => {
                     setSelectedDispatch(dispatch);
+                    setTrackingNumber(null); // Reset tracking number
+                    setGuestToken(null); // Reset guest token
                     setShowModal(true);
                   }}
                 />
@@ -585,6 +696,8 @@ const DispatchesPage: React.FC = () => {
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setSelectedDispatch(dispatch);
+                                setTrackingNumber(null); // Reset tracking number
+                    setGuestToken(null); // Reset guest token
                                 setShowModal(true);
                               }}
                             >
@@ -713,6 +826,122 @@ const DispatchesPage: React.FC = () => {
                   </div>
                 )}
 
+                {/* 실시간 추적 */}
+                <div className="border-t border-gray-200 pt-4">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <Link2 size={20} className="mr-2" />
+                    실시간 배송 추적
+                  </h3>
+                  
+                  {trackingNumber ? (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-sm font-medium text-green-800">추적 번호</p>
+                        <span className="px-3 py-1 bg-green-100 text-green-800 text-xs font-mono rounded">
+                          {trackingNumber}
+                        </span>
+                      </div>
+                      <p className="text-sm text-green-700 mb-3">
+                        고객사에 아래 URL을 공유하여 실시간 배송 위치를 확인할 수 있습니다.
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          readOnly
+                          value={`${window.location.origin}/track/${trackingNumber}`}
+                          className="flex-1 px-3 py-2 border border-green-300 rounded-lg text-sm font-mono bg-white"
+                        />
+                        <button
+                          onClick={copyTrackingUrl}
+                          className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg flex items-center text-sm"
+                        >
+                          <Copy size={16} className="mr-2" />
+                          복사
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <p className="text-sm text-blue-700 mb-3">
+                        고객사가 로그인 없이 실시간 배송 위치를 확인할 수 있는 추적 번호를 생성하세요.
+                      </p>
+                      <button
+                        onClick={() => generateTrackingNumber(selectedDispatch.id)}
+                        disabled={generatingTracking}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center text-sm disabled:opacity-50"
+                      >
+                        <Link2 size={16} className="mr-2" />
+                        {generatingTracking ? '생성 중...' : '추적 번호 생성'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* 기사 전용 링크 (1회용) */}
+                <div className="border-t border-gray-200 pt-4">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <UserPlus size={20} className="mr-2" />
+                    기사 전용 링크 (회원가입 불필요)
+                  </h3>
+                  
+                  {guestToken ? (
+                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-sm font-medium text-purple-800">1회용 링크</p>
+                        <span className="px-3 py-1 bg-purple-100 text-purple-800 text-xs rounded">
+                          유효기간: 24시간
+                        </span>
+                      </div>
+                      <p className="text-sm text-purple-700 mb-3">
+                        기사님께 아래 링크를 SMS로 전송하면 회원가입 없이 바로 배송 작업을 시작할 수 있습니다.
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          readOnly
+                          value={`${window.location.origin}/guest/delivery/${guestToken}`}
+                          className="flex-1 px-3 py-2 border border-purple-300 rounded-lg text-sm font-mono bg-white"
+                        />
+                        <button
+                          onClick={copyGuestUrl}
+                          className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg flex items-center text-sm"
+                        >
+                          <Copy size={16} className="mr-2" />
+                          복사
+                        </button>
+                      </div>
+                      <div className="mt-3 text-xs text-purple-600">
+                        💡 이 링크로 기사님이 GPS 위치 전송과 서류 업로드를 할 수 있습니다.
+                      </div>
+                      {/* 실시간 추적 버튼 */}
+                      <div className="mt-3 pt-3 border-t border-purple-200">
+                        <button
+                          onClick={() => openTrackingModal(guestToken!)}
+                          className="w-full px-4 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg flex items-center justify-center gap-2 text-sm font-medium transition-colors shadow-sm"
+                        >
+                          <Radio size={16} className="animate-pulse" />
+                          🗺️ 실시간 차량 위치 추적
+                        </button>
+                        <p className="text-xs text-purple-500 mt-1.5 text-center">기사님이 GPS를 시작하면 지도에 위치가 표시됩니다</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                      <p className="text-sm text-purple-700 mb-3">
+                        1회성 기사님을 위한 간편 접속 링크를 생성하세요. 회원가입 없이 GPS 추적과 서류 업로드가 가능합니다.
+                      </p>
+                      <button
+                        onClick={() => generateGuestToken(selectedDispatch.id)}
+                        disabled={generatingGuest}
+                        className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg flex items-center text-sm disabled:opacity-50"
+                      >
+                        <UserPlus size={16} className="mr-2" />
+                        {generatingGuest ? '생성 중...' : '기사 링크 생성'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
                 {/* 상태별 안내 */}
                 {selectedDispatch.status === '임시저장' && (
                   <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-start">
@@ -753,6 +982,18 @@ const DispatchesPage: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* 실시간 차량 추적 모달 */}
+      {showTrackingModal && trackingModalToken && (
+        <GuestTrackingModal
+          token={trackingModalToken}
+          onClose={() => {
+            setShowTrackingModal(false);
+            setTrackingModalToken(null);
+          }}
+        />
+      )}
+  </>
   );
 };
 

@@ -161,43 +161,77 @@ class VehicleAnalyticsService:
         end_date: Optional[date] = None
     ) -> Dict[str, Any]:
         """
-        전체 차량 통계
+        전체 차량 통계 (vehicle_daily_mileage 테이블 사용)
         
         Returns:
             통계 딕셔너리
         """
+        from app.models.vehicle_daily_mileage import VehicleDailyMileage
+        
         if not start_date:
-            start_date = date.today()
+            start_date = date.today() - timedelta(days=7)  # 기본 최근 7일
         if not end_date:
             end_date = date.today()
         
-        # UVIS가 연동된 차량 조회
-        vehicles = db.query(Vehicle).filter(
-            Vehicle.uvis_device_id.isnot(None),
-            Vehicle.is_active == True
+        # 모든 활성 차량 조회
+        vehicles = db.query(Vehicle).filter(Vehicle.is_active == True).all()
+        total_vehicles = len(vehicles)
+        
+        # vehicle_daily_mileage에서 주행거리 데이터 조회
+        mileage_data = db.query(VehicleDailyMileage).filter(
+            and_(
+                VehicleDailyMileage.date >= start_date,
+                VehicleDailyMileage.date <= end_date,
+                VehicleDailyMileage.is_calculated == True
+            )
         ).all()
         
-        total_distance = 0
-        total_vehicles = len(vehicles)
-        active_vehicles = 0
+        # 차량별 통계 집계
+        vehicle_map = {}
+        for mileage in mileage_data:
+            if mileage.vehicle_id not in vehicle_map:
+                vehicle_map[mileage.vehicle_id] = {
+                    "total_distance_km": 0,
+                    "max_speed_kmh": 0,
+                    "speed_sum": 0,
+                    "speed_count": 0,
+                    "data_points": 0
+                }
+            
+            vehicle_map[mileage.vehicle_id]["total_distance_km"] += mileage.total_distance_km
+            vehicle_map[mileage.vehicle_id]["max_speed_kmh"] = max(
+                vehicle_map[mileage.vehicle_id]["max_speed_kmh"],
+                mileage.max_speed_kmh or 0
+            )
+            if mileage.avg_speed_kmh and mileage.avg_speed_kmh > 0:
+                vehicle_map[mileage.vehicle_id]["speed_sum"] += mileage.avg_speed_kmh
+                vehicle_map[mileage.vehicle_id]["speed_count"] += 1
+            vehicle_map[mileage.vehicle_id]["data_points"] += 1
+        
+        # 차량 정보와 결합
         vehicle_stats = []
+        total_distance = 0
+        active_vehicles = 0
         
         for vehicle in vehicles:
-            stats = cls.calculate_vehicle_distance(db, vehicle.id, start_date, end_date)
-            
-            if stats.get("total_distance_km", 0) > 0:
+            if vehicle.id in vehicle_map:
+                stats = vehicle_map[vehicle.id]
+                avg_speed = stats["speed_sum"] / stats["speed_count"] if stats["speed_count"] > 0 else 0
+                
+                vehicle_stats.append({
+                    "vehicle_id": vehicle.id,
+                    "vehicle_plate": vehicle.plate_number,
+                    "start_date": start_date.isoformat(),
+                    "end_date": end_date.isoformat(),
+                    "total_distance_km": round(stats["total_distance_km"], 2),
+                    "data_points": stats["data_points"],
+                    "max_speed_kmh": round(stats["max_speed_kmh"], 1),
+                    "avg_speed_kmh": round(avg_speed, 1),
+                    "engine_on_ratio": 0  # 계산된 주행거리 데이터에는 없음
+                })
+                
                 total_distance += stats["total_distance_km"]
-                vehicle_stats.append(stats)
-            
-            # 최근 GPS 데이터가 있으면 활성 차량
-            latest_gps = db.query(VehicleGPSLog).filter(
-                VehicleGPSLog.tid_id == vehicle.uvis_device_id
-            ).order_by(VehicleGPSLog.created_at.desc()).first()
-            
-            if latest_gps:
-                time_since_update = datetime.now(timezone.utc) - latest_gps.created_at
-                if time_since_update < timedelta(hours=24):  # 1시간 → 24시간으로 완화
-                    active_vehicles += 1
+                active_vehicles += 1
         
         return {
             "period": {
@@ -207,7 +241,7 @@ class VehicleAnalyticsService:
             "total_vehicles": total_vehicles,
             "active_vehicles": active_vehicles,
             "total_distance_km": round(total_distance, 2),
-            "avg_distance_per_vehicle_km": round(total_distance / total_vehicles, 2) if total_vehicles > 0 else 0,
+            "avg_distance_per_vehicle_km": round(total_distance / active_vehicles, 2) if active_vehicles > 0 else 0,
             "vehicle_stats": vehicle_stats
         }
     

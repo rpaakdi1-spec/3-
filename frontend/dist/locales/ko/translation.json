@@ -1,0 +1,51 @@
+{
+  "common": {
+    "loading": "로딩 중...",
+    "error": "오류가 발생했습니다",
+    "success": "성공했습니다",
+    "confirm": "확인",
+    "cancel": "취소",
+    "save": "저장",
+    "delete": "삭제",
+    "edit": "수정",
+    "create": "생성",
+    "search": "검색",
+    "filter": "필터",
+    "refresh": "새로고침",
+    "logout": "로그아웃"
+  },
+  "nav": {
+    "dashboard": "대시보드",
+    "orders": "주문 관리",
+    "dispatches": "배차 관리",
+    "vehicles": "차량 관리",
+    "clients": "거래처 관리",
+    "analytics": "통계/분석",
+    "settings": "설정"
+  },
+  "dashboard": {
+    "title": "대시보드",
+    "totalOrders": "전체 주문",
+    "pendingOrders": "대기 중인 주문",
+    "completedOrders": "완료된 주문",
+    "activeVehicles": "운행 중인 차량"
+  },
+  "orders": {
+    "title": "주문 관리",
+    "create": "새 주문 등록",
+    "orderNumber": "주문번호",
+    "client": "거래처",
+    "status": "상태",
+    "temperature": "온도",
+    "weight": "중량",
+    "pallets": "팔레트 수"
+  },
+  "pwa": {
+    "installPrompt": "앱으로 설치하시겠습니까?",
+    "install": "설치",
+    "updateAvailable": "새 버전이 사용 가능합니다",
+    "update": "업데이트",
+    "offline": "오프라인 모드",
+    "online": "온라인"
+  }
+}
